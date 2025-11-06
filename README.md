@@ -40,19 +40,24 @@ See [man/man_find.md](man/man_find.md) for details.
 
 ## Installation
 
-```bash
+```shell
 # Coming soon
 go install github.com/gigurra/tofu@latest
 ```
 
-## Usage
+### Shell completion
 
-```bash
-# Find files with modern syntax
-tofu find --name "*.go" --modified-within 7d
+Shell completion is auto generated and available for:
 
-# With autocomplete and helpful suggestions
-tofu find [TAB]
+- bash
+- zsh
+- fish
+- powershell
+
+see:
+
+```shell
+tofu completions <shell> [--help]
 ```
 
 ## Why "tofu"?
