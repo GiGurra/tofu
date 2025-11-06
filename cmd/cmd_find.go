@@ -59,6 +59,25 @@ func FindCmd() *cobra.Command {
 		Use:         "find",
 		Short:       "Find file system items matching a search term",
 		ParamEnrich: defaultParamEnricher(),
+		PostCreateFunc: func(params *FindParams, cmd *cobra.Command) error {
+			err := cmd.RegisterFlagCompletionFunc("search-type", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+				return lo.Map(validSearchTypes, func(item SearchType, _ int) string {
+					return string(item)
+				}), cobra.ShellCompDirectiveDefault
+			})
+			if err != nil {
+				return fmt.Errorf("failed to register search-type completion: %w", err)
+			}
+			err = cmd.RegisterFlagCompletionFunc("types", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+				return lo.Map(validFsItemTypes, func(item FsItemType, _ int) string {
+					return string(item)
+				}), cobra.ShellCompDirectiveDefault
+			})
+			if err != nil {
+				return fmt.Errorf("failed to register types completion: %w", err)
+			}
+			return nil
+		},
 		PreExecuteFunc: func(params *FindParams, cmd *cobra.Command, args []string) error {
 			if params.SearchTerm == "" {
 				return fmt.Errorf("search term cannot be empty")
@@ -76,25 +95,6 @@ func FindCmd() *cobra.Command {
 				if !slices.Contains(validFsItemTypes, t) {
 					return fmt.Errorf("invalid file system item type: %s", t)
 				}
-			}
-			return nil
-		},
-		PostCreateFunc: func(params *FindParams, cmd *cobra.Command) error {
-			err := cmd.RegisterFlagCompletionFunc("search-type", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-				return lo.Map(validSearchTypes, func(item SearchType, _ int) string {
-					return string(item)
-				}), cobra.ShellCompDirectiveDefault
-			})
-			if err != nil {
-				return fmt.Errorf("failed to register search-type completion: %w", err)
-			}
-			err = cmd.RegisterFlagCompletionFunc("types", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-				return lo.Map(validFsItemTypes, func(item FsItemType, _ int) string {
-					return string(item)
-				}), cobra.ShellCompDirectiveDefault
-			})
-			if err != nil {
-				return fmt.Errorf("failed to register types completion: %w", err)
 			}
 			return nil
 		},
