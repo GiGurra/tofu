@@ -45,7 +45,7 @@ var validSearchTypes = []SearchType{
 
 type FindParams struct {
 	SearchTerm string       `pos:"true" help:"Term to search for in module names."`
-	SearchType SearchType   `short:"s" help:"Type of search to perform." default:"contains"`
+	SearchType SearchType   `short:"s" help:"Type of search to perform (exact,contains,prefix,suffix,regex)." default:"contains"`
 	IgnoreCase bool         `short:"i" help:"Perform a case-insensitive search." default:"false"`
 	WorkDir    string       `short:"c" help:"The working directory to start the search from." default:"."`
 	Types      []FsItemType `short:"t" help:"Types of file system items to search for (file, dir, all)." default:"all"`
@@ -54,8 +54,9 @@ type FindParams struct {
 
 func FindCmd() *cobra.Command {
 	return boa.CmdT[FindParams]{
-		Use:   "find",
-		Short: "Find file system items matching a search term",
+		Use:         "find",
+		Short:       "Find file system items matching a search term",
+		ParamEnrich: defaultParamEnricher(),
 		PreExecuteFunc: func(params *FindParams, cmd *cobra.Command, args []string) error {
 			if params.SearchTerm == "" {
 				return fmt.Errorf("search term cannot be empty")

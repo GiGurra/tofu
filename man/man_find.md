@@ -12,11 +12,11 @@ Usage:
   tofu find <search-term> [flags]
 
 Flags:
-  -s, --search-type string   Type of search to perform. (env: SEARCH_TYPE) (default "contains")
-  -i, --ignore-case          Perform a case-insensitive search. (env: IGNORE_CASE) (default false)
-  -c, --work-dir string      The working directory to start the search from. (env: WORK_DIR) (default ".")
-  -t, --types strings        Types of file system items to search for (file, dir, all). (env: TYPES) (default [all])
-  -q, --quiet                Suppress error messages. (env: QUIET) (default false)
+  -s, --search-type string   Type of search to perform (exact,contains,prefix,suffix,regex). (default "contains")
+  -i, --ignore-case          Perform a case-insensitive search. (default false)
+  -c, --work-dir string      The working directory to start the search from. (default ".")
+  -t, --types strings        Types of file system items to search for (file, dir, all). (default [all])
+  -q, --quiet                Suppress error messages. (default false)
   -h, --help                 help for find
 ```
 
