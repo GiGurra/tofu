@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 
 	"github.com/GiGurra/boa/pkg/boa"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
 
@@ -77,7 +79,34 @@ func FindCmd() *cobra.Command {
 			}
 			return nil
 		},
+		PostCreateFunc: func(params *FindParams, cmd *cobra.Command) error {
+			err := cmd.RegisterFlagCompletionFunc("search-type", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+				return lo.Map(validSearchTypes, func(item SearchType, _ int) string {
+					return string(item)
+				}), cobra.ShellCompDirectiveDefault
+			})
+			if err != nil {
+				return fmt.Errorf("failed to register search-type completion: %w", err)
+			}
+			err = cmd.RegisterFlagCompletionFunc("types", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+				return lo.Map(validFsItemTypes, func(item FsItemType, _ int) string {
+					return string(item)
+				}), cobra.ShellCompDirectiveDefault
+			})
+			if err != nil {
+				return fmt.Errorf("failed to register types completion: %w", err)
+			}
+			return nil
+		},
 		RunFunc: func(params *FindParams, cmd *cobra.Command, args []string) {
+			var precompiledRegex *regexp.Regexp
+			if params.SearchType == SearchTypeRegex {
+				var err error
+				precompiledRegex, err = regexp.Compile(params.SearchTerm)
+				if err != nil {
+					panic(fmt.Errorf("invalid regex pattern: %w", err))
+				}
+			}
 			err := filepath.WalkDir(params.WorkDir, func(path string, d os.DirEntry, err error) error {
 				if err != nil {
 					if !params.Quiet {
@@ -122,7 +151,9 @@ func FindCmd() *cobra.Command {
 						}
 					case SearchTypeRegex:
 						// Regex search not implemented
-						panic(fmt.Errorf("regex search type not implemented"))
+						if !matchRegex(d.Name(), precompiledRegex) {
+							return nil
+						}
 					default:
 						panic(fmt.Errorf("unsupported search type: %s", params.SearchType))
 					}
@@ -136,6 +167,10 @@ func FindCmd() *cobra.Command {
 			}
 		},
 	}.ToCobra()
+}
+
+func matchRegex(tot string, precompiledRegex *regexp.Regexp) bool {
+	return precompiledRegex.MatchString(tot)
 }
 
 func matchExact(a, b string, ignoreCase bool) bool {
