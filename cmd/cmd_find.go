@@ -49,6 +49,7 @@ type FindParams struct {
 	IgnoreCase bool         `short:"i" help:"Perform a case-insensitive search." default:"false"`
 	WorkDir    string       `short:"c" help:"The working directory to start the search from." default:"."`
 	Types      []FsItemType `short:"t" help:"Types of file system items to search for (file, dir, all)." default:"all"`
+	Quiet      bool         `short:"q" help:"Suppress error messages." default:"false"`
 }
 
 func FindCmd() *cobra.Command {
@@ -78,7 +79,9 @@ func FindCmd() *cobra.Command {
 		RunFunc: func(params *FindParams, cmd *cobra.Command, args []string) {
 			err := filepath.WalkDir(params.WorkDir, func(path string, d os.DirEntry, err error) error {
 				if err != nil {
-					_, _ = fmt.Fprintf(os.Stderr, "error accessing path %q: %v\n", path, err)
+					if !params.Quiet {
+						_, _ = fmt.Fprintf(os.Stderr, "error accessing path %q: %v\n", path, err)
+					}
 					return nil
 				}
 
