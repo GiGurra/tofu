@@ -18,7 +18,7 @@ Traditional Unix tools are powerful but often:
 
 - ✨ Modern, intuitive interfaces
 - 🎯 Smart defaults that just work
-- 🌈 Beautiful, colored output
+- 🌈 Beautiful, colored output (maybe, easy there claude sonnet, maybe in the future)
 - ⚡ Blazing fast performance (written in Go)
 - 🔄 True cross-platform support (Windows, macOS, Linux)
 - 📝 Built-in autocomplete and help
