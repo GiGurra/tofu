@@ -5,7 +5,7 @@
 **tofu** is a modern toolkit of CLI utilities that work seamlessly across Windows, macOS, and Linux. Like its namesake,
 tofu adapts to any environment while providing essential nutrition for your daily command-line workflows.
 
-⚠️ WARNING ⚠️ : Large parts of this project, including this readme, is likely written mostly by claude sonnet 4.5.
+⚠️ WARNING ⚠️ : Large parts of this project, including this readme, are likely written mostly by claude sonnet 4.5.
 Expect weirdness and occasional poetry.
 
 ## Philosophy
