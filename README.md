@@ -29,6 +29,7 @@ Traditional Unix tools are powerful but often:
 ### tofu find
 
 A modern file finder that makes `find` feel like it's from this century.
+See [man/man_find.md](man/man_find.md) for details.
 
 **Coming soon:**
 
