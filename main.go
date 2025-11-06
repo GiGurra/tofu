@@ -1,0 +1,34 @@
+package main
+
+import (
+	"runtime/debug"
+
+	"github.com/GiGurra/boa/pkg/boa"
+	"github.com/gigurra/tofu/cmd"
+	"github.com/spf13/cobra"
+)
+
+func main() {
+	boa.CmdT[boa.NoParams]{
+		Use:     "tofu",
+		Short:   "Tools Of Fantastic Utility",
+		Version: appVersion(),
+		SubCmds: []*cobra.Command{
+			cmd.FindCmd(),
+		},
+	}.Run()
+}
+
+func appVersion() string {
+	bi, hasBuilInfo := debug.ReadBuildInfo()
+	if !hasBuilInfo {
+		return "unknown-(no build info)"
+	}
+
+	versionString := bi.Main.Version
+	if versionString == "" {
+		versionString = "unknown-(no version)"
+	}
+
+	return versionString
+}
