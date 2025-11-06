@@ -86,6 +86,10 @@ Ideas, issues, and PRs welcome! Let's make CLI tools that spark joy.
 
 MIT
 
+## Original author(s?)
+
+Satire Coders Collective
+
 ---
 
 *Silky smooth commands, firm reliable results.* 🥢
