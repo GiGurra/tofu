@@ -34,7 +34,7 @@ type FindParams struct {
 	SearchType SearchType   `short:"s" help:"Type of search to perform (exact,contains,prefix,suffix,regex)." default:"contains" alts:"exact,contains,prefix,suffix,regex"`
 	IgnoreCase bool         `short:"i" help:"Perform a case-insensitive search." default:"false"`
 	WorkDir    string       `short:"c" help:"The working directory to start the search from." default:"."`
-	Types      []FsItemType `short:"t" help:"Types of file system items to search for (file, dir, all)." default:"all" alts:"file, dir, all"`
+	Types      []FsItemType `short:"t" help:"Types of file system items to search for (file,dir,all)." default:"all" alts:"file,dir,all"`
 	Quiet      bool         `short:"q" help:"Suppress error messages." default:"false"`
 }
 
