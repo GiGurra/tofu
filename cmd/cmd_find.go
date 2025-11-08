@@ -5,11 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"strings"
 
 	"github.com/GiGurra/boa/pkg/boa"
-	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
 
@@ -21,12 +19,6 @@ const (
 	FsItemTypeAll  FsItemType = "all"
 )
 
-var validFsItemTypes = []FsItemType{
-	FsItemTypeFile,
-	FsItemTypeDir,
-	FsItemTypeAll,
-}
-
 type SearchType string
 
 const (
@@ -37,20 +29,12 @@ const (
 	SearchTypeRegex    SearchType = "regex"
 )
 
-var validSearchTypes = []SearchType{
-	SearchTypeExact,
-	SearchTypeContains,
-	SearchTypePrefix,
-	SearchTypeSuffix,
-	SearchTypeRegex,
-}
-
 type FindParams struct {
 	SearchTerm string       `pos:"true" help:"Term to search for in module names."`
-	SearchType SearchType   `short:"s" help:"Type of search to perform (exact,contains,prefix,suffix,regex)." default:"contains"`
+	SearchType SearchType   `short:"s" help:"Type of search to perform (exact,contains,prefix,suffix,regex)." default:"contains" alts:"exact,contains,prefix,suffix,regex"`
 	IgnoreCase bool         `short:"i" help:"Perform a case-insensitive search." default:"false"`
 	WorkDir    string       `short:"c" help:"The working directory to start the search from." default:"."`
-	Types      []FsItemType `short:"t" help:"Types of file system items to search for (file, dir, all)." default:"all"`
+	Types      []FsItemType `short:"t" help:"Types of file system items to search for (file, dir, all)." default:"all" alts:"file, dir, all"`
 	Quiet      bool         `short:"q" help:"Suppress error messages." default:"false"`
 }
 
@@ -59,25 +43,6 @@ func FindCmd() *cobra.Command {
 		Use:         "find",
 		Short:       "Find file system items matching a search term",
 		ParamEnrich: defaultParamEnricher(),
-		PostCreateFunc: func(params *FindParams, cmd *cobra.Command) error {
-			err := cmd.RegisterFlagCompletionFunc("search-type", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-				return lo.Map(validSearchTypes, func(item SearchType, _ int) string {
-					return string(item)
-				}), cobra.ShellCompDirectiveDefault
-			})
-			if err != nil {
-				return fmt.Errorf("failed to register search-type completion: %w", err)
-			}
-			err = cmd.RegisterFlagCompletionFunc("types", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-				return lo.Map(validFsItemTypes, func(item FsItemType, _ int) string {
-					return string(item)
-				}), cobra.ShellCompDirectiveDefault
-			})
-			if err != nil {
-				return fmt.Errorf("failed to register types completion: %w", err)
-			}
-			return nil
-		},
 		PreExecuteFunc: func(params *FindParams, cmd *cobra.Command, args []string) error {
 			if params.SearchTerm == "" {
 				return fmt.Errorf("search term cannot be empty")
@@ -87,14 +52,6 @@ func FindCmd() *cobra.Command {
 			}
 			if !ExistsAccessibleDirDir(params.WorkDir) {
 				return fmt.Errorf("working directory does not exist or is not accessible: %s", params.WorkDir)
-			}
-			if !slices.Contains(validSearchTypes, params.SearchType) {
-				return fmt.Errorf("invalid search type: %s", params.SearchType)
-			}
-			for _, t := range params.Types {
-				if !slices.Contains(validFsItemTypes, t) {
-					return fmt.Errorf("invalid file system item type: %s", t)
-				}
 			}
 			return nil
 		},
