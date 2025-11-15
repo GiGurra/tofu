@@ -45,6 +45,7 @@ type GrepParams struct {
 	FilesWithoutMatch bool `short:"L" help:"Print only names of files without matches." default:"false"`
 	OnlyMatching      bool `short:"o" help:"Show only the matched parts of lines." default:"false"`
 	Quiet             bool `short:"q" help:"Suppress all normal output." default:"false"`
+	IgnoreBinary      bool `help:"Suppress output for binary files." default:"false"`
 	MaxCount          int  `short:"m" help:"Stop after NUM matches per file." default:"0"`
 
 	// Context control
@@ -266,7 +267,9 @@ func grepFile(filename string, pattern *regexp.Regexp, params *GrepParams, showF
 	// TODO: Check if file is binary and handle accordingly (skip or process)
 	if isBinary, err := isFileBinary(file); err == nil && isBinary {
 		// Skip binary files, log if needed
-		_, _ = fmt.Fprintf(os.Stderr, "grep: %s: binary file skipped\n", filename)
+		if !params.IgnoreBinary {
+			_, _ = fmt.Fprintf(os.Stderr, "grep: %s: binary file skipped\n", filename)
+		}
 		return false, nil
 	}
 
