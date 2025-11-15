@@ -5,6 +5,9 @@
 **tofu** is a modern toolkit of CLI utilities that work seamlessly across Windows, macOS, and Linux. Like its namesake,
 tofu adapts to any environment while providing essential nutrition for your daily command-line workflows.
 
+⚠️ WARNING ⚠️ : This is just a satire coding hack vibe coded into even more stupidity. But at least now, I can use find
+and grep in powershell :P.
+
 ⚠️ WARNING ⚠️ : Large parts of this project, including this readme, are likely written by some LLM.
 Expect weirdness and occasional poetry.
 
@@ -34,9 +37,14 @@ Traditional Unix tools are powerful but often:
 A modern file finder that makes `find` feel like it's from this century.
 See [man/man_find.md](man/man_find.md) for details.
 
+### tofu grep
+
+Like gnu grep, but shittier - although, it works in powershell.
+
+See [man/man_grep.md](man/man_grep.md) for details.
+
 **Coming soon:**
 
-- `tofu grep` - search that doesn't make you look up regex every time
 - `tofu watch` - file watching done right
 - `tofu serve` - instant static file server
 - ...and more based on what we're all tired of fighting with
