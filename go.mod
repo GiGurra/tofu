@@ -3,7 +3,7 @@ module github.com/gigurra/tofu
 go 1.25
 
 require (
-	github.com/GiGurra/boa v0.3.30
+	github.com/GiGurra/boa v0.3.31
 	github.com/spf13/cobra v1.10.1
 )
 

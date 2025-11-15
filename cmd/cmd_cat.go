@@ -27,17 +27,12 @@ func CatCmd() *cobra.Command {
 		Use:         "cat",
 		Short:       "Concatenate files to standard output",
 		ParamEnrich: defaultParamEnricher(),
-		Args:        cobra.ArbitraryArgs,
 		PreExecuteFunc: func(params *CatParams, cmd *cobra.Command, args []string) error {
 			// Handle -A flag (equivalent to -vET)
 			if params.ShowAll {
 				params.ShowNonPrinting = true
 				params.ShowEnds = true
 				params.ShowTabs = true
-			}
-
-			if len(args) > 0 {
-				params.Files = append(params.Files, args...)
 			}
 
 			return nil
