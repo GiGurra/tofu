@@ -91,7 +91,7 @@ Plus, it's fun to say you're "serving fresh tofu" when you ship a new tool. 🍴
 
 ## Development Status
 
-🚧 **Early Development** - Currently building the first tool (`tofu find`). Watch this space!
+🚧 **Early Development** - a.k.a. who the heck knows.
 
 ## Contributing
 
