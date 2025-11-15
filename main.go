@@ -15,6 +15,7 @@ func main() {
 		Version: appVersion(),
 		SubCmds: []*cobra.Command{
 			cmd.FindCmd(),
+			cmd.GrepCmd(),
 		},
 	}.Run()
 }
