@@ -17,6 +17,7 @@ func main() {
 			cmd.CatCmd(),
 			cmd.FindCmd(),
 			cmd.GrepCmd(),
+			cmd.Sed2Cmd(),
 		},
 	}.Run()
 }

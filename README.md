@@ -50,6 +50,12 @@ Like gnu grep, but shittier - although, it works in powershell.
 
 See [man/man_grep.md](man/man_grep.md) for details.
 
+### tofu sed2
+
+Like gnu sed, but at the same time not. This one has an actually useful syntax.
+
+See [man/man_sed2.md](man/man_sed2.md) for details.
+
 **Coming soon:**
 
 - `tofu watch` - file watching done right
