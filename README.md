@@ -32,9 +32,16 @@ Traditional Unix tools are powerful but often:
 
 ## Tools
 
+### tofu cat
+
+Regular-ish `cat`, but works in powershell without making you want to scream.
+
+See [man/man_cat.md](man/man_cat.md) for details.
+
 ### tofu find
 
 A modern file finder that makes `find` feel like it's from this century.
+
 See [man/man_find.md](man/man_find.md) for details.
 
 ### tofu grep
