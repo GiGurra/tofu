@@ -14,6 +14,7 @@ func main() {
 		Short:   "Tools Of Fantastic Utility",
 		Version: appVersion(),
 		SubCmds: []*cobra.Command{
+			cmd.CatCmd(),
 			cmd.FindCmd(),
 			cmd.GrepCmd(),
 		},
