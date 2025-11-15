@@ -258,11 +258,45 @@ func grepFile(filename string, pattern *regexp.Regexp, params *GrepParams, showF
 		}
 	}(file)
 
-	return grepReader(file, filename, pattern, params, showFilename)
+	// TODO: Check if file is binary and handle accordingly (skip or process)
+	if isBinary, err := isFileBinary(file); err == nil && isBinary {
+		// Skip binary files, log if needed
+		_, _ = fmt.Fprintf(os.Stderr, "grep: %s: binary file skipped\n", filename)
+		return false, nil
+	}
+
+	res, err := grepReader(file, filename, pattern, params, showFilename)
+	if err != nil {
+		return false, fmt.Errorf("error reading file %s: %v", filename, err)
+	}
+
+	return res, nil
+}
+
+func isFileBinary(file *os.File) (bool, error) {
+	const sampleSize = 8000
+	buf := make([]byte, sampleSize)
+	// Check if contains a NUL byte that is not at the end, indicating binary content
+	n, err := file.Read(buf)
+	if err != nil && err != io.EOF {
+		return false, err
+	}
+	for i := 0; i < n; i++ {
+		if buf[i] == 0 {
+			return true, nil
+		}
+	}
+	// Reset file pointer
+	_, err = file.Seek(0, io.SeekStart)
+	if err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 func grepReader(reader io.Reader, filename string, pattern *regexp.Regexp, params *GrepParams, showFilename bool) (bool, error) {
 	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024) // 10MB max line size
 	lineNum := 0
 	matchCount := 0
 	found := false
