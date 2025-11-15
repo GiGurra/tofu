@@ -13,6 +13,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	colorReset = "\033[0m"
+	colorRed   = "\033[31m"
+)
+
 type PatternType string
 
 const (
@@ -422,12 +427,47 @@ func printLine(filename string, lineNum int, line string, showFilename, showLine
 
 	if onlyMatching && pattern != nil {
 		match := pattern.FindString(line)
+		output.WriteString(colorRed)
 		output.WriteString(match)
+		output.WriteString(colorReset)
 	} else {
-		output.WriteString(line)
+		// Highlight matches in the line
+		if pattern != nil && !params.InvertMatch {
+			highlightedLine := highlightMatches(line, pattern)
+			output.WriteString(highlightedLine)
+		} else {
+			output.WriteString(line)
+		}
 	}
 
 	fmt.Println(output.String())
+}
+
+func highlightMatches(line string, pattern *regexp.Regexp) string {
+	// Find all matches
+	matches := pattern.FindAllStringIndex(line, -1)
+	if len(matches) == 0 {
+		return line
+	}
+
+	var result strings.Builder
+	lastIndex := 0
+
+	for _, match := range matches {
+		start, end := match[0], match[1]
+		// Add text before match
+		result.WriteString(line[lastIndex:start])
+		// Add highlighted match
+		result.WriteString(colorRed)
+		result.WriteString(line[start:end])
+		result.WriteString(colorReset)
+		lastIndex = end
+	}
+
+	// Add remaining text after last match
+	result.WriteString(line[lastIndex:])
+
+	return result.String()
 }
 
 func shouldSearchFile(filename string, include, exclude []string) bool {
