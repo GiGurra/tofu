@@ -5,6 +5,8 @@
 **tofu** is a modern toolkit of CLI utilities that work seamlessly across Windows, macOS, and Linux. Like its namesake,
 tofu adapts to any environment while providing essential nutrition for your daily command-line workflows.
 
+⚠️ WARNING ⚠️ : This is just a satire coding hack. But at least now, I can use find and grep in powershell :P.
+
 ⚠️ WARNING ⚠️ : Large parts of this project, including this readme, are likely written by some LLM.
 Expect weirdness and occasional poetry.
 
