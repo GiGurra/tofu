@@ -56,9 +56,14 @@ Like gnu sed, but at the same time not. This one has an actually useful syntax.
 
 See [man/man_sed2.md](man/man_sed2.md) for details.
 
+### tofu watch
+
+Watches files for changes and executes commands. Like `watch` or `nodemon` but generic and simple.
+
+See [man/man_watch.md](man/man_watch.md) for details.
+
 **Coming soon:**
 
-- `tofu watch` - file watching done right
 - `tofu serve` - instant static file server
 - ...and more based on what we're all tired of fighting with
 
