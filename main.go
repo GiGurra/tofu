@@ -20,6 +20,7 @@ func main() {
 			cmd.Sed2Cmd(),
 			cmd.ServeCmd(),
 			cmd.UUIDCmd(),
+			cmd.PortCmd(),
 			cmd.WatchCmd(),
 		},
 	}.Run()

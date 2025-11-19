@@ -74,11 +74,16 @@ Generates Universally Unique Identifiers (UUIDs) with support for v1, v3, v4, v5
 
 See [man/man_uuid.md](man/man_uuid.md) for details.
 
+### tofu port
+
+List or kill processes listening on network ports. Cross-platform support for Linux, Windows, and macOS.
+
+See [man/man_port.md](man/man_port.md) for details.
+
 **Coming soon:**
 
 - `tofu http` - Human-friendly HTTP client (curl/httpie alternative)
 - `tofu tree` - Directory visualizer that actually respects .gitignore
-- `tofu port` - Find and kill processes by port (cross-platform lsof/netstat)
 - `tofu json` - Simple JSON formatter and query tool (jq lite)
 - ...and more based on what we're all tired of fighting with
 
