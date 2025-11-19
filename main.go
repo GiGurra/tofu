@@ -21,6 +21,7 @@ func main() {
 			cmd.ServeCmd(),
 			cmd.UUIDCmd(),
 			cmd.PortCmd(),
+			cmd.TreeCmd(),
 			cmd.WatchCmd(),
 		},
 	}.Run()

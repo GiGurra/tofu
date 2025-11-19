@@ -80,10 +80,15 @@ List or kill processes listening on network ports. Cross-platform support for Li
 
 See [man/man_port.md](man/man_port.md) for details.
 
+### tofu tree
+
+List contents of directories in a tree-like format, with options for depth and hidden files, and respecting `.gitignore`.
+
+See [man/man_tree.md](man/man_tree.md) for details.
+
 **Coming soon:**
 
 - `tofu http` - Human-friendly HTTP client (curl/httpie alternative)
-- `tofu tree` - Directory visualizer that actually respects .gitignore
 - `tofu json` - Simple JSON formatter and query tool (jq lite)
 - ...and more based on what we're all tired of fighting with
 
