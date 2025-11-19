@@ -19,6 +19,7 @@ func main() {
 			cmd.GrepCmd(),
 			cmd.Sed2Cmd(),
 			cmd.ServeCmd(),
+			cmd.UUIDCmd(),
 			cmd.WatchCmd(),
 		},
 	}.Run()
