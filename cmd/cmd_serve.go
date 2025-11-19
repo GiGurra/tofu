@@ -19,6 +19,11 @@ type ServeParams struct {
 	Host    string `help:"Host interface to bind to." default:"localhost"`
 	SpaMode bool   `help:"Enable Single Page Application mode (redirect 404 to index.html)." default:"false"`
 	NoCache bool   `help:"Disable browser caching." default:"false"`
+
+	ReadTimeoutMillis  int64 `help:"Maximum duration for reading the entire request, including the body (ms)." default:"5000"`
+	WriteTimeoutMillis int64 `help:"Maximum duration before timing out writes of the response (ms)." default:"10000"`
+	IdleTimeoutMillis  int64 `help:"Maximum amount of time to wait for the next request when keep-alives are enabled (ms)." default:"120000"`
+	MaxHeaderBytes     int   `help:"Maximum number of bytes the server will read parsing the request header's keys and values." default:"1048576"` // 1MB
 }
 
 func ServeCmd() *cobra.Command {
@@ -81,8 +86,12 @@ func runServe(ctx context.Context, params *ServeParams) error {
 
 	addr := fmt.Sprintf("%s:%d", params.Host, params.Port)
 	server := &http.Server{
-		Addr:    addr,
-		Handler: handler,
+		Addr:           addr,
+		Handler:        handler,
+		ReadTimeout:    time.Duration(params.ReadTimeoutMillis) * time.Millisecond,
+		WriteTimeout:   time.Duration(params.WriteTimeoutMillis) * time.Millisecond,
+		IdleTimeout:    time.Duration(params.IdleTimeoutMillis) * time.Millisecond,
+		MaxHeaderBytes: params.MaxHeaderBytes,
 	}
 
 	// Handle graceful shutdown

@@ -42,6 +42,10 @@ func TestServeCommand(t *testing.T) {
 		Host:    "localhost",
 		SpaMode: true,
 		NoCache: true,
+		ReadTimeoutMillis: 1000,
+		WriteTimeoutMillis: 1000,
+		IdleTimeoutMillis: 1000,
+		MaxHeaderBytes: 1024,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
