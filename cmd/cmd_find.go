@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -56,74 +57,77 @@ func FindCmd() *cobra.Command {
 			return nil
 		},
 		RunFunc: func(params *FindParams, cmd *cobra.Command, args []string) {
-			var precompiledRegex *regexp.Regexp
-			if params.SearchType == SearchTypeRegex {
-				var err error
-				precompiledRegex, err = regexp.Compile(params.SearchTerm)
-				if err != nil {
-					panic(fmt.Errorf("invalid regex pattern: %w", err))
-				}
-			}
-			err := filepath.WalkDir(params.WorkDir, func(path string, d os.DirEntry, err error) error {
-				if err != nil {
-					if !params.Quiet {
-						_, _ = fmt.Fprintf(os.Stderr, "error accessing path %q: %v\n", path, err)
-					}
-					return nil
-				}
-
-				matchesType := false
-				for _, t := range params.Types {
-					switch t {
-					case FsItemTypeAll:
-						matchesType = true
-					case FsItemTypeFile:
-						if !d.IsDir() {
-							matchesType = true
-						}
-					case FsItemTypeDir:
-						if d.IsDir() {
-							matchesType = true
-						}
-					}
-				}
-
-				if matchesType {
-					switch params.SearchType {
-					case SearchTypeExact:
-						if !matchExact(d.Name(), params.SearchTerm, params.IgnoreCase) {
-							return nil
-						}
-					case SearchTypeContains:
-						if !matchContains(d.Name(), params.SearchTerm, params.IgnoreCase) {
-							return nil
-						}
-					case SearchTypePrefix:
-						if !matchPrefix(d.Name(), params.SearchTerm, params.IgnoreCase) {
-							return nil
-						}
-					case SearchTypeSuffix:
-						if !matchSuffix(d.Name(), params.SearchTerm, params.IgnoreCase) {
-							return nil
-						}
-					case SearchTypeRegex:
-						// Regex search not implemented
-						if !matchRegex(d.Name(), precompiledRegex) {
-							return nil
-						}
-					default:
-						panic(fmt.Errorf("unsupported search type: %s", params.SearchType))
-					}
-					fmt.Println(path)
-				}
-				return nil
-			})
-
-			if err != nil {
-				panic(fmt.Errorf("error during file system walk: %w", err))
-			}
+			runFind(params, os.Stdout, os.Stderr)
 		},
 	}.ToCobra()
+}
+
+func runFind(params *FindParams, stdout, stderr io.Writer) {
+	var precompiledRegex *regexp.Regexp
+	if params.SearchType == SearchTypeRegex {
+		var err error
+		precompiledRegex, err = regexp.Compile(params.SearchTerm)
+		if err != nil {
+			panic(fmt.Errorf("invalid regex pattern: %w", err))
+		}
+	}
+	err := filepath.WalkDir(params.WorkDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			if !params.Quiet {
+				_, _ = fmt.Fprintf(stderr, "error accessing path %q: %v\n", path, err)
+			}
+			return nil
+		}
+
+		matchesType := false
+		for _, t := range params.Types {
+			switch t {
+			case FsItemTypeAll:
+				matchesType = true
+			case FsItemTypeFile:
+				if !d.IsDir() {
+					matchesType = true
+				}
+			case FsItemTypeDir:
+				if d.IsDir() {
+					matchesType = true
+				}
+			}
+		}
+
+		if matchesType {
+			switch params.SearchType {
+			case SearchTypeExact:
+				if !matchExact(d.Name(), params.SearchTerm, params.IgnoreCase) {
+					return nil
+				}
+			case SearchTypeContains:
+				if !matchContains(d.Name(), params.SearchTerm, params.IgnoreCase) {
+					return nil
+				}
+			case SearchTypePrefix:
+				if !matchPrefix(d.Name(), params.SearchTerm, params.IgnoreCase) {
+					return nil
+				}
+			case SearchTypeSuffix:
+				if !matchSuffix(d.Name(), params.SearchTerm, params.IgnoreCase) {
+					return nil
+				}
+			case SearchTypeRegex:
+				if precompiledRegex == nil || !matchRegex(d.Name(), precompiledRegex) {
+					return nil
+				}
+			default:
+				panic(fmt.Errorf("unsupported search type: %s", params.SearchType))
+			}
+			fmt.Fprintln(stdout, path)
+		}
+		return nil
+	})
+
+	if err != nil {
+		panic(fmt.Errorf("error during file system walk: %w", err))
+	}
 }
 
 func matchRegex(tot string, precompiledRegex *regexp.Regexp) bool {

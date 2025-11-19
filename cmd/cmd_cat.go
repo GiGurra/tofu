@@ -38,7 +38,7 @@ func CatCmd() *cobra.Command {
 			return nil
 		},
 		RunFunc: func(params *CatParams, cmd *cobra.Command, args []string) {
-			exitCode := runCat(params)
+			exitCode := runCat(params, os.Stdout, os.Stderr)
 			if exitCode != 0 {
 				os.Exit(exitCode)
 			}
@@ -46,7 +46,7 @@ func CatCmd() *cobra.Command {
 	}.ToCobra()
 }
 
-func runCat(params *CatParams) int {
+func runCat(params *CatParams, stdout, stderr io.Writer) int {
 	hadError := false
 
 	// If no files specified, default to stdin
@@ -68,7 +68,7 @@ func runCat(params *CatParams) int {
 		} else {
 			f, err := os.Open(file)
 			if err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "cat: %s: %v\n", file, err)
+				_, _ = fmt.Fprintf(stderr, "cat: %s: %v\n", file, err)
 				hadError = true
 				continue
 			}
@@ -77,15 +77,15 @@ func runCat(params *CatParams) int {
 			filename = file
 		}
 
-		err := catReader(reader, params, &lineNum)
+		err := catReader(reader, stdout, params, &lineNum)
 		closeErr := closeFn()
 
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "cat: %s: %v\n", filename, err)
+			_, _ = fmt.Fprintf(stderr, "cat: %s: %v\n", filename, err)
 			hadError = true
 		}
 		if closeErr != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "cat: error closing %s: %v\n", filename, closeErr)
+			_, _ = fmt.Fprintf(stderr, "cat: error closing %s: %v\n", filename, closeErr)
 			hadError = true
 		}
 	}
@@ -96,7 +96,7 @@ func runCat(params *CatParams) int {
 	return 0
 }
 
-func catReader(reader io.Reader, params *CatParams, lineNum *int) error {
+func catReader(reader io.Reader, stdout io.Writer, params *CatParams, lineNum *int) error {
 	scanner := bufio.NewScanner(reader)
 	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024) // 10MB max line size
 
@@ -146,7 +146,7 @@ func catReader(reader io.Reader, params *CatParams, lineNum *int) error {
 			output.WriteString("$")
 		}
 
-		fmt.Println(output.String())
+		fmt.Fprintln(stdout, output.String())
 	}
 
 	return scanner.Err()
