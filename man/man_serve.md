@@ -9,11 +9,10 @@ Instant static file server.
 Instant static file server
 
 Usage:
-  tofu serve [flags]
+  tofu serve [dir] [flags]
 
 Flags:
   -p, --port int          Port to listen on. (default 8080)
-  -d, --dir string        Directory to serve. (default ".")
       --host string       Host interface to bind to. (default "localhost")
       --spa-mode          Enable Single Page Application mode (redirect 404 to index.html). (default false)
       --no-cache          Disable browser caching. (default false)
@@ -25,13 +24,13 @@ Flags:
 Serve current directory on port 8080:
 
 ```
-> tofu serve
+> tofu serve .
 ```
 
 Serve specific directory on port 3000:
 
 ```
-> tofu serve -d ./public -p 3000
+> tofu serve ./public -p 3000
 ```
 
 Serve a Single Page Application (SPA) with 404 redirection:

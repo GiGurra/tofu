@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,8 +14,8 @@ import (
 )
 
 type ServeParams struct {
+	Dir     string `pos:"true" optional:"true" help:"Directory to serve." default:"."`
 	Port    int    `short:"p" help:"Port to listen on." default:"8080"`
-	Dir     string `short:"d" help:"Directory to serve." default:"."`
 	Host    string `help:"Host interface to bind to." default:"localhost"`
 	SpaMode bool   `help:"Enable Single Page Application mode (redirect 404 to index.html)." default:"false"`
 	NoCache bool   `help:"Disable browser caching." default:"false"`
@@ -27,7 +28,7 @@ func ServeCmd() *cobra.Command {
 		ParamEnrich: defaultParamEnricher(),
 		RunFunc: func(params *ServeParams, cmd *cobra.Command, args []string) {
 			if err := runServe(cmd.Context(), params); err != nil {
-				fmt.Fprintf(os.Stderr, "serve: %v\n", err)
+				_, _ = fmt.Fprintf(os.Stderr, "serve: %v\n", err)
 				os.Exit(1)
 			}
 		},
@@ -91,7 +92,7 @@ func runServe(ctx context.Context, params *ServeParams) error {
 		if params.SpaMode {
 			fmt.Println("SPA Mode enabled (redirecting 404s to index.html)")
 		}
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			serverErr <- err
 		}
 		close(serverErr)
