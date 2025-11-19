@@ -62,9 +62,14 @@ Watches files for changes and executes commands. Like `watch` or `nodemon` but g
 
 See [man/man_watch.md](man/man_watch.md) for details.
 
+### tofu serve
+
+Instant static file server. Perfect for previewing sites or sharing files.
+
+See [man/man_serve.md](man/man_serve.md) for details.
+
 **Coming soon:**
 
-- `tofu serve` - instant static file server
 - ...and more based on what we're all tired of fighting with
 
 ## Installation
