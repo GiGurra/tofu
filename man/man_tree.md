@@ -59,8 +59,8 @@ List current directory including hidden files and dotfiles:
 │   ├── HEAD
 │   └── config
 ├── .gitignore
-├── cmd
-│   ├── cmd_cat.go
+└── cmd
+    └── cmd_cat.go
 ...
 ```
 
@@ -84,7 +84,7 @@ Exclude files matching a pattern:
 ```
 > tofu tree . --exclude "*.mod" --exclude "*.sum"
 .
-├── cmd
-│   ├── cmd_cat.go
+└── cmd
+    └── cmd_cat.go
 ...
 ```
