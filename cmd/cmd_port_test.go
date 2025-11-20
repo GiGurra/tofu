@@ -92,8 +92,6 @@ func TestPortCommand(t *testing.T) {
 
 	t.Logf("Helper process listening on port %d (PID %d)", port, cmd.Process.Pid)
 
-	time.Sleep(100 * time.Second)
-
 	// 1. Test Listing
 	// We expect to find this port
 	listStdout := &bytes.Buffer{}
