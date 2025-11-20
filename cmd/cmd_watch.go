@@ -27,19 +27,19 @@ const (
 )
 
 type WatchParams struct {
-	Execute           string           `short:"e" required:"true" help:"Command to execute when files change."`
-	Patterns          []string         `short:"p" optional:"true" help:"File patterns to watch (optional, watches all files if not specified)."`
-	PatternType       WatchPatternType `optional:"true" help:"Type of pattern matching (regex, literal, glob)." default:"glob" alts:"regex,literal,glob"`
-	Recursive         bool             `short:"r" optional:"true" help:"Watch directories recursively." default:"true"`
-	IncludeHidden     bool             `optional:"true" help:"Include hidden files and directories." default:"false"`
-	Exclude           []string         `optional:"true" help:"Patterns to exclude (glob style)."`
-	PreviousProcess   string           `optional:"true" help:"Action for previous process (kill, wait)." default:"kill" alts:"kill,wait"`
-	HandleShutdown    string           `optional:"true" help:"Action when process exits (restart, ignore)." default:"ignore" alts:"restart,ignore"`
-	RestartPolicy     string           `optional:"true" help:"Restart policy (exponential-backoff)." default:"exponential-backoff" alts:"exponential-backoff"`
-	MinBackoffMillis  int64            `optional:"true" help:"Minimum backoff duration in milliseconds." default:"1000"`
-	MaxBackoffMillis  int64            `optional:"true" help:"Maximum backoff duration in milliseconds." default:"10000"`
-	MaxRestarts       int              `optional:"true" help:"Maximum number of automatic restarts." default:"10"`
-	Dirs              []string         `pos:"true" optional:"true" help:"Directories to watch (defaults to current directory)." default:"."`
+	Execute          string           `short:"e" required:"true" help:"Command to execute when files change."`
+	Patterns         []string         `short:"p" optional:"true" help:"File patterns to watch (optional, watches all files if not specified)."`
+	PatternType      WatchPatternType `optional:"true" help:"Type of pattern matching (regex, literal, glob)." default:"glob" alts:"regex,literal,glob"`
+	Recursive        bool             `short:"r" optional:"true" help:"Watch directories recursively." default:"true"`
+	IncludeHidden    bool             `optional:"true" help:"Include hidden files and directories." default:"false"`
+	Exclude          []string         `optional:"true" help:"Patterns to exclude (glob style)."`
+	PreviousProcess  string           `optional:"true" help:"Action for previous process (kill, wait)." default:"kill" alts:"kill,wait"`
+	HandleShutdown   string           `optional:"true" help:"Action when process exits (restart, ignore)." default:"ignore" alts:"restart,ignore"`
+	RestartPolicy    string           `optional:"true" help:"Restart policy (exponential-backoff)." default:"exponential-backoff" alts:"exponential-backoff"`
+	MinBackoffMillis int64            `optional:"true" help:"Minimum backoff duration in milliseconds." default:"1000"`
+	MaxBackoffMillis int64            `optional:"true" help:"Maximum backoff duration in milliseconds." default:"10000"`
+	MaxRestarts      int              `optional:"true" help:"Maximum number of automatic restarts." default:"10"`
+	Dirs             []string         `pos:"true" optional:"true" help:"Directories to watch (defaults to current directory)." default:"."`
 }
 
 type ProcessRunner interface {
@@ -62,32 +62,13 @@ func (p *RealProcessRunner) Wait() error {
 	return p.cmd.Wait()
 }
 
-func (p *RealProcessRunner) Kill() error {
-	if p.cmd.Process == nil {
-		return nil
-	}
-	// Try to kill the process group first (kills child processes too)
-	if err := syscall.Kill(-p.cmd.Process.Pid, syscall.SIGKILL); err != nil {
-		// Fallback to killing just the process
-		return p.cmd.Process.Kill()
-	}
-	return nil
-}
-
 func WatchCmd() *cobra.Command {
 	return boa.CmdT[WatchParams]{
 		Use:         "watch",
 		Short:       "Watch files and execute a command on change",
 		ParamEnrich: defaultParamEnricher(),
 		RunFunc: func(params *WatchParams, cmd *cobra.Command, args []string) {
-			factory := func() ProcessRunner {
-				c := exec.Command("sh", "-c", params.Execute)
-				c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-				c.Stdout = os.Stdout
-				c.Stderr = os.Stderr
-				c.Stdin = os.Stdin
-				return &RealProcessRunner{cmd: c}
-			}
+			factory := NewProcessRunner(params)
 			if err := runWatch(cmd.Context(), params, factory); err != nil {
 				fmt.Fprintf(os.Stderr, "watch: %v\n", err)
 				os.Exit(1)
