@@ -86,6 +86,12 @@ List contents of directories in a tree-like format, with options for depth and h
 
 See [man/man_tree.md](man/man_tree.md) for details.
 
+### tofu which
+
+Locates executable files associated with a given command.
+
+See [man/man_which.md](man/man_which.md) for details.
+
 **Coming soon:**
 
 - `tofu http` - Human-friendly HTTP client (curl/httpie alternative)
