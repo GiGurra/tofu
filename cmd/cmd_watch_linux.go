@@ -1,5 +1,11 @@
 package cmd
 
+import (
+	"os"
+	"os/exec"
+	"syscall"
+)
+
 func (p *RealProcessRunner) Kill() error {
 	if p.cmd.Process == nil {
 		return nil
