@@ -152,9 +152,24 @@ func TestRunFind_ExactMatch(t *testing.T) {
 func TestRunFind_CaseInsensitive(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	file1 := filepath.Join(tmpDir, "test.txt")
-	file2 := filepath.Join(tmpDir, "Test.txt")
-	file3 := filepath.Join(tmpDir, "TEST.txt")
+	// Create subdirectories to ensure files are distinct on case-insensitive filesystems
+	dir1 := filepath.Join(tmpDir, "1")
+	dir2 := filepath.Join(tmpDir, "2")
+	dir3 := filepath.Join(tmpDir, "3")
+
+	if err := os.MkdirAll(dir1, 0755); err != nil {
+		t.Fatalf("Failed to create dir1: %v", err)
+	}
+	if err := os.MkdirAll(dir2, 0755); err != nil {
+		t.Fatalf("Failed to create dir2: %v", err)
+	}
+	if err := os.MkdirAll(dir3, 0755); err != nil {
+		t.Fatalf("Failed to create dir3: %v", err)
+	}
+
+	file1 := filepath.Join(dir1, "test.txt")
+	file2 := filepath.Join(dir2, "Test.txt")
+	file3 := filepath.Join(dir3, "TEST.txt")
 
 	if err := os.WriteFile(file1, []byte("content"), 0644); err != nil {
 		t.Fatalf("Failed to create file: %v", err)
@@ -179,14 +194,14 @@ func TestRunFind_CaseInsensitive(t *testing.T) {
 	runFind(params, &stdout, &stderr)
 
 	output := stdout.String()
-	if !strings.Contains(output, "test.txt") {
-		t.Errorf("Expected output to contain 'test.txt', got %q", output)
+	if !strings.Contains(output, filepath.Join("1", "test.txt")) {
+		t.Errorf("Expected output to contain '1/test.txt', got %q", output)
 	}
-	if !strings.Contains(output, "Test.txt") {
-		t.Errorf("Expected output to contain 'Test.txt' (case insensitive), got %q", output)
+	if !strings.Contains(output, filepath.Join("2", "Test.txt")) {
+		t.Errorf("Expected output to contain '2/Test.txt' (case insensitive), got %q", output)
 	}
-	if !strings.Contains(output, "TEST.txt") {
-		t.Errorf("Expected output to contain 'TEST.txt' (case insensitive), got %q", output)
+	if !strings.Contains(output, filepath.Join("3", "TEST.txt")) {
+		t.Errorf("Expected output to contain '3/TEST.txt' (case insensitive), got %q", output)
 	}
 }
 
