@@ -88,24 +88,30 @@ func TestPortCommand(t *testing.T) {
 
 	// 1. Test Listing
 	// We expect to find this port
+	listStdout := &bytes.Buffer{}
+	listStderr := &bytes.Buffer{}
 	params := &PortParams{
 		PortNum: port,
 	}
 	
-	// Redirect stdout to capture output of runPort
-	// (Would need to mock stdout, but for now just ensure it doesn't error)
-	if err := runPort(params); err != nil {
-		t.Errorf("runPort failed to list port %d: %v", port, err)
+	if err := runPort(params, listStdout, listStderr); err != nil {
+		t.Errorf("runPort failed to list port %d: %v. Stderr: %s", port, err, listStderr.String())
+	}
+	// Check if the stdout contains the port and PID
+	if !strings.Contains(listStdout.String(), strconv.Itoa(port)) || !strings.Contains(listStdout.String(), strconv.Itoa(int(cmd.Process.Pid))) {
+		t.Errorf("Expected list output to contain port %d and PID %d, got:\n%s", port, cmd.Process.Pid, listStdout.String())
 	}
 
 	// 2. Test Killing
+	killStdout := &bytes.Buffer{}
+	killStderr := &bytes.Buffer{}
 	paramsKill := &PortParams{
 		PortNum: port,
 		Kill:    true,
 	}
 	
-	if err := runPort(paramsKill); err != nil {
-		t.Errorf("runPort failed to kill port %d: %v", port, err)
+	if err := runPort(paramsKill, killStdout, killStderr); err != nil {
+		t.Errorf("runPort failed to kill port %d: %v. Stderr: %s", port, err, killStderr.String())
 	}
 
 	// Wait for process to exit

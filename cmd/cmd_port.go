@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"runtime"
 	"sort"
 	"strconv"
 	"text/tabwriter"
@@ -20,21 +22,8 @@ type PortParams struct {
 	All     bool `short:"a" help:"Show all ports (not just listening)." default:"false"`
 }
 
-func PortCmd() *cobra.Command {
-	return boa.CmdT[PortParams]{
-		Use:         "port",
-		Short:       "List or kill processes by port",
-		ParamEnrich: defaultParamEnricher(),
-		RunFunc: func(params *PortParams, cmd *cobra.Command, args []string) {
-			if err := runPort(params); err != nil {
-				fmt.Fprintf(os.Stderr, "port: %v\n", err)
-				os.Exit(1)
-			}
-		},
-	}.ToCobra()
-}
-
-func runPort(params *PortParams) error {
+// runPort now takes io.Writer for stdout and stderr for testability
+func runPort(params *PortParams, stdout, stderr io.Writer) error {
 	if params.Kill && params.PortNum == 0 {
 		return fmt.Errorf("--kill requires a specific port number")
 	}
@@ -52,6 +41,9 @@ func runPort(params *PortParams) error {
 	var targets []PortInfo
 
 	for _, conn := range conns {
+		if runtime.GOOS == "windows" {
+			fmt.Fprintf(stderr, "[DEBUG] Windows: processing connection: %+v\n", conn)
+		}
 		if !params.All && conn.Status != "LISTEN" {
 			continue
 		}
@@ -89,11 +81,18 @@ func runPort(params *PortParams) error {
 		return targets[i].PID < targets[j].PID
 	})
 
+	if runtime.GOOS == "windows" {
+		fmt.Fprintf(stderr, "[DEBUG] Windows: found %d targets for port %d\n", len(targets), params.PortNum)
+		for _, t := range targets {
+			fmt.Fprintf(stderr, "[DEBUG] Windows Target: %+v\n", t)
+		}
+	}
+
 	if len(targets) == 0 {
 		if params.PortNum != 0 {
 			return fmt.Errorf("no process found on port %d", params.PortNum)
 		}
-		fmt.Println("No matching connections found.")
+		fmt.Fprintln(stdout, "No matching connections found.")
 		return nil
 	}
 
@@ -109,15 +108,15 @@ func runPort(params *PortParams) error {
 			
 			proc, err := process.NewProcess(t.PID)
 			if err != nil {
-				fmt.Printf("Could not find process %d: %v\n", t.PID, err)
+				fmt.Fprintf(stderr, "Could not find process %d: %v\n", t.PID, err)
 				continue
 			}
 			
-			fmt.Printf("Killing process %d (%s) on port %d...\n", t.PID, t.Name, t.Port)
+			fmt.Fprintf(stdout, "Killing process %d (%s) on port %d...\n", t.PID, t.Name, t.Port)
 			if err := proc.Kill(); err != nil {
-				fmt.Printf("Failed to kill PID %d: %v\n", t.PID, err)
+				fmt.Fprintf(stderr, "Failed to kill PID %d: %v\n", t.PID, err)
 			} else {
-				fmt.Printf("Killed PID %d\n", t.PID)
+				fmt.Fprintf(stdout, "Killed PID %d\n", t.PID)
 				pidsKilled[t.PID] = true
 			}
 		}
@@ -125,7 +124,7 @@ func runPort(params *PortParams) error {
 	}
 
 	// List logic
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	w := tabwriter.NewWriter(stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "PROTO\tPORT\tPID\tPROCESS\tSTATUS\tADDRESS")
 	for _, t := range targets {
 		fmt.Fprintf(w, "%s\t%d\t%d\t%s\t%s\t%s\n", t.Proto, t.Port, t.PID, t.Name, t.Status, t.Address)
@@ -154,4 +153,18 @@ func getProto(t uint32) string {
 	default:
 		return strconv.Itoa(int(t))
 	}
+}
+
+func PortCmd() *cobra.Command {
+	return boa.CmdT[PortParams]{
+		Use:         "port",
+		Short:       "List or kill processes by port",
+		ParamEnrich: defaultParamEnricher(),
+		RunFunc: func(params *PortParams, cmd *cobra.Command, args []string) {
+			if err := runPort(params, os.Stdout, os.Stderr); err != nil {
+				fmt.Fprintf(os.Stderr, "port: %v\n", err)
+				os.Exit(1)
+			}
+		},
+	}.ToCobra()
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -151,7 +152,12 @@ func TestRunCat_FileNotFound(t *testing.T) {
 	if stdout.Len() > 0 {
 		t.Errorf("Expected no stdout output, got %q", stdout.String())
 	}
-	if !strings.Contains(stderr.String(), "no such file or directory") {
-		t.Errorf("Expected stderr to contain 'no such file or directory', got %q", stderr.String())
+	expectedErrorSubstr := "no such file or directory"
+	if runtime.GOOS == "windows" {
+		expectedErrorSubstr = "The system cannot find the file specified."
+	}
+
+	if !strings.Contains(stderr.String(), expectedErrorSubstr) {
+		t.Errorf("Expected stderr to contain %q, got %q", expectedErrorSubstr, stderr.String())
 	}
 }
