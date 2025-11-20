@@ -23,6 +23,7 @@ func main() {
 			cmd.PortCmd(),
 			cmd.TreeCmd(),
 			cmd.WatchCmd(),
+			cmd.WhichCmd(),
 		},
 	}.Run()
 }
