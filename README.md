@@ -1,5 +1,8 @@
 # �豆腐 tofu
 
+[![CI Status](https://github.com/GiGurra/tofu/actions/workflows/ci.yml/badge.svg)](https://github.com/GiGurra/tofu/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/GiGurra/tofu)](https://goreportcard.com/report/github.com/GiGurra/tofu)
+
 > Tools Of Fantastic Utility - the universal cross-platform protein for your command line
 
 **tofu** is a modern toolkit of CLI utilities that work seamlessly across Windows, macOS, and Linux. Like its namesake,

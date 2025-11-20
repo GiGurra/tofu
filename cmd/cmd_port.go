@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"runtime"
 	"sort"
 	"strconv"
 	"text/tabwriter"
@@ -41,20 +40,17 @@ func runPort(params *PortParams, stdout, stderr io.Writer) error {
 	var targets []PortInfo
 
 	for _, conn := range conns {
-		if runtime.GOOS == "windows" {
-			fmt.Fprintf(stderr, "[DEBUG] Windows: processing connection: %+v\n", conn)
-		}
 		if !params.All && conn.Status != "LISTEN" {
 			continue
 		}
-		
+
 		if params.PortNum != 0 && int(conn.Laddr.Port) != params.PortNum {
 			continue
 		}
 
 		// If looking for specific port, we match exact.
 		// If listing all, we might filter duplicates (same process listening on IPv4 and IPv6)
-		
+
 		proc, err := process.NewProcess(conn.Pid)
 		name := "?"
 		if err == nil {
@@ -81,13 +77,6 @@ func runPort(params *PortParams, stdout, stderr io.Writer) error {
 		return targets[i].PID < targets[j].PID
 	})
 
-	if runtime.GOOS == "windows" {
-		fmt.Fprintf(stderr, "[DEBUG] Windows: found %d targets for port %d\n", len(targets), params.PortNum)
-		for _, t := range targets {
-			fmt.Fprintf(stderr, "[DEBUG] Windows Target: %+v\n", t)
-		}
-	}
-
 	if len(targets) == 0 {
 		if params.PortNum != 0 {
 			return fmt.Errorf("no process found on port %d", params.PortNum)
@@ -100,18 +89,18 @@ func runPort(params *PortParams, stdout, stderr io.Writer) error {
 		// Kill logic
 		// We might have multiple PIDs for one port (rare but possible, or just multiple entries for same PID)
 		pidsKilled := make(map[int32]bool)
-		
+
 		for _, t := range targets {
 			if pidsKilled[t.PID] {
 				continue
 			}
-			
+
 			proc, err := process.NewProcess(t.PID)
 			if err != nil {
 				fmt.Fprintf(stderr, "Could not find process %d: %v\n", t.PID, err)
 				continue
 			}
-			
+
 			fmt.Fprintf(stdout, "Killing process %d (%s) on port %d...\n", t.PID, t.Name, t.Port)
 			if err := proc.Kill(); err != nil {
 				fmt.Fprintf(stderr, "Failed to kill PID %d: %v\n", t.PID, err)

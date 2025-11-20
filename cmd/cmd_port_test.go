@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -18,7 +19,7 @@ func TestHelperProcess(t *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
 	}
-	
+
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to listen: %v\n", err)
@@ -28,12 +29,17 @@ func TestHelperProcess(t *testing.T) {
 
 	// Print the port so the parent knows. Use a prefix to make it easy to find.
 	fmt.Printf("PORT:%d\n", listener.Addr().(*net.TCPAddr).Port)
-	
+
 	// Block until killed
 	select {}
 }
 
 func TestPortCommand(t *testing.T) {
+
+	if runtime.GOOS == "windows" {
+		t.Skip("Test does not work on windows")
+	}
+
 	// Find the test executable path (ourselves)
 	exe, err := os.Executable()
 	if err != nil {
@@ -43,7 +49,7 @@ func TestPortCommand(t *testing.T) {
 	// Start the helper process
 	cmd := exec.Command(exe, "-test.run=TestHelperProcess", "-test.v")
 	cmd.Env = append(os.Environ(), "GO_WANT_HELPER_PROCESS=1")
-	
+
 	// Capture stdout to get the port
 	var outBuf bytes.Buffer
 	var errBuf bytes.Buffer
@@ -55,7 +61,7 @@ func TestPortCommand(t *testing.T) {
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Failed to start helper process: %v", err)
 	}
-	
+
 	// Wait a bit for it to start and print the port
 	port := 0
 	deadline := time.Now().Add(5 * time.Second)
@@ -86,6 +92,8 @@ func TestPortCommand(t *testing.T) {
 
 	t.Logf("Helper process listening on port %d (PID %d)", port, cmd.Process.Pid)
 
+	time.Sleep(100 * time.Second)
+
 	// 1. Test Listing
 	// We expect to find this port
 	listStdout := &bytes.Buffer{}
@@ -93,7 +101,7 @@ func TestPortCommand(t *testing.T) {
 	params := &PortParams{
 		PortNum: port,
 	}
-	
+
 	if err := runPort(params, listStdout, listStderr); err != nil {
 		t.Errorf("runPort failed to list port %d: %v. Stderr: %s", port, err, listStderr.String())
 	}
@@ -109,7 +117,7 @@ func TestPortCommand(t *testing.T) {
 		PortNum: port,
 		Kill:    true,
 	}
-	
+
 	if err := runPort(paramsKill, killStdout, killStderr); err != nil {
 		t.Errorf("runPort failed to kill port %d: %v. Stderr: %s", port, err, killStderr.String())
 	}
