@@ -70,7 +70,7 @@ func WatchCmd() *cobra.Command {
 		RunFunc: func(params *WatchParams, cmd *cobra.Command, args []string) {
 			factory := NewProcessRunner(params)
 			if err := runWatch(cmd.Context(), params, factory); err != nil {
-				fmt.Fprintf(os.Stderr, "watch: %v\n", err)
+				_, _ = fmt.Fprintf(os.Stderr, "watch: %v\n", err)
 				os.Exit(1)
 			}
 		},
@@ -83,7 +83,7 @@ func runWatch(ctx context.Context, params *WatchParams, factory ProcessFactory) 
 	if err != nil {
 		return fmt.Errorf("failed to create watcher: %w", err)
 	}
-	defer watcher.Close()
+	defer func() { _ = watcher.Close() }()
 
 	// Compile regex patterns if needed
 	var regexPatterns []*regexp.Regexp
@@ -175,7 +175,7 @@ func runWatch(ctx context.Context, params *WatchParams, factory ProcessFactory) 
 		defer watchMutex.Unlock()
 
 		if watchedDirs[path] {
-			watcher.Remove(path)
+			_ = watcher.Remove(path)
 			delete(watchedDirs, path)
 		}
 	}
@@ -198,7 +198,7 @@ func runWatch(ctx context.Context, params *WatchParams, factory ProcessFactory) 
 				}
 
 				if err := addWatch(path); err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: failed to watch %s: %v\n", path, err)
+					_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to watch %s: %v\n", path, err)
 				}
 			}
 
@@ -280,7 +280,7 @@ func runWatch(ctx context.Context, params *WatchParams, factory ProcessFactory) 
 				if params.Recursive && (event.Op&fsnotify.Create == fsnotify.Create) {
 					if info, err := os.Stat(event.Name); err == nil && info.IsDir() {
 						if err := addRecursive(event.Name); err != nil {
-							fmt.Fprintf(os.Stderr, "Warning: failed to watch new directory %s: %v\n", event.Name, err)
+							_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to watch new directory %s: %v\n", event.Name, err)
 						}
 					}
 				}
@@ -299,7 +299,7 @@ func runWatch(ctx context.Context, params *WatchParams, factory ProcessFactory) 
 				if !ok {
 					return
 				}
-				fmt.Fprintf(os.Stderr, "watch error: %v\n", err)
+				_, _ = fmt.Fprintf(os.Stderr, "watch error: %v\n", err)
 			}
 		}
 	}()
