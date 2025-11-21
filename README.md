@@ -41,6 +41,12 @@ Regular-ish `cat`, but works in powershell without making you want to scream.
 
 See [man/man_cat.md](man/man_cat.md) for details.
 
+### tofu clip
+
+Clipboard copy and paste utility.
+
+See [man/man_clip.md](man/man_clip.md) for details.
+
 ### tofu find
 
 A modern file finder that makes `find` feel like it's from this century.
