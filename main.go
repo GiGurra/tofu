@@ -24,7 +24,7 @@ func main() {
 			cmd.TreeCmd(),
 			cmd.WatchCmd(),
 			cmd.WhichCmd(),
-			// cmd.Copy(),
+			cmd.ClipCmd(),
 		},
 	}.Run()
 }
