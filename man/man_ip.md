@@ -18,7 +18,7 @@ Flags:
 
 ### Examples
 
-**Show all IPs (local and public)**
+**Show all IPs (local and public), DNS, and Gateway**
 
 ```
 > tofu ip
@@ -32,6 +32,13 @@ Local Interfaces:
 
 Public IP:
   203.0.113.42
+
+DNS Servers:
+  8.8.8.8
+  1.1.1.1
+
+Default Gateway:
+  192.168.1.1
 ```
 
 **Show only local interfaces**
