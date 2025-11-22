@@ -26,6 +26,7 @@ func main() {
 			cmd.WhichCmd(),
 			cmd.ClipCmd(),
 			cmd.IpCmd(),
+			cmd.DnsCmd(),
 		},
 	}.Run()
 }

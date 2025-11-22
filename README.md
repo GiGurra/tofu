@@ -101,6 +101,18 @@ Locates executable files associated with a given command.
 
 See [man/man_which.md](man/man_which.md) for details.
 
+### tofu ip
+
+Show local and public IP addresses, DNS servers, and default gateway.
+
+See [man/man_ip.md](man/man_ip.md) for details.
+
+### tofu dns
+
+Lookup DNS records (A, AAAA, MX, etc.) using custom or OS resolvers.
+
+See [man/man_dns.md](man/man_dns.md) for details.
+
 **Coming soon:**
 
 - `tofu http` - Human-friendly HTTP client (curl/httpie alternative)
