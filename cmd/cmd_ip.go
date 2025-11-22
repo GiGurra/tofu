@@ -62,6 +62,32 @@ func runIp(params *IpParams, stdout io.Writer) {
 			fmt.Fprintf(stdout, "  %s\n", strings.TrimSpace(ip))
 		}
 	}
+
+	// DNS Servers
+	fmt.Fprintln(stdout, "\nDNS Servers:")
+	dns, err := getDNS()
+	if err != nil {
+		// On some OSes/configs we might not be able to get this easily without cgo or heavy libs
+		// just show the error.
+		fmt.Fprintf(stdout, "  Error getting DNS: %v\n", err)
+	} else if len(dns) > 0 {
+		for _, d := range dns {
+			fmt.Fprintf(stdout, "  %s\n", d)
+		}
+	} else {
+		fmt.Fprintln(stdout, "  (none found)")
+	}
+
+	// Default Gateway
+	fmt.Fprintln(stdout, "\nDefault Gateway:")
+	gw, err := getGateway()
+	if err != nil {
+		fmt.Fprintf(stdout, "  Error getting Gateway: %v\n", err)
+	} else if gw != "" {
+		fmt.Fprintf(stdout, "  %s\n", gw)
+	} else {
+		fmt.Fprintln(stdout, "  (none found)")
+	}
 }
 
 func getPublicIP() (string, error) {
