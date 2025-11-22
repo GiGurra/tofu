@@ -25,6 +25,7 @@ func main() {
 			cmd.WatchCmd(),
 			cmd.WhichCmd(),
 			cmd.ClipCmd(),
+			cmd.IpCmd(),
 		},
 	}.Run()
 }
