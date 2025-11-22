@@ -17,7 +17,7 @@ import (
 type DnsParams struct {
 	Hostname string `pos:"true" help:"Hostname to lookup"`
 	Server   string `short:"s" help:"DNS server to use (e.g. 8.8.8.8). Defaults to 8.8.8.8:53" default:"8.8.8.8:53"`
-	UseOS    bool   `short:"o" help:"Use OS resolver instead of direct query (ignores --server)"`
+	UseOS    bool   `short:"o" long:"use-os" help:"Use OS resolver instead of direct query (ignores --server)"`
 	Types    string `short:"t" help:"Comma-separated list of record types to query (A,AAAA,CNAME,MX,TXT,NS,PTR). Default: all common types" default:""`
 }
 
@@ -139,7 +139,7 @@ func runDns(params *DnsParams, stdout io.Writer) {
 					fmt.Fprintf(stdout, "  %s\n", ns.Host)
 				}
 			})
-			
+
 		case "PTR":
 			// Usually for IPs, but user might ask for it on a hostname
 			names, err := resolver.LookupAddr(ctx, params.Hostname)
@@ -179,7 +179,7 @@ func printSection(w io.Writer, title string, err error, printContent func()) {
 		fmt.Fprintf(w, "%s:\n  Error: %v\n\n", title, err)
 		return
 	}
-	
+
 	// Buffer content to check if it's empty? No, callback handles logic.
 	// But we want to print title only if there is content?
 	// The current callback approach prints directly.
