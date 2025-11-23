@@ -31,6 +31,9 @@ func TestRunNc_ClientServer_TCP(t *testing.T) {
 
 	portStr := strconv.Itoa(port)
 
+	// Wait a bit for server to start listening
+	time.Sleep(500 * time.Millisecond)
+
 	// Run Server
 	go func() {
 		defer wg.Done()
