@@ -28,6 +28,7 @@ func main() {
 			cmd.IpCmd(),
 			cmd.DnsCmd(),
 			cmd.HttpCmd(),
+			cmd.NcCmd(),
 		},
 	}.Run()
 }

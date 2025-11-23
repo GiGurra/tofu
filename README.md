@@ -119,6 +119,12 @@ Human-friendly HTTP client (curl/httpie alternative).
 
 See [man/man_http.md](man/man_http.md) for details.
 
+### tofu nc
+
+Netcat clone: Connect to or listen on sockets (TCP/UDP).
+
+See [man/man_nc.md](man/man_nc.md) for details.
+
 **Coming soon:**
 
 - `tofu json` - Simple JSON formatter and query tool (jq lite)
