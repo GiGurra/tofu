@@ -37,15 +37,15 @@ func TestServeCommand(t *testing.T) {
 	port := 45678
 
 	params := &ServeParams{
-		Port:    port,
-		Dir:     tmpDir,
-		Host:    "localhost",
-		SpaMode: true,
-		NoCache: true,
-		ReadTimeoutMillis: 1000,
+		Port:               port,
+		Dir:                tmpDir,
+		Host:               "localhost",
+		SpaMode:            true,
+		NoCache:            true,
+		ReadTimeoutMillis:  1000,
 		WriteTimeoutMillis: 1000,
-		IdleTimeoutMillis: 1000,
-		MaxHeaderBytes: 1024,
+		IdleTimeoutMillis:  1000,
+		MaxHeaderBytes:     1024,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

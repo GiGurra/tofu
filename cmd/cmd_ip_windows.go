@@ -22,9 +22,9 @@ func getDNS() ([]string, error) {
 	scanner := bufio.NewScanner(strings.NewReader(output))
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		// Look for "DNS Servers" or localized variants if possible, 
+		// Look for "DNS Servers" or localized variants if possible,
 		// but standard "ipconfig" usually outputs "DNS Servers" even in many localized versions,
-		// or at least we can search for the pattern. 
+		// or at least we can search for the pattern.
 		// However, accurate parsing of ipconfig is tricky across languages.
 		// "DNS Servers . . . . . . . . . . . : 1.1.1.1"
 		if strings.Contains(line, "DNS Server") {

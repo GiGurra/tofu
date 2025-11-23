@@ -16,10 +16,10 @@ type FreeParams struct {
 
 func FreeCmd() *cobra.Command {
 	return boa.CmdT[FreeParams]{
-		Use:         "free",
-		Short:       "Display amount of free and used memory in the system",
+		Use:   "free",
+		Short: "Display amount of free and used memory in the system",
 		Long: `Display the total, used, and free amount of physical and swap memory in the system.
-By default, the output is in kilobytes. Use -m for megabytes or -g for gigabytes.`, 
+By default, the output is in kilobytes. Use -m for megabytes or -g for gigabytes.`,
 		ParamEnrich: defaultParamEnricher(),
 		RunFunc: func(params *FreeParams, cmd *cobra.Command, args []string) {
 			if err := runFree(params); err != nil {

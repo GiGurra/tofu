@@ -122,7 +122,7 @@ func TestWatchCommand(t *testing.T) {
 			t.Errorf("runWatch returned error: %v", err)
 		}
 	case <-time.After(1 * time.Second):
-			t.Errorf("runWatch did not exit after context cancellation")
+		t.Errorf("runWatch did not exit after context cancellation")
 	}
 }
 

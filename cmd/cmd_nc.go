@@ -114,7 +114,7 @@ func runNcServer(protocol, address string, verbose bool, stdin io.Reader, stdout
 			return err
 		}
 		defer conn.Close()
-		
+
 		buf := make([]byte, 64*1024)
 		n, remoteAddr, err := conn.ReadFromUDP(buf)
 		if err != nil {
@@ -123,7 +123,7 @@ func runNcServer(protocol, address string, verbose bool, stdin io.Reader, stdout
 		if verbose {
 			fmt.Fprintf(stderr, "Connection from %s\n", remoteAddr)
 		}
-		
+
 		// Write initial data to stdout
 		if _, err := stdout.Write(buf[:n]); err != nil {
 			return err
@@ -132,7 +132,7 @@ func runNcServer(protocol, address string, verbose bool, stdin io.Reader, stdout
 		// To send data back, we need a separate goroutine reading stdin
 		go func() {
 			io.Copy(&udpWriter{conn, remoteAddr}, stdin)
-			conn.Close() 
+			conn.Close()
 		}()
 
 		// Continue reading from socket

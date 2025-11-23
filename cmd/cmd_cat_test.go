@@ -102,11 +102,11 @@ func TestCatReader_SqueezeBlank(t *testing.T) {
 }
 
 func TestRunCat_Integration(t *testing.T) {
-	// t.TempDir() automatically creates a temporary directory that is 
+	// t.TempDir() automatically creates a temporary directory that is
 	// deleted (along with its contents) when the test finishes.
 	// This is safer and cleaner than manual defer os.RemoveAll(...).
 	tmpDir := t.TempDir()
-	
+
 	file1 := filepath.Join(tmpDir, "file1.txt")
 	file2 := filepath.Join(tmpDir, "file2.txt")
 

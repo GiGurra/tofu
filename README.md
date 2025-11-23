@@ -155,6 +155,12 @@ Display amount of free and used memory in the system.
 
 See [man/man_free.md](man/man_free.md) for details.
 
+### tofu ps
+
+Report a snapshot of the current processes with filtering options.
+
+See [man/man_ps.md](man/man_ps.md) for details.
+
 **Coming soon:**
 
 - `tofu json` - Simple JSON formatter and query tool (jq lite)
@@ -162,7 +168,6 @@ See [man/man_free.md](man/man_free.md) for details.
 - `tofu url` - URL encoder/decoder and parser
 - `tofu rand` - Random string, hex, int, and password generator
 - `tofu archive` - Create or extract common archive formats (zip, tar, gz)
-- `tofu ps` - Cross-platform process lister and killer
 - `tofu semver` - Semantic versioning utilities (bump, sort)
 - `tofu count` - Line, word, and character counter
 - ...and more based on what we're all tired of fighting with

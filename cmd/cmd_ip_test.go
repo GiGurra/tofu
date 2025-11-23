@@ -26,7 +26,7 @@ func TestIpCmd_LocalOnly(t *testing.T) {
 }
 
 func TestIpCmd_Public(t *testing.T) {
-	// This test actually hits the network, so it might be flaky or slow. 
+	// This test actually hits the network, so it might be flaky or slow.
 	// We can skip it if -short is passed or just accept it as an integration test.
 	if testing.Short() {
 		t.Skip("Skipping public IP test in short mode")

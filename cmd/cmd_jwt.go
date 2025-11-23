@@ -22,7 +22,7 @@ func JwtCmd() *cobra.Command {
 		Short: "Decode and inspect JWT tokens",
 		Long: `Decode and inspect JSON Web Tokens (JWT).
 The token can be provided as an argument or via standard input.
-Displays the decoded Header, Payload (Claims), and the Signature.`, 
+Displays the decoded Header, Payload (Claims), and the Signature.`,
 		ParamEnrich: defaultParamEnricher(),
 		RunFunc: func(params *JwtParams, cmd *cobra.Command, args []string) {
 			token := ""
@@ -37,7 +37,7 @@ Displays the decoded Header, Payload (Claims), and the Signature.`,
 						fmt.Fprintf(os.Stderr, "Error reading from stdin: %v\n", err)
 						os.Exit(1)
 					}
-				token = strings.TrimSpace(string(data))
+					token = strings.TrimSpace(string(data))
 				}
 			}
 

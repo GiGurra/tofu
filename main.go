@@ -34,6 +34,7 @@ func main() {
 			cmd.JwtCmd(),
 			cmd.HashCmd(),
 			cmd.FreeCmd(),
+			cmd.PsCmd(),
 		},
 	}.Run()
 }

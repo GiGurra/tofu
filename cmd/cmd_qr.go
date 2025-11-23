@@ -56,10 +56,10 @@ func runQr(params *QrParams) error {
 		level = qrcode.Low
 	case "medium", "m":
 		level = qrcode.Medium
-	case "high", "h", "q": // 'Q' is technically Quartile (approx 25%), often mapped between M and H, but here let's map to High or keep distinct if lib supports it. 
-		// go-qrcode supports Low, Medium, High, Highest. 
+	case "high", "h", "q": // 'Q' is technically Quartile (approx 25%), often mapped between M and H, but here let's map to High or keep distinct if lib supports it.
+		// go-qrcode supports Low, Medium, High, Highest.
 		// Standard QR: L(7%), M(15%), Q(25%), H(30%).
-		// go-qrcode: Low, Medium, High, Highest. 
+		// go-qrcode: Low, Medium, High, Highest.
 		level = qrcode.High
 	case "highest":
 		level = qrcode.Highest
@@ -73,19 +73,19 @@ func runQr(params *QrParams) error {
 	// We render manually to the terminal using ANSI colors or block characters.
 	// Standard QR codes are Black modules on White background.
 	// Terminals are often Black background.
-	
+
 	// Strategy: Use ANSI background colors.
 	// Black Module: \033[40m  \033[0m (Black bg, 2 spaces)
 	// White Module: \033[47m  \033[0m (White bg, 2 spaces)
-	
+
 	matrix := qr.Bitmap()
-	
+
 	// By default (no invert), we want standard QR: Black ink on White paper.
 	// Black Module (Data) -> ANSI Black BG
 	// White Module (Empty) -> ANSI White BG
-	
+
 	var blackStr, whiteStr string
-	
+
 	if params.Invert {
 		// "Inverted" (White ink on Black paper)
 		// Data (True) = White
@@ -102,7 +102,7 @@ func runQr(params *QrParams) error {
 
 	// We assume the bitmap from go-qrcode includes the quiet zone?
 	// Checking docs/source... go-qrcode's Bitmap() returns the raw matrix including quiet zone if DisableBorder is false (default).
-	
+
 	for _, row := range matrix {
 		for _, col := range row {
 			if col {

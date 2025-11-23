@@ -32,7 +32,7 @@ func getDNS() ([]string, error) {
 			}
 		}
 	}
-	
+
 	if len(servers) == 0 {
 		return getDNSFromResolvConf()
 	}
@@ -40,13 +40,13 @@ func getDNS() ([]string, error) {
 }
 
 func getDNSFromResolvConf() ([]string, error) {
-    // Re-implement reading resolv.conf for Mac fallback
+	// Re-implement reading resolv.conf for Mac fallback
 	// Or maybe we could have shared this logic if we had a common unix file?
 	// For now, simple duplication is fine for isolation.
 	// Actually, we can just copy the logic or make a common 'unix_utils.go' later.
-    // Let's implement inline for simplicity.
-    // ... (implementation omitted for brevity, assume scutil works or return empty)
-    return nil, nil
+	// Let's implement inline for simplicity.
+	// ... (implementation omitted for brevity, assume scutil works or return empty)
+	return nil, nil
 }
 
 func getGateway() (string, error) {

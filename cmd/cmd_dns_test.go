@@ -10,7 +10,7 @@ func TestDnsCmd_Structure(t *testing.T) {
 	// This test checks if the command structure and flag parsing works.
 	// We avoid making actual network calls in this unit test by not running RunFunc,
 	// or by expecting failure but checking output format if we do.
-	
+
 	cmd := DnsCmd()
 	if cmd.Use != "dns <hostname>" {
 		t.Errorf("Expected command use to be 'dns <hostname>', got '%s'", cmd.Use)

@@ -19,7 +19,7 @@ func TestWhichCmd(t *testing.T) {
 		exeName += ".exe"
 	}
 	exePath := filepath.Join(tempDir, exeName)
-	
+
 	// Create the file and make it executable
 	f, err := os.Create(exePath)
 	if err != nil {
@@ -33,7 +33,7 @@ func TestWhichCmd(t *testing.T) {
 	// Add tempDir to PATH
 	oldPath := os.Getenv("PATH")
 	defer os.Setenv("PATH", oldPath)
-	
+
 	newPath := tempDir + string(os.PathListSeparator) + oldPath
 	os.Setenv("PATH", newPath)
 
@@ -73,9 +73,9 @@ func TestWhichCmd(t *testing.T) {
 			params := &WhichParams{
 				Programs: tt.programs,
 			}
-			
+
 			exitCode := runWhich(params, &stdout, &stderr)
-			
+
 			if exitCode != tt.wantExitCode {
 				t.Errorf("runWhich() exitCode = %v, want %v", exitCode, tt.wantExitCode)
 			}
