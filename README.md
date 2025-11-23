@@ -149,6 +149,12 @@ Calculate cryptographic hashes (MD5, SHA1, SHA256, SHA512) for files or stdin.
 
 See [man/man_hash.md](man/man_hash.md) for details.
 
+### tofu free
+
+Display amount of free and used memory in the system.
+
+See [man/man_free.md](man/man_free.md) for details.
+
 **Coming soon:**
 
 - `tofu json` - Simple JSON formatter and query tool (jq lite)

@@ -33,6 +33,7 @@ func main() {
 			cmd.Base64Cmd(),
 			cmd.JwtCmd(),
 			cmd.HashCmd(),
+			cmd.FreeCmd(),
 		},
 	}.Run()
 }
