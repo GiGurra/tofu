@@ -113,9 +113,14 @@ Lookup DNS records (A, AAAA, MX, etc.) using custom or OS resolvers.
 
 See [man/man_dns.md](man/man_dns.md) for details.
 
+### tofu http
+
+Human-friendly HTTP client (curl/httpie alternative).
+
+See [man/man_http.md](man/man_http.md) for details.
+
 **Coming soon:**
 
-- `tofu http` - Human-friendly HTTP client (curl/httpie alternative)
 - `tofu json` - Simple JSON formatter and query tool (jq lite)
 - ...and more based on what we're all tired of fighting with
 

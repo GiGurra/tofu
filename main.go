@@ -27,6 +27,7 @@ func main() {
 			cmd.ClipCmd(),
 			cmd.IpCmd(),
 			cmd.DnsCmd(),
+			cmd.HttpCmd(),
 		},
 	}.Run()
 }
