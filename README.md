@@ -131,6 +131,12 @@ Render QR codes in the terminal.
 
 See [man/man_qr.md](man/man_qr.md) for details.
 
+### tofu base64
+
+Base64 encode/decode files or stdin.
+
+See [man/man_base64.md](man/man_base64.md) for details.
+
 **Coming soon:**
 
 - `tofu json` - Simple JSON formatter and query tool (jq lite)
