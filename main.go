@@ -29,6 +29,7 @@ func main() {
 			cmd.DnsCmd(),
 			cmd.HttpCmd(),
 			cmd.NcCmd(),
+			cmd.QrCmd(),
 		},
 	}.Run()
 }
