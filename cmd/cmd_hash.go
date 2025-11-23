@@ -16,7 +16,7 @@ import (
 
 type HashParams struct {
 	Files []string `pos:"true" optional:"true" help:"Files to hash. Read from stdin if none or '-'."`
-	Algo  string   `short:"a" help:"Hash algorithm (md5, sha1, sha256, sha512)." default:"sha256"`
+	Algo  string   `short:"a" help:"Hash algorithm (md5, sha1, sha256, sha512)." default:"sha256" alts:"md5,sha1,sha256,sha512"`
 }
 
 func HashCmd() *cobra.Command {
@@ -24,7 +24,7 @@ func HashCmd() *cobra.Command {
 		Use:   "hash [flags] [files...]",
 		Short: "Calculate file hashes",
 		Long: `Calculate cryptographic hashes for files or standard input.
-Supported algorithms: md5, sha1, sha256, sha512.`, 
+Supported algorithms: md5, sha1, sha256, sha512.`,
 		ParamEnrich: defaultParamEnricher(),
 		RunFunc: func(params *HashParams, cmd *cobra.Command, args []string) {
 			if err := runHash(params, os.Stdout, os.Stdin); err != nil {
