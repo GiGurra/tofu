@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -14,14 +16,21 @@ func captureOutput(f func() error) (string, error) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := f()
-
-	w.Close()
-	os.Stdout = old
+	var captureErr error
 
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
-	return buf.String(), err
+	wg := sync.WaitGroup{}
+	wg.Go(func() {
+		_, captureErr = io.Copy(&buf, r)
+	})
+
+	err := f()
+	w.Close()
+
+	wg.Wait()
+	os.Stdout = old
+
+	return buf.String(), errors.Join(err, captureErr)
 }
 
 func TestRunQr(t *testing.T) {
