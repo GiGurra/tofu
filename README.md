@@ -140,7 +140,6 @@ See [man/man_base64.md](man/man_base64.md) for details.
 **Coming soon:**
 
 - `tofu json` - Simple JSON formatter and query tool (jq lite)
-- `tofu base64` - Cross-platform base64 encoder/decoder
 - `tofu hash` - Calculate file hashes (MD5, SHA1, SHA256, etc)
 - `tofu jwt` - JWT debugger (decode and view claims)
 - ...and more based on what we're all tired of fighting with
