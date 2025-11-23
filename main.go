@@ -30,6 +30,7 @@ func main() {
 			cmd.HttpCmd(),
 			cmd.NcCmd(),
 			cmd.QrCmd(),
+			cmd.Base64Cmd(),
 		},
 	}.Run()
 }
