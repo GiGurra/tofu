@@ -17,7 +17,7 @@ func TestRunNc_ClientServer_TCP(t *testing.T) {
 		t.Fatalf("Failed to listen: %v", err)
 	}
 	port := l.Addr().(*net.TCPAddr).Port
-	l.Close() 
+	l.Close()
 
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -48,7 +48,7 @@ func TestRunNc_ClientServer_TCP(t *testing.T) {
 	}()
 
 	// Wait a bit for server to start listening
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 
 	// Run Client
 	go func() {
@@ -73,11 +73,11 @@ func TestRunNc_ClientServer_TCP(t *testing.T) {
 	// Server sees EOF from conn. copy(stdout, conn) finishes.
 	// Server pipeStream should return.
 	//
-	// However, server also sends "Hello Client". 
+	// However, server also sends "Hello Client".
 	// Client needs to read it.
-	
+
 	// Let's rely on timeouts if it hangs, but in a test we want it to finish cleanly.
-	
+
 	// Wait for completion with timeout
 	done := make(chan struct{})
 	go func() {
@@ -103,8 +103,8 @@ func TestRunNc_ClientServer_TCP(t *testing.T) {
 
 func TestParseNcArgs(t *testing.T) {
 	tests := []struct {
-		args    []string
-		listen  bool
+		args     []string
+		listen   bool
 		wantHost string
 		wantPort string
 		wantErr  bool
