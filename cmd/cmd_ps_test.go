@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -61,10 +62,16 @@ func TestPsCommand(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
+			wg := sync.WaitGroup{}
+			wg.Go(func() {
+				io.Copy(&stdoutBuf, r)
+			})
+
 			err := runPs(tc.params)
+
 			w.Close()
+			wg.Wait()
 			os.Stdout = oldStdout // Restore original Stdout
-			io.Copy(&stdoutBuf, r)
 
 			if tc.expectsErr && err == nil {
 				t.Errorf("Expected an error, but got none")
