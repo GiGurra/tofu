@@ -167,11 +167,16 @@ Show current time in various formats or parse a provided timestamp, with optiona
 
 See [man/man_time.md](man/man_time.md) for details.
 
+### tofu rand
+
+Generate random strings, integers, hex, base64, passwords, and passphrases.
+
+See [man/man_rand.md](man/man_rand.md) for details.
+
 **Coming soon:**
 
 - `tofu json` - Simple JSON formatter and query tool (jq lite)
 - `tofu url` - URL encoder/decoder and parser
-- `tofu rand` - Random string, hex, int, and password generator
 - `tofu archive` - Create or extract common archive formats (zip, tar, gz)
 - `tofu semver` - Semantic versioning utilities (bump, sort)
 - `tofu count` - Line, word, and character counter

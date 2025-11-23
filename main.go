@@ -36,6 +36,7 @@ func main() {
 			cmd.FreeCmd(),
 			cmd.PsCmd(),
 			cmd.TimeCmd(),
+			cmd.RandCmd(),
 		},
 	}.Run()
 }
