@@ -125,13 +125,18 @@ Netcat clone: Connect to or listen on sockets (TCP/UDP).
 
 See [man/man_nc.md](man/man_nc.md) for details.
 
+### tofu qr
+
+Render QR codes in the terminal.
+
+See [man/man_qr.md](man/man_qr.md) for details.
+
 **Coming soon:**
 
 - `tofu json` - Simple JSON formatter and query tool (jq lite)
 - `tofu base64` - Cross-platform base64 encoder/decoder
 - `tofu hash` - Calculate file hashes (MD5, SHA1, SHA256, etc)
 - `tofu jwt` - JWT debugger (decode and view claims)
-- `tofu qr` - Render QR codes in the terminal
 - ...and more based on what we're all tired of fighting with
 
 ## Installation
