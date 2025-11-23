@@ -152,6 +152,13 @@ See [man/man_hash.md](man/man_hash.md) for details.
 **Coming soon:**
 
 - `tofu json` - Simple JSON formatter and query tool (jq lite)
+- `tofu time` - The Epoch Converter (timestamp to human, human to timestamp)
+- `tofu url` - URL encoder/decoder and parser
+- `tofu rand` - Random string, hex, int, and password generator
+- `tofu archive` - Create or extract common archive formats (zip, tar, gz)
+- `tofu ps` - Cross-platform process lister and killer
+- `tofu semver` - Semantic versioning utilities (bump, sort)
+- `tofu count` - Line, word, and character counter
 - ...and more based on what we're all tired of fighting with
 
 ## Installation
