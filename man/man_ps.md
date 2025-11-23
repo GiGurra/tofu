@@ -20,6 +20,7 @@ Flags:
   -h, --help          help for ps
   -v, --invert        Invert filtering (matches non-matching processes).
   -n, --name string   Filter by command name (substring).
+  -N, --no-truncate   Do not truncate command line output.
   -p, --pids ints     Filter by PID(s).
   -u, --users strings Filter by username(s).
 ```
@@ -27,6 +28,8 @@ Flags:
 ## Description
 
 The `ps` command displays a list of currently running processes. By default, it shows the PID and the command name. The `--full` (or `-f`) flag adds more detailed columns including PPID, User, Status, CPU usage, Memory usage, and the full command line.
+
+By default, long command lines are truncated to fit within 50 characters in the full view. Use `-N` or `--no-truncate` to display the full command line.
 
 You can filter the list of processes by:
 - **PID**: Using `-p` or `--pids` (comma-separated list).

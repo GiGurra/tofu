@@ -14,12 +14,13 @@ import (
 )
 
 type PsParams struct {
-	Full    bool     `short:"f" help:"Display full format listing."`
-	Users   []string `short:"u" optional:"true" help:"Filter by username(s)."`
-	Pids    []int32  `short:"p" optional:"true" help:"Filter by PID(s)."`
-	Name    string   `short:"n" optional:"true" help:"Filter by command name (substring)."`
-	Current bool     `short:"c" help:"Show only processes owned by the current user."`
-	Invert  bool     `short:"v" help:"Invert filtering (matches non-matching processes)."`
+	Full       bool     `short:"f" help:"Display full format listing."`
+	Users      []string `short:"u" optional:"true" help:"Filter by username(s)."`
+	Pids       []int32  `short:"p" optional:"true" help:"Filter by PID(s)."`
+	Name       string   `short:"n" optional:"true" help:"Filter by command name (substring)."`
+	Current    bool     `short:"c" help:"Show only processes owned by the current user."`
+	Invert     bool     `short:"v" help:"Invert filtering (matches non-matching processes)."`
+	NoTruncate bool     `short:"N" help:"Do not truncate command line output."`
 }
 
 func PsCmd() *cobra.Command {
@@ -29,7 +30,8 @@ func PsCmd() *cobra.Command {
 		Long: `Displays information about a selection of the active processes.
 By default, it lists all processes with a minimal set of columns.
 Use -f for a full format listing.
-Filters can be combined (AND logic). Use -v to invert the filter.`,
+Filters can be combined (AND logic). Use -v to invert the filter.
+Use -N to prevent truncation of command line output.`,
 		ParamEnrich: defaultParamEnricher(),
 		RunFunc: func(params *PsParams, cmd *cobra.Command, args []string) {
 			if err := runPs(params); err != nil {
@@ -96,7 +98,7 @@ func runPs(params *PsParams) error {
 			cmdline, _ := p.Cmdline()
 			if cmdline == "" {
 				cmdline = name
-			} else if len(cmdline) > 50 {
+			} else if !params.NoTruncate && len(cmdline) > 50 {
 				cmdline = cmdline[:47] + "..."
 			}
 
@@ -163,8 +165,8 @@ func shouldInclude(p *process.Process, params *PsParams, currentUsername string)
 	// Current User Filter (if still matched)
 	if matched && params.Current {
 		username, _ := p.Username()
-		// Simple string comparison. 
-		// Note: On Windows, username might differ slightly (case, domain prefix). 
+		// Simple string comparison.
+		// Note: On Windows, username might differ slightly (case, domain prefix).
 		// Ideally we'd compare UIDs/SIDs, but gopsutil Uids() returns []int32 on unix and error on windows sometimes?
 		// Stick to string for now.
 		if username != currentUsername {

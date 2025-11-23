@@ -10,14 +10,14 @@ import (
 )
 
 func TestPsCommand(t *testing.T) {
-	// We can't easily predict PIDs or other users, so we'll test basic flags 
+	// We can't easily predict PIDs or other users, so we'll test basic flags
 	// and potentially the "current user" flag assuming the test runner has processes.
-	
+
 	tests := []struct {
-		name       string
-		params     *PsParams
-		expectsErr bool
-		expectsOut []string // Substrings to check for in output
+		name        string
+		params      *PsParams
+		expectsErr  bool
+		expectsOut  []string // Substrings to check for in output
 		excludesOut []string // Substrings that should NOT appear
 	}{
 		{
@@ -44,6 +44,12 @@ func TestPsCommand(t *testing.T) {
 			expectsErr: false,
 			// Should output header but no rows (technically header is always printed)
 			expectsOut: []string{"PID"},
+		},
+		{
+			name:       "no_truncate_output",
+			params:     &PsParams{Full: true, NoTruncate: true},
+			expectsErr: false,
+			expectsOut: []string{"PID", "COMMAND"},
 		},
 	}
 
@@ -77,12 +83,12 @@ func TestPsCommand(t *testing.T) {
 					t.Errorf("Output \n%q\n SHOULD NOT contain substring %q", output, excludedSubstring)
 				}
 			}
-			
+
 			if tc.name == "filter_by_nonexistent_name" {
 				// Check that it only has the header (1 line) or 2 lines if using tabwriter differently?
 				lines := strings.Split(strings.TrimSpace(output), "\n")
 				if len(lines) > 1 {
-					// This check is a bit brittle if there actually IS a process named like that, 
+					// This check is a bit brittle if there actually IS a process named like that,
 					// but highly unlikely.
 					t.Logf("Warning: Found processes matching nonsense name: %v", lines[1:])
 				}
@@ -94,10 +100,10 @@ func TestPsCommand(t *testing.T) {
 func TestPsFilterLogic(t *testing.T) {
 	// This test intends to verify specific filtering logic with real system data
 	// It's an integration test.
-	
+
 	myPid := int32(os.Getpid())
-	
-t.Run("filter_by_self_pid", func(t *testing.T) {
+
+	t.Run("filter_by_self_pid", func(t *testing.T) {
 		var stdoutBuf bytes.Buffer
 		oldStdout := os.Stdout
 		r, w, _ := os.Pipe()
