@@ -35,6 +35,7 @@ func main() {
 			cmd.HashCmd(),
 			cmd.FreeCmd(),
 			cmd.PsCmd(),
+			cmd.TimeCmd(),
 		},
 	}.Run()
 }

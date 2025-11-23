@@ -161,10 +161,15 @@ Report a snapshot of the current processes with filtering options.
 
 See [man/man_ps.md](man/man_ps.md) for details.
 
+### tofu time
+
+Show current time in various formats or parse a provided timestamp, with optional input format specification.
+
+See [man/man_time.md](man/man_time.md) for details.
+
 **Coming soon:**
 
 - `tofu json` - Simple JSON formatter and query tool (jq lite)
-- `tofu time` - The Epoch Converter (timestamp to human, human to timestamp)
 - `tofu url` - URL encoder/decoder and parser
 - `tofu rand` - Random string, hex, int, and password generator
 - `tofu archive` - Create or extract common archive formats (zip, tar, gz)
