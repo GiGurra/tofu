@@ -81,6 +81,9 @@ func TestRunNc_ClientServer_TCP(t *testing.T) {
 
 	// Let's rely on timeouts if it hangs, but in a test we want it to finish cleanly.
 
+	// Wait a bit for server to start listening
+	time.Sleep(500 * time.Millisecond)
+
 	// Wait for completion with timeout
 	done := make(chan struct{})
 	go func() {
