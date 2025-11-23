@@ -208,6 +208,8 @@ Like tofu, these tools are:
 - **Essential** - The protein your CLI diet needs
 - **Modern** - A contemporary take on traditional ingredients
 
+(And perhaps, in a very specific light, almost as divinely inspired as TempleOS. Almost.)
+
 Plus, it's fun to say you're "serving fresh tofu" when you ship a new tool. 🍴
 
 ## Development Status
