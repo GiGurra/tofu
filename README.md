@@ -143,10 +143,15 @@ Decode and inspect JWT tokens (Header, Claims/Payload).
 
 See [man/man_jwt.md](man/man_jwt.md) for details.
 
+### tofu hash
+
+Calculate cryptographic hashes (MD5, SHA1, SHA256, SHA512) for files or stdin.
+
+See [man/man_hash.md](man/man_hash.md) for details.
+
 **Coming soon:**
 
 - `tofu json` - Simple JSON formatter and query tool (jq lite)
-- `tofu hash` - Calculate file hashes (MD5, SHA1, SHA256, etc)
 - ...and more based on what we're all tired of fighting with
 
 ## Installation

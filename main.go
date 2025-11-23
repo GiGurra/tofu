@@ -32,6 +32,7 @@ func main() {
 			cmd.QrCmd(),
 			cmd.Base64Cmd(),
 			cmd.JwtCmd(),
+			cmd.HashCmd(),
 		},
 	}.Run()
 }
