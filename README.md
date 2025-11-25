@@ -173,6 +173,12 @@ Generate random strings, integers, hex, base64, passwords, and passphrases.
 
 See [man/man_rand.md](man/man_rand.md) for details.
 
+### tofu env
+
+Cross-platform environment variable management. List, get, set, filter, and export environment variables.
+
+See [man/man_env.md](man/man_env.md) for details.
+
 **Coming soon:**
 
 - `tofu json` - Simple JSON formatter and query tool (jq lite)
@@ -180,6 +186,10 @@ See [man/man_rand.md](man/man_rand.md) for details.
 - `tofu archive` - Create or extract common archive formats (zip, tar, gz)
 - `tofu semver` - Semantic versioning utilities (bump, sort)
 - `tofu count` - Line, word, and character counter
+- `tofu diff` - Modern file diff with color output
+- `tofu tail` - Real-time log following (tail -f replacement)
+- `tofu cron` - Explain and validate cron expressions
+- `tofu yaml` - YAML validation and conversion
 - ...and more based on what we're all tired of fighting with
 
 ## Installation

@@ -37,6 +37,7 @@ func main() {
 			cmd.PsCmd(),
 			cmd.TimeCmd(),
 			cmd.RandCmd(),
+			cmd.EnvCmd(),
 		},
 	}.Run()
 }
