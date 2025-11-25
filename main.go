@@ -40,6 +40,7 @@ func main() {
 			cmd.EnvCmd(),
 			cmd.CronCmd(),
 			cmd.CountCmd(),
+			cmd.DiffCmd(),
 		},
 	}.Run()
 }

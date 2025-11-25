@@ -191,13 +191,18 @@ Count lines, words, characters, and bytes in files. A modern alternative to `wc`
 
 See [man/man_count.md](man/man_count.md) for details.
 
+### tofu diff
+
+Compare two files line by line with colored output. Supports unified and side-by-side formats.
+
+See [man/man_diff.md](man/man_diff.md) for details.
+
 **Coming soon:**
 
 - `tofu json` - Simple JSON formatter and query tool (jq lite)
 - `tofu url` - URL encoder/decoder and parser
 - `tofu archive` - Create or extract common archive formats (zip, tar, gz)
 - `tofu semver` - Semantic versioning utilities (bump, sort)
-- `tofu diff` - Modern file diff with color output
 - `tofu tail` - Real-time log following (tail -f replacement)
 - `tofu yaml` - YAML validation and conversion
 - ...and more based on what we're all tired of fighting with
