@@ -185,13 +185,18 @@ Explain and validate cron expressions. Parses standard 5-field and extended 6-fi
 
 See [man/man_cron.md](man/man_cron.md) for details.
 
+### tofu count
+
+Count lines, words, characters, and bytes in files. A modern alternative to `wc` with clearer flags and Unicode support.
+
+See [man/man_count.md](man/man_count.md) for details.
+
 **Coming soon:**
 
 - `tofu json` - Simple JSON formatter and query tool (jq lite)
 - `tofu url` - URL encoder/decoder and parser
 - `tofu archive` - Create or extract common archive formats (zip, tar, gz)
 - `tofu semver` - Semantic versioning utilities (bump, sort)
-- `tofu count` - Line, word, and character counter
 - `tofu diff` - Modern file diff with color output
 - `tofu tail` - Real-time log following (tail -f replacement)
 - `tofu yaml` - YAML validation and conversion
