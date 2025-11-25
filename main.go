@@ -38,6 +38,7 @@ func main() {
 			cmd.TimeCmd(),
 			cmd.RandCmd(),
 			cmd.EnvCmd(),
+			cmd.CronCmd(),
 		},
 	}.Run()
 }

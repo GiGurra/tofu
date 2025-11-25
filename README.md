@@ -179,6 +179,12 @@ Cross-platform environment variable management. List, get, set, filter, and expo
 
 See [man/man_env.md](man/man_env.md) for details.
 
+### tofu cron
+
+Explain and validate cron expressions. Parses standard 5-field and extended 6-field cron expressions with human-readable output.
+
+See [man/man_cron.md](man/man_cron.md) for details.
+
 **Coming soon:**
 
 - `tofu json` - Simple JSON formatter and query tool (jq lite)
@@ -188,7 +194,6 @@ See [man/man_env.md](man/man_env.md) for details.
 - `tofu count` - Line, word, and character counter
 - `tofu diff` - Modern file diff with color output
 - `tofu tail` - Real-time log following (tail -f replacement)
-- `tofu cron` - Explain and validate cron expressions
 - `tofu yaml` - YAML validation and conversion
 - ...and more based on what we're all tired of fighting with
 
