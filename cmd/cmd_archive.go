@@ -268,14 +268,15 @@ func runArchiveExtract(params *ArchiveExtractParams) error {
 	}
 	err = extractor.Extract(ctx, archiveReader, func(ctx context.Context, f archives.FileInfo) error {
 		// Sanitize the path
-		destPath, err := filepath.Abs(filepath.Join(absOutputRootDir, filepath.Clean(f.NameInArchive)))
+		destPath := filepath.Join(absOutputRootDir, filepath.Clean(f.NameInArchive))
+		destPathAbs, err := filepath.Abs(destPath)
 		if err != nil {
 			return fmt.Errorf("invalid file path: %s", f.NameInArchive)
 		}
 
 		// Security check: ensure we're not writing outside the output directory
-		if !strings.HasPrefix(destPath, filepath.Clean(absOutputRootDir)) &&
-			destPath != filepath.Clean(absOutputRootDir) {
+		if !strings.HasPrefix(destPathAbs, filepath.Clean(absOutputRootDir)) &&
+			destPathAbs != filepath.Clean(absOutputRootDir) {
 			return fmt.Errorf("invalid file path: %s", f.NameInArchive)
 		}
 
@@ -285,11 +286,11 @@ func runArchiveExtract(params *ArchiveExtractParams) error {
 
 		// Handle directories
 		if f.IsDir() {
-			return os.MkdirAll(destPath, f.Mode())
+			return os.MkdirAll(destPathAbs, f.Mode())
 		}
 
 		// Ensure parent directory exists
-		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(destPathAbs), 0755); err != nil {
 			return err
 		}
 
@@ -299,7 +300,7 @@ func runArchiveExtract(params *ArchiveExtractParams) error {
 		}
 
 		// Extract regular file
-		outFile, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, f.Mode())
+		outFile, err := os.OpenFile(destPathAbs, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, f.Mode())
 		if err != nil {
 			return err
 		}
