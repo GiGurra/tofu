@@ -197,13 +197,24 @@ Compare two files line by line with colored output. Supports unified and side-by
 
 See [man/man_diff.md](man/man_diff.md) for details.
 
+### tofu head
+
+Output the first part of files. Works like the Unix `head` command but cross-platform.
+
+See [man/man_head.md](man/man_head.md) for details.
+
+### tofu tail
+
+Output the last part of files with optional real-time following. Works like the Unix `tail` command but cross-platform.
+
+See [man/man_tail.md](man/man_tail.md) for details.
+
 **Coming soon:**
 
 - `tofu json` - Simple JSON formatter and query tool (jq lite)
 - `tofu url` - URL encoder/decoder and parser
 - `tofu archive` - Create or extract common archive formats (zip, tar, gz)
 - `tofu semver` - Semantic versioning utilities (bump, sort)
-- `tofu tail` - Real-time log following (tail -f replacement)
 - `tofu yaml` - YAML validation and conversion
 - ...and more based on what we're all tired of fighting with
 

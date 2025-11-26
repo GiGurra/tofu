@@ -41,6 +41,8 @@ func main() {
 			cmd.CronCmd(),
 			cmd.CountCmd(),
 			cmd.DiffCmd(),
+			cmd.TailCmd(),
+			cmd.HeadCmd(),
 		},
 	}.Run()
 }
