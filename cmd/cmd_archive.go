@@ -262,13 +262,20 @@ func runArchiveExtract(params *ArchiveExtractParams) error {
 	}
 
 	// Extract files
+	absOutputRootDir, err := filepath.Abs(params.Output)
+	if err != nil {
+		return fmt.Errorf("invalid output directory: %s", params.Output)
+	}
 	err = extractor.Extract(ctx, archiveReader, func(ctx context.Context, f archives.FileInfo) error {
 		// Sanitize the path
-		destPath := filepath.Join(params.Output, filepath.Clean(f.NameInArchive))
+		destPath, err := filepath.Abs(filepath.Join(absOutputRootDir, filepath.Clean(f.NameInArchive)))
+		if err != nil {
+			return fmt.Errorf("invalid file path: %s", f.NameInArchive)
+		}
 
 		// Security check: ensure we're not writing outside the output directory
-		if !strings.HasPrefix(destPath, filepath.Clean(params.Output)+string(filepath.Separator)) &&
-			destPath != filepath.Clean(params.Output) {
+		if !strings.HasPrefix(destPath, filepath.Clean(absOutputRootDir)) &&
+			destPath != filepath.Clean(absOutputRootDir) {
 			return fmt.Errorf("invalid file path: %s", f.NameInArchive)
 		}
 
