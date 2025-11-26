@@ -24,15 +24,17 @@ type ArchiveCreateParams struct {
 
 // ArchiveExtractParams holds parameters for archive extraction
 type ArchiveExtractParams struct {
-	Archive string `pos:"true" help:"Archive file to extract"`
-	Output  string `short:"o" optional:"true" help:"Output directory (default: current directory)" default:"."`
-	Verbose bool   `short:"v" optional:"true" help:"Verbose output - list files as they are extracted"`
+	Archive  string `pos:"true" help:"Archive file to extract"`
+	Output   string `short:"o" optional:"true" help:"Output directory (default: current directory)" default:"."`
+	Verbose  bool   `short:"v" optional:"true" help:"Verbose output - list files as they are extracted"`
+	Password string `short:"p" optional:"true" help:"Password for encrypted archives (7z, rar)"`
 }
 
 // ArchiveListParams holds parameters for listing archive contents
 type ArchiveListParams struct {
-	Archive string `pos:"true" help:"Archive file to list"`
-	Long    bool   `short:"l" optional:"true" help:"Long listing format (show size and permissions)"`
+	Archive  string `pos:"true" help:"Archive file to list"`
+	Long     bool   `short:"l" optional:"true" help:"Long listing format (show size and permissions)"`
+	Password string `short:"p" optional:"true" help:"Password for encrypted archives (7z, rar)"`
 }
 
 func ArchiveCmd() *cobra.Command {
@@ -49,10 +51,11 @@ Supported formats:
   - tar.zst     Zstd-compressed tar
   - tar.lz4     LZ4-compressed tar
   - zip         ZIP archive
-  - 7z          7-Zip archive (extract only)
-  - rar         RAR archive (extract only)
+  - 7z          7-Zip archive (extract only, password supported)
+  - rar         RAR archive (extract only, password supported)
 
-The format is auto-detected from the file extension, or can be specified explicitly.`,
+The format is auto-detected from the file extension, or can be specified explicitly.
+Password-protected 7z and rar archives can be extracted using the -p flag.`,
 	}
 
 	cmd.AddCommand(archiveCreateCmd())
@@ -228,6 +231,18 @@ func runArchiveExtract(params *ArchiveExtractParams) error {
 		return fmt.Errorf("cannot identify archive format: %w", err)
 	}
 
+	// Apply password to formats that support it
+	if params.Password != "" {
+		switch f := format.(type) {
+		case archives.SevenZip:
+			f.Password = params.Password
+			format = f
+		case archives.Rar:
+			f.Password = params.Password
+			format = f
+		}
+	}
+
 	extractor, ok := format.(archives.Extractor)
 	if !ok {
 		return fmt.Errorf("format does not support extraction")
@@ -242,14 +257,11 @@ func runArchiveExtract(params *ArchiveExtractParams) error {
 
 	// For formats that need seeking (zip, 7z), we need to use the file directly
 	var archiveReader io.Reader = reader
-	if _, ok := format.(archives.Extractor); ok {
-		// Check if the format needs seeking
-		switch format.(type) {
-		case archives.Zip, archives.SevenZip:
-			// These formats need the original file for seeking
-			archiveFile.Seek(0, io.SeekStart)
-			archiveReader = archiveFile
-		}
+	switch format.(type) {
+	case archives.Zip, archives.SevenZip:
+		// These formats need the original file for seeking
+		archiveFile.Seek(0, io.SeekStart)
+		archiveReader = archiveFile
 	}
 
 	// Extract files
@@ -316,6 +328,18 @@ func runArchiveList(params *ArchiveListParams) error {
 	format, reader, err := archives.Identify(ctx, params.Archive, archiveFile)
 	if err != nil {
 		return fmt.Errorf("cannot identify archive format: %w", err)
+	}
+
+	// Apply password to formats that support it
+	if params.Password != "" {
+		switch f := format.(type) {
+		case archives.SevenZip:
+			f.Password = params.Password
+			format = f
+		case archives.Rar:
+			f.Password = params.Password
+			format = f
+		}
 	}
 
 	extractor, ok := format.(archives.Extractor)

@@ -26,8 +26,8 @@ tofu archive <command> [flags]
 | tar+lz4 | `.tar.lz4` | Yes | Yes |
 | tar+brotli | `.tar.br` | Yes | Yes |
 | zip | `.zip` | Yes | Yes |
-| 7-Zip | `.7z` | No | Yes |
-| RAR | `.rar` | No | Yes |
+| 7-Zip | `.7z` | No | Yes (password supported) |
+| RAR | `.rar` | No | Yes (password supported) |
 
 ## Create Command
 
@@ -87,6 +87,7 @@ tofu archive extract [flags] <archive>
 |------|-------|-------------|
 | `--output` | `-o` | Output directory (default: current directory) |
 | `--verbose` | `-v` | List files as they are extracted |
+| `--password` | `-p` | Password for encrypted archives (7z, rar) |
 
 ### Extract Examples
 
@@ -118,6 +119,13 @@ Extract a 7z archive:
 > tofu archive extract archive.7z
 ```
 
+Extract a password-protected archive:
+
+```
+> tofu archive extract -p secret encrypted.7z
+> tofu archive extract -p mypassword protected.rar
+```
+
 ## List Command
 
 ```
@@ -129,6 +137,7 @@ tofu archive list [flags] <archive>
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--long` | `-l` | Long listing format (show size and permissions) |
+| `--password` | `-p` | Password for encrypted archives (7z, rar) |
 
 ### List Examples
 
@@ -176,6 +185,7 @@ You can override format detection when creating by using the `--format` flag.
 ## Notes
 
 - 7-Zip and RAR formats support extraction only (not creation)
+- Password-protected 7z and rar archives are supported via the `-p` flag
 - The format auto-detection reads file headers, so renamed files still work
 - Symbolic links are preserved when the archive format supports them
 - File permissions are preserved on Unix systems
