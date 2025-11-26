@@ -15,11 +15,10 @@ import (
 
 // ArchiveCreateParams holds parameters for archive creation
 type ArchiveCreateParams struct {
-	Output    string   `short:"o" help:"Output archive file name (format auto-detected from extension)"`
-	Files     []string `pos:"true" optional:"true" help:"Files and directories to archive"`
-	Verbose   bool     `short:"v" optional:"true" help:"Verbose output - list files as they are added"`
-	Format    string   `short:"f" optional:"true" help:"Archive format (tar, tar.gz, tar.bz2, tar.xz, tar.zst, zip, 7z). Overrides extension detection."`
-	StripPath bool     `short:"s" optional:"true" help:"Strip leading path components from archived files"`
+	Output  string   `short:"o" help:"Output archive file name (format auto-detected from extension)"`
+	Files   []string `pos:"true" optional:"true" help:"Files and directories to archive"`
+	Verbose bool     `short:"v" optional:"true" help:"Verbose output - list files as they are added"`
+	Format  string   `short:"f" optional:"true" help:"Archive format (tar, tar.gz, tar.bz2, tar.xz, tar.zst, zip, 7z). Overrides extension detection."`
 }
 
 // ArchiveExtractParams holds parameters for archive extraction
@@ -162,28 +161,14 @@ func runArchiveCreate(params *ArchiveCreateParams) error {
 	// Build the file list
 	fileMap := make(map[string]string)
 	for _, path := range params.Files {
-		absPath, err := filepath.Abs(path)
-		if err != nil {
-			return fmt.Errorf("cannot resolve path %s: %w", path, err)
-		}
 
 		// Check if path exists
-		info, err := os.Stat(absPath)
+		_, err := os.Stat(path)
 		if err != nil {
 			return fmt.Errorf("cannot access %s: %w", path, err)
 		}
 
-		if params.StripPath {
-			// Use just the base name - for directories, trailing slash means contents only
-			if info.IsDir() {
-				fileMap[absPath+string(filepath.Separator)] = ""
-			} else {
-				fileMap[absPath] = filepath.Base(path)
-			}
-		} else {
-			// Preserve the path as given, including the directory itself
-			fileMap[absPath] = path
-		}
+		fileMap[path] = ""
 	}
 
 	files, err := archives.FilesFromDisk(ctx, nil, fileMap)

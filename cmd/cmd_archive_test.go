@@ -172,10 +172,9 @@ func TestArchiveList(t *testing.T) {
 
 	// Create archive
 	createParams := &ArchiveCreateParams{
-		Output:    archivePath,
-		Files:     []string{srcFile},
-		Format:    "tar",
-		StripPath: true,
+		Output: archivePath,
+		Files:  []string{srcFile},
+		Format: "tar",
 	}
 
 	err := runArchiveCreate(createParams)
