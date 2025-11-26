@@ -77,7 +77,7 @@ func TestTreeCommand(t *testing.T) {
 	out, _ := io.ReadAll(r)
 	_ = r.Close()
 
-	expected := `.
+	expected := tmpDir + `
 ├── dir1
 │   └── file1.txt
 └── dir2
@@ -107,7 +107,7 @@ func TestTreeCommand(t *testing.T) {
 	out, _ = io.ReadAll(r)
 	_ = r.Close()
 
-	expectedAll := `.
+	expectedAll := tmpDir + `
 ├── .config
 │   └── config.txt
 ├── dir1
@@ -144,7 +144,7 @@ func TestTreeCommand(t *testing.T) {
 	out, _ = io.ReadAll(r)
 	_ = r.Close()
 
-	expectedDepth1 := `.
+	expectedDepth1 := tmpDir + `
 ├── dir1
 └── dir2
 

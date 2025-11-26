@@ -76,7 +76,7 @@ func runTree(params *TreeParams) error {
 		}
 
 		if relPath == "." {
-			fmt.Println(".")
+			fmt.Println(params.Dir)
 			return nil
 		}
 
