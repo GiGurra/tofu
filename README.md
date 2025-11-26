@@ -209,11 +209,16 @@ Output the last part of files with optional real-time following. Works like the 
 
 See [man/man_tail.md](man/man_tail.md) for details.
 
+### tofu archive
+
+Create, extract, and list archive files. Supports tar, tar.gz, tar.bz2, tar.xz, tar.zst, zip, 7z, and rar formats.
+
+See [man/man_archive.md](man/man_archive.md) for details.
+
 **Coming soon:**
 
 - `tofu json` - Simple JSON formatter and query tool (jq lite)
 - `tofu url` - URL encoder/decoder and parser
-- `tofu archive` - Create or extract common archive formats (zip, tar, gz)
 - `tofu semver` - Semantic versioning utilities (bump, sort)
 - `tofu yaml` - YAML validation and conversion
 - ...and more based on what we're all tired of fighting with

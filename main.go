@@ -43,6 +43,7 @@ func main() {
 			cmd.DiffCmd(),
 			cmd.TailCmd(),
 			cmd.HeadCmd(),
+			cmd.ArchiveCmd(),
 		},
 	}.Run()
 }
