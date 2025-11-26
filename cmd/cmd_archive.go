@@ -78,6 +78,10 @@ Examples:
   tofu archive create -o project.zip src/ README.md
   tofu archive create -f tar.zst -o backup.tar.zst data/`,
 		ParamEnrich: defaultParamEnricher(),
+		InitFunc: func(params *ArchiveCreateParams, cmd *cobra.Command) error {
+			cmd.Aliases = []string{"c"}
+			return nil
+		},
 		RunFunc: func(params *ArchiveCreateParams, cmd *cobra.Command, args []string) {
 			if params.Output == "" {
 				fmt.Fprintln(os.Stderr, "archive: output file required (-o)")
@@ -108,6 +112,10 @@ Examples:
   tofu archive extract -o /tmp/output project.zip
   tofu archive extract -v archive.7z`,
 		ParamEnrich: defaultParamEnricher(),
+		InitFunc: func(params *ArchiveExtractParams, cmd *cobra.Command) error {
+			cmd.Aliases = []string{"x"}
+			return nil
+		},
 		RunFunc: func(params *ArchiveExtractParams, cmd *cobra.Command, args []string) {
 			if params.Archive == "" {
 				fmt.Fprintln(os.Stderr, "archive: archive file required")
@@ -131,6 +139,10 @@ Examples:
   tofu archive list backup.tar.gz
   tofu archive list -l project.zip`,
 		ParamEnrich: defaultParamEnricher(),
+		InitFunc: func(params *ArchiveListParams, cmd *cobra.Command) error {
+			cmd.Aliases = []string{"l", "ls"}
+			return nil
+		},
 		RunFunc: func(params *ArchiveListParams, cmd *cobra.Command, args []string) {
 			if params.Archive == "" {
 				fmt.Fprintln(os.Stderr, "archive: archive file required")
