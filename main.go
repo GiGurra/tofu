@@ -45,6 +45,7 @@ func main() {
 			cmd.HeadCmd(),
 			cmd.ArchiveCmd(),
 			cmd.WgetCmd(),
+			cmd.ScreensaverCmd(),
 		},
 	}.Run()
 }
