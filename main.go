@@ -44,6 +44,7 @@ func main() {
 			cmd.TailCmd(),
 			cmd.HeadCmd(),
 			cmd.ArchiveCmd(),
+			cmd.WgetCmd(),
 		},
 	}.Run()
 }

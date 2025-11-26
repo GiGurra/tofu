@@ -215,6 +215,12 @@ Create, extract, and list archive files. Supports tar, tar.gz, tar.bz2, tar.xz, 
 
 See [man/man_archive.md](man/man_archive.md) for details.
 
+### tofu wget
+
+Download files from the web with progress indication and resume support.
+
+See [man/man_wget.md](man/man_wget.md) for details.
+
 **Coming soon:**
 
 - `tofu json` - Simple JSON formatter and query tool (jq lite)
