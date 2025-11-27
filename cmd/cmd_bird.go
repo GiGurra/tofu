@@ -141,8 +141,8 @@ func runBird(params *BirdParams) error {
 	go readInput(inputChan)
 
 	for {
-		select {
-		case key := <-inputChan:
+		for len(inputChan) > 0 {
+			key := <-inputChan
 			if key == 'q' {
 				return nil
 			}
@@ -154,8 +154,6 @@ func runBird(params *BirdParams) error {
 					game.birdVel = flapStrength
 				}
 			}
-		default:
-			// No input
 		}
 
 		level := min(100, max(1, 1+game.score/2))
