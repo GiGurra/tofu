@@ -96,8 +96,8 @@ func runBird(params *BirdParams) error {
 	if fps < 5 {
 		fps = 5
 	}
-	if fps > 30 {
-		fps = 30
+	if fps > 60 {
+		fps = 60
 	}
 
 	speed := params.Speed
