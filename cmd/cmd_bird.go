@@ -135,8 +135,6 @@ func runBird(params *BirdParams) error {
 	}
 
 	frameDuration := time.Second / time.Duration(fps)
-	ticker := time.NewTicker(frameDuration)
-	defer ticker.Stop()
 
 	// Input channel
 	inputChan := make(chan byte, 10)
@@ -156,11 +154,18 @@ func runBird(params *BirdParams) error {
 					game.birdVel = flapStrength
 				}
 			}
-		case <-ticker.C:
-			updateGame(game)
-			renderGame(game, screen)
-			game.frame++
+		default:
+			// No input
 		}
+
+		level := min(100, max(1, 1+game.score/2))
+		frameDuration = time.Second / time.Duration(fps*(9+level)/10)
+
+		updateGame(game)
+		renderGame(game, screen, level)
+		game.frame++
+
+		time.Sleep(frameDuration)
 	}
 }
 
@@ -261,7 +266,7 @@ func checkCollision(game *gameState) bool {
 	return false
 }
 
-func renderGame(game *gameState, backBuffer [][]rune) {
+func renderGame(game *gameState, backBuffer [][]rune, level int) {
 
 	// Clear back buffer
 	for i := range backBuffer {
@@ -354,7 +359,7 @@ func renderGame(game *gameState, backBuffer [][]rune) {
 	}
 
 	// Draw score line into buffer
-	scoreText := fmt.Sprintf(" Score: %d  |  High Score: %d  |  SPACE=Flap  Q=Quit ", game.score, game.highScore)
+	scoreText := fmt.Sprintf(" Score: %d  |  High Score: %d  |  Level: %d  |  SPACE=Flap  Q=Quit ", game.score, game.highScore, level)
 	drawTextToRow(backBuffer[game.height], scoreText, 0)
 
 	// Draw game state messages into buffer
