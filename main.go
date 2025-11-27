@@ -46,6 +46,7 @@ func main() {
 			cmd.ArchiveCmd(),
 			cmd.WgetCmd(),
 			cmd.ScreensaverCmd(),
+			cmd.BirdCmd(),
 		},
 	}.Run()
 }
