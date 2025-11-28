@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"net"
 	"os"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -14,9 +13,9 @@ import (
 
 func TestRunNc_ClientServer_TCP(t *testing.T) {
 
-	// skip this tests if on gh actions and in macos|windows, it fails there for some unknown reason,
+	// skip this tests if on gh actions, it fails there for some unknown reason,
 	// but works fine locally on linux, macos and windows :S.
-	if os.Getenv("GITHUB_ACTIONS") == "true" && (runtime.GOOS == "darwin" || runtime.GOOS == "windows") {
+	if os.Getenv("GITHUB_ACTIONS") == "true" {
 		t.Skip("Skipping test on GitHub Actions macOS runner")
 	}
 
