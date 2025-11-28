@@ -2,13 +2,17 @@ package bird
 
 import (
 	"bufio"
+	"embed"
 	"fmt"
+	"io/fs"
+	"log/slog"
 	"math/rand"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/GiGurra/boa/pkg/boa"
+	"github.com/gigurra/tofu/cmd/bird/jukebox"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -72,7 +76,44 @@ type pipe struct {
 	passed bool
 }
 
+// Embed fs under /music
+//
+//go:embed music
+var musicFS embed.FS
+
 func runBird(params *Params) error {
+
+	// initialize jukebox if needed
+	slog.Info("Loading music for Flappy Tofu...")
+	jb := jukebox.New()
+	defer jb.Clear()
+	// list files in musicFS
+	musicFiles, err := musicFS.ReadDir("music")
+	if err == nil && len(musicFiles) > 0 {
+		for _, file := range musicFiles {
+			if !file.IsDir() && strings.HasSuffix(strings.ToLower(file.Name()), ".mp3") {
+				songPath := "music/" + file.Name()
+				slog.Info("loading embedded music file", "file", file.Name())
+				bytes, err := fs.ReadFile(musicFS, songPath)
+				if err != nil {
+					slog.Error("failed to read embedded music file", "file", file.Name(), "error", err)
+					continue
+				}
+				_, err = jb.LoadBytes(file.Name(), bytes)
+				if err != nil {
+					slog.Error("failed to load embedded music file into jukebox", "file", file.Name(), "error", err)
+				}
+			}
+		}
+	}
+
+	jb.SetShuffle(true)
+	err = jb.Play()
+	if err != nil {
+		slog.Error("failed to start jukebox playback", "error", err)
+	}
+
+	slog.Info("Done loading music, starting game")
 
 	// Set terminal to raw mode for input
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
@@ -147,6 +188,9 @@ func runBird(params *Params) error {
 			if key == 'q' {
 				return nil
 			}
+			if key == 'n' {
+				_ = jb.Next()
+			}
 			if key == ' ' || key == 13 || key == 10 { // space or enter
 				if game.gameOver {
 					resetGame(game)
@@ -161,7 +205,7 @@ func runBird(params *Params) error {
 		frameDuration = time.Second / time.Duration(fps*(9+level)/10)
 
 		updateGame(game)
-		renderGame(game, screen, level)
+		renderGame(game, screen, level, jb)
 		game.frame++
 
 		time.Sleep(frameDuration)
@@ -265,7 +309,7 @@ func checkCollision(game *gameState) bool {
 	return false
 }
 
-func renderGame(game *gameState, backBuffer [][]rune, level int) {
+func renderGame(game *gameState, backBuffer [][]rune, level int, jb *jukebox.Jukebox) {
 
 	// Clear back buffer
 	for i := range backBuffer {
@@ -358,7 +402,11 @@ func renderGame(game *gameState, backBuffer [][]rune, level int) {
 	}
 
 	// Draw score line into buffer
-	scoreText := fmt.Sprintf(" Score: %d  |  High Score: %d  |  Level: %d  |  SPACE=Flap  Q=Quit ", game.score, game.highScore, level)
+	currentSongStr := ""
+	if song := jb.CurrentSong(); song != nil {
+		currentSongStr = strings.TrimSuffix(song.Name, ".mp3")
+	}
+	scoreText := fmt.Sprintf(" Score: %d  |  High Score: %d  |  Level: %d  |  Song: %s  |  SPACE=Flap  Q=Quit  N=Next Song ", game.score, game.highScore, level, currentSongStr)
 	drawTextToRow(backBuffer[game.height], scoreText, 0)
 
 	// Draw game state messages into buffer
