@@ -108,7 +108,6 @@ func runBird(params *Params) error {
 	}
 
 	jb.SetShuffle(true)
-	err = jb.Play()
 	if err != nil {
 		slog.Error("failed to start jukebox playback", "error", err)
 	}
@@ -163,7 +162,7 @@ func runBird(params *Params) error {
 		termHeight: height,
 		speed:      speed,
 	}
-	resetGame(game)
+	resetGame(game, jb)
 
 	// Build frame buffer with extra rows for UI
 	// game.height rows for game area + 1 for score + up to 3 for messages
@@ -183,6 +182,17 @@ func runBird(params *Params) error {
 	go readInput(inputChan)
 
 	for {
+
+		if game.gameOver || !game.started {
+			if jb.IsPlaying() {
+				jb.Stop()
+			}
+		} else {
+			if !jb.IsPlaying() {
+				_ = jb.Play()
+			}
+		}
+
 		for len(inputChan) > 0 {
 			key := <-inputChan
 			if key == 'q' {
@@ -193,7 +203,7 @@ func runBird(params *Params) error {
 			}
 			if key == ' ' || key == 13 || key == 10 { // space or enter
 				if game.gameOver {
-					resetGame(game)
+					resetGame(game, jb)
 				} else {
 					game.started = true
 					game.birdVel = flapStrength
@@ -204,7 +214,7 @@ func runBird(params *Params) error {
 		level := min(100, max(1, 1+game.score/2))
 		frameDuration = time.Second / time.Duration(fps*(9+level)/10)
 
-		updateGame(game)
+		updateGame(game, jb)
 		renderGame(game, screen, level, jb)
 		game.frame++
 
@@ -223,7 +233,7 @@ func readInput(ch chan<- byte) {
 	}
 }
 
-func resetGame(game *gameState) {
+func resetGame(game *gameState, jb *jukebox.Jukebox) {
 	if game.score > game.highScore {
 		game.highScore = game.score
 	}
@@ -239,6 +249,8 @@ func resetGame(game *gameState) {
 	for i := 0; i < 3; i++ {
 		game.pipes = append(game.pipes, newPipe(game.width+i*pipeSpacing, game.height))
 	}
+
+	_ = jb.Next()
 }
 
 func newPipe(x, height int) pipe {
@@ -249,7 +261,7 @@ func newPipe(x, height int) pipe {
 	return pipe{x: x, gapY: gapY, passed: false}
 }
 
-func updateGame(game *gameState) {
+func updateGame(game *gameState, jb *jukebox.Jukebox) {
 	if game.gameOver || !game.started {
 		return
 	}
@@ -283,6 +295,7 @@ func updateGame(game *gameState) {
 	// Check collisions
 	if checkCollision(game) {
 		game.gameOver = true
+		jb.Stop()
 	}
 }
 
