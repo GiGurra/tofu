@@ -4,7 +4,39 @@ import (
 	"runtime/debug"
 
 	"github.com/GiGurra/boa/pkg/boa"
-	"github.com/gigurra/tofu/cmd"
+	"github.com/gigurra/tofu/cmd/archive"
+	"github.com/gigurra/tofu/cmd/base64"
+	"github.com/gigurra/tofu/cmd/bird"
+	"github.com/gigurra/tofu/cmd/cat"
+	"github.com/gigurra/tofu/cmd/clip"
+	"github.com/gigurra/tofu/cmd/count"
+	"github.com/gigurra/tofu/cmd/cron"
+	"github.com/gigurra/tofu/cmd/diff"
+	"github.com/gigurra/tofu/cmd/dns"
+	"github.com/gigurra/tofu/cmd/env"
+	"github.com/gigurra/tofu/cmd/find"
+	"github.com/gigurra/tofu/cmd/free"
+	"github.com/gigurra/tofu/cmd/grep"
+	"github.com/gigurra/tofu/cmd/hash"
+	"github.com/gigurra/tofu/cmd/head"
+	"github.com/gigurra/tofu/cmd/http"
+	"github.com/gigurra/tofu/cmd/ip"
+	"github.com/gigurra/tofu/cmd/jwt"
+	"github.com/gigurra/tofu/cmd/nc"
+	"github.com/gigurra/tofu/cmd/port"
+	"github.com/gigurra/tofu/cmd/ps"
+	"github.com/gigurra/tofu/cmd/qr"
+	"github.com/gigurra/tofu/cmd/rand"
+	"github.com/gigurra/tofu/cmd/screensaver"
+	"github.com/gigurra/tofu/cmd/sed2"
+	"github.com/gigurra/tofu/cmd/serve"
+	"github.com/gigurra/tofu/cmd/tail"
+	"github.com/gigurra/tofu/cmd/time"
+	"github.com/gigurra/tofu/cmd/tree"
+	"github.com/gigurra/tofu/cmd/uuid"
+	"github.com/gigurra/tofu/cmd/watch"
+	"github.com/gigurra/tofu/cmd/wget"
+	"github.com/gigurra/tofu/cmd/which"
 	"github.com/spf13/cobra"
 )
 
@@ -14,39 +46,39 @@ func main() {
 		Short:   "Tools Of Fantastic Utility",
 		Version: appVersion(),
 		SubCmds: []*cobra.Command{
-			cmd.CatCmd(),
-			cmd.FindCmd(),
-			cmd.GrepCmd(),
-			cmd.Sed2Cmd(),
-			cmd.ServeCmd(),
-			cmd.UUIDCmd(),
-			cmd.PortCmd(),
-			cmd.TreeCmd(),
-			cmd.WatchCmd(),
-			cmd.WhichCmd(),
-			cmd.ClipCmd(),
-			cmd.IpCmd(),
-			cmd.DnsCmd(),
-			cmd.HttpCmd(),
-			cmd.NcCmd(),
-			cmd.QrCmd(),
-			cmd.Base64Cmd(),
-			cmd.JwtCmd(),
-			cmd.HashCmd(),
-			cmd.FreeCmd(),
-			cmd.PsCmd(),
-			cmd.TimeCmd(),
-			cmd.RandCmd(),
-			cmd.EnvCmd(),
-			cmd.CronCmd(),
-			cmd.CountCmd(),
-			cmd.DiffCmd(),
-			cmd.TailCmd(),
-			cmd.HeadCmd(),
-			cmd.ArchiveCmd(),
-			cmd.WgetCmd(),
-			cmd.ScreensaverCmd(),
-			cmd.BirdCmd(),
+			cat.Cmd(),
+			find.Cmd(),
+			grep.Cmd(),
+			sed2.Cmd(),
+			serve.Cmd(),
+			uuid.Cmd(),
+			port.Cmd(),
+			tree.Cmd(),
+			watch.Cmd(),
+			which.Cmd(),
+			clip.Cmd(),
+			ip.Cmd(),
+			dns.Cmd(),
+			http.Cmd(),
+			nc.Cmd(),
+			qr.Cmd(),
+			base64.Cmd(),
+			jwt.Cmd(),
+			hash.Cmd(),
+			free.Cmd(),
+			ps.Cmd(),
+			time.Cmd(),
+			rand.Cmd(),
+			env.Cmd(),
+			cron.Cmd(),
+			count.Cmd(),
+			diff.Cmd(),
+			tail.Cmd(),
+			head.Cmd(),
+			archive.Cmd(),
+			wget.Cmd(),
+			screensaver.Cmd(),
+			bird.Cmd(),
 		},
 	}.Run()
 }
