@@ -433,7 +433,6 @@ func renderGame(game *gameState, backBuffer [][]rune, level int, jb *jukebox.Juk
 		drawCenteredText(backBuffer[msgRow+2], game.width, "  Guide the tofu through the chopsticks!  ")
 	}
 
-	// Build entire frame as single string and render at once
 	fmt.Print("\033[H") // Move cursor to top
 	for i, row := range backBuffer {
 		fmt.Print(string(row))
