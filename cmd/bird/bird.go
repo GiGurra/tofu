@@ -437,7 +437,7 @@ func renderGame(game *gameState, backBuffer [][]rune, level int, jb *jukebox.Juk
 	for i, row := range backBuffer {
 		fmt.Print(string(row))
 		if i < len(backBuffer)-1 {
-			fmt.Print("\r\n") // Need \r in raw mode
+			fmt.Print("\r\n")
 		}
 	}
 }
