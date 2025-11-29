@@ -434,15 +434,13 @@ func renderGame(game *gameState, backBuffer [][]rune, level int, jb *jukebox.Juk
 	}
 
 	// Build entire frame as single string and render at once
-	var buf strings.Builder
-	buf.WriteString("\033[H") // Move cursor to top
+	fmt.Print("\033[H") // Move cursor to top
 	for i, row := range backBuffer {
-		buf.WriteString(string(row))
+		fmt.Print(string(row))
 		if i < len(backBuffer)-1 {
-			buf.WriteString("\r\n") // Need \r in raw mode
+			fmt.Print("\r\n") // Need \r in raw mode
 		}
 	}
-	fmt.Print(buf.String())
 }
 
 func drawTextToRow(row []rune, text string, startX int) {
