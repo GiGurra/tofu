@@ -38,12 +38,16 @@ func GetDNS() ([]string, error) {
 			// Sometimes there are more on subsequent lines
 			for scanner.Scan() {
 				subLine := strings.TrimSpace(scanner.Text())
-				if subLine == "" || strings.Contains(subLine, ":") {
-					// End of section or new property
+				if subLine == "" {
+					// End of section
 					break
 				}
+				// Check if it's a valid IP first (handles IPv6 which contains colons)
 				if net.ParseIP(subLine) != nil {
 					servers = append(servers, subLine)
+				} else if strings.Contains(subLine, ":") {
+					// New property line (not an IP), end of DNS section
+					break
 				}
 			}
 		}
