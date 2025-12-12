@@ -49,24 +49,50 @@ func GetDNSFromResolvConf() ([]string, error) {
 	return nil, nil
 }
 
-func GetGateway() (string, error) {
-	// route -n get default
-	output, err := RunCommand("route", "-n", "get", "default")
-	if err != nil {
-		return "", err
-	}
+func GetGateway() ([]string, error) {
+	var gateways []string
 
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "gateway:") {
-			parts := strings.Fields(line)
-			if len(parts) >= 2 {
-				return parts[1], nil
+	// Get IPv4 gateway: route -n get default
+	output, err := RunCommand("route", "-n", "get", "default")
+	if err == nil {
+		lines := strings.Split(output, "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "gateway:") {
+				parts := strings.Fields(line)
+				if len(parts) >= 2 {
+					gw := parts[1]
+					if net.ParseIP(gw) != nil {
+						gateways = append(gateways, gw)
+					}
+				}
 			}
 		}
 	}
-	return "", nil
+
+	// Get IPv6 gateway: route -n get -inet6 default
+	output, err = RunCommand("route", "-n", "get", "-inet6", "default")
+	if err == nil {
+		lines := strings.Split(output, "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "gateway:") {
+				parts := strings.Fields(line)
+				if len(parts) >= 2 {
+					gw := parts[1]
+					// IPv6 gateway might have %interface suffix (e.g., fe80::1%en0)
+					if idx := strings.Index(gw, "%"); idx != -1 {
+						gw = gw[:idx]
+					}
+					if net.ParseIP(gw) != nil {
+						gateways = append(gateways, gw)
+					}
+				}
+			}
+		}
+	}
+
+	return gateways, nil
 }
 
 func RunCommand(name string, args ...string) (string, error) {

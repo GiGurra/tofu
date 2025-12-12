@@ -29,26 +29,57 @@ func GetDNS() ([]string, error) {
 	return servers, nil
 }
 
-func GetGateway() (string, error) {
-	content, err := os.ReadFile("/proc/net/route")
-	if err != nil {
-		return "", err
-	}
+func GetGateway() ([]string, error) {
+	var gateways []string
 
-	lines := strings.Split(string(content), "\n")
-	for _, line := range lines {
-		fields := strings.Fields(line)
-		if len(fields) >= 8 {
-			// Destination is 2nd field, Mask is 8th field
-			// Default gateway has Destination 00000000 and Mask 00000000
-			if fields[1] == "00000000" && fields[7] == "00000000" {
-				// Gateway IP is 3rd field (hex)
-				gwHex := fields[2]
-				return ParseHexIP(gwHex)
+	// Get IPv4 gateway from /proc/net/route
+	content, err := os.ReadFile("/proc/net/route")
+	if err == nil {
+		lines := strings.Split(string(content), "\n")
+		for _, line := range lines {
+			fields := strings.Fields(line)
+			if len(fields) >= 8 {
+				// Destination is 2nd field, Mask is 8th field
+				// Default gateway has Destination 00000000 and Mask 00000000
+				if fields[1] == "00000000" && fields[7] == "00000000" {
+					// Gateway IP is 3rd field (hex)
+					gwHex := fields[2]
+					gw, err := ParseHexIP(gwHex)
+					if err == nil && gw != "" {
+						gateways = append(gateways, gw)
+					}
+				}
 			}
 		}
 	}
-	return "", nil
+
+	// Get IPv6 gateway from /proc/net/ipv6_route
+	content, err = os.ReadFile("/proc/net/ipv6_route")
+	if err == nil {
+		lines := strings.Split(string(content), "\n")
+		for _, line := range lines {
+			fields := strings.Fields(line)
+			// Format: dest dest_prefix source src_prefix nexthop metric refcnt use flags iface
+			// Default route has dest 00000000000000000000000000000000 and prefix 00
+			if len(fields) >= 10 {
+				dest := fields[0]
+				prefix := fields[1]
+				nexthop := fields[4]
+				// Default route: ::/0 (all zeros dest with 00 prefix length)
+				if dest == "00000000000000000000000000000000" && prefix == "00" {
+					// Skip if nexthop is all zeros (no gateway)
+					if nexthop != "00000000000000000000000000000000" {
+						gw := ParseHexIPv6(nexthop)
+						if gw != "" {
+							gateways = append(gateways, gw)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return gateways, nil
 }
 
 func ParseHexIP(hexStr string) (string, error) {
@@ -61,4 +92,20 @@ func ParseHexIP(hexStr string) (string, error) {
 		return "", err
 	}
 	return net.IPv4(bytes[0], bytes[1], bytes[2], bytes[3]).String(), nil
+}
+
+func ParseHexIPv6(hexStr string) string {
+	if len(hexStr) != 32 {
+		return ""
+	}
+	var ip net.IP = make([]byte, 16)
+	for i := 0; i < 16; i++ {
+		var b byte
+		_, err := fmt.Sscanf(hexStr[i*2:i*2+2], "%02x", &b)
+		if err != nil {
+			return ""
+		}
+		ip[i] = b
+	}
+	return ip.String()
 }

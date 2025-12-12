@@ -55,24 +55,51 @@ func GetDNS() ([]string, error) {
 	return servers, nil
 }
 
-func GetGateway() (string, error) {
-	// route print 0.0.0.0
-	output, err := RunCommand("route", "print", "0.0.0.0")
-	if err != nil {
-		return "", err
-	}
+func GetGateway() ([]string, error) {
+	var gateways []string
 
-	// Output format:
-	// Network Destination        Netmask          Gateway       Interface  Metric
-	//           0.0.0.0          0.0.0.0      192.168.1.1    192.168.1.100     25
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
-		fields := strings.Fields(line)
-		if len(fields) >= 5 && fields[0] == "0.0.0.0" && fields[1] == "0.0.0.0" {
-			return fields[2], nil
+	// Get IPv4 gateway from route print
+	output, err := RunCommand("route", "print", "0.0.0.0")
+	if err == nil {
+		// Output format:
+		// Network Destination        Netmask          Gateway       Interface  Metric
+		//           0.0.0.0          0.0.0.0      192.168.1.1    192.168.1.100     25
+		lines := strings.Split(output, "\n")
+		for _, line := range lines {
+			fields := strings.Fields(line)
+			if len(fields) >= 5 && fields[0] == "0.0.0.0" && fields[1] == "0.0.0.0" {
+				gw := fields[2]
+				if net.ParseIP(gw) != nil {
+					gateways = append(gateways, gw)
+				}
+			}
 		}
 	}
-	return "", nil
+
+	// Get IPv6 gateway from netsh
+	output, err = RunCommand("netsh", "interface", "ipv6", "show", "route")
+	if err == nil {
+		// Output format:
+		// Publish  Type      Met  Prefix                    Idx  Gateway/Interface Name
+		// -------  --------  ---  ------------------------  ---  ------------------------
+		// No       Manual    256  ::/0                       14  fe80::1
+		lines := strings.Split(output, "\n")
+		for _, line := range lines {
+			fields := strings.Fields(line)
+			// Look for ::/0 (default route) with a gateway
+			if len(fields) >= 6 {
+				prefix := fields[3]
+				if prefix == "::/0" {
+					gw := fields[5]
+					if net.ParseIP(gw) != nil {
+						gateways = append(gateways, gw)
+					}
+				}
+			}
+		}
+	}
+
+	return gateways, nil
 }
 
 func RunCommand(name string, args ...string) (string, error) {

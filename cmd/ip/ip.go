@@ -81,11 +81,13 @@ func runIp(params *Params, stdout io.Writer) {
 
 	// Default Gateway
 	fmt.Fprintln(stdout, "\nDefault Gateway:")
-	gw, err := GetGateway()
+	gateways, err := GetGateway()
 	if err != nil {
 		fmt.Fprintf(stdout, "  Error getting Gateway: %v\n", err)
-	} else if gw != "" {
-		fmt.Fprintf(stdout, "  %s\n", gw)
+	} else if len(gateways) > 0 {
+		for _, gw := range gateways {
+			fmt.Fprintf(stdout, "  %s\n", gw)
+		}
 	} else {
 		fmt.Fprintln(stdout, "  (none found)")
 	}
