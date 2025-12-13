@@ -23,7 +23,8 @@ func GetDNS() ([]string, error) {
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if strings.HasPrefix(line, "nameserver[") {
-			parts := strings.Split(line, ":")
+			// Use SplitN with limit 2 to handle IPv6 addresses which contain colons
+			parts := strings.SplitN(line, " : ", 2)
 			if len(parts) > 1 {
 				ip := strings.TrimSpace(parts[1])
 				if net.ParseIP(ip) != nil {
