@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"github.com/GiGurra/boa/pkg/boa"
 	"github.com/GiGurra/cmder"
 	"github.com/gigurra/tofu/cmd/common"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
 
@@ -40,34 +42,10 @@ func Cmd() *cobra.Command {
 		InitFunc: func(params *Params, cmd *cobra.Command) error {
 
 			params.FromDeploy.AlternativesFunc = func(cmd *cobra.Command, args []string, toComplete string) []string {
-
-				cmdAndArgs := []string{"kubectl", "get", "deployments", "-o", "name"}
-				if params.Namespace.Value() != "" {
-					cmdAndArgs = append(cmdAndArgs, "-n", params.Namespace.Value())
-				}
-				if params.AllNamespaces {
-					cmdAndArgs = append(cmdAndArgs, "-A")
-				}
-
-				res := cmder.New(cmdAndArgs...).
-					WithAttemptTimeout(5 * time.Second).
-					Run(context.Background())
-				if res.Err != nil {
-					return nil
-				}
-				var deployments []string
-				lines := strings.Split(strings.TrimSpace(res.StdOut), "\n")
-				for _, line := range lines {
-					line = strings.TrimSpace(line)
-					if line == "" {
-						continue
-					}
-					deployName := strings.TrimPrefix(strings.TrimPrefix(line, "deployment/"), "deployment.apps/")
-					if strings.HasPrefix(deployName, toComplete) {
-						deployments = append(deployments, deployName)
-					}
-				}
-				return deployments
+				allDeployments := findDeployments(context.Background(), params.Namespace.Value(), params.AllNamespaces)
+				return lo.Filter(allDeployments, func(item string, index int) bool {
+					return strings.HasPrefix(item, toComplete)
+				})
 			}
 
 			params.Namespace.AlternativesFunc = func(cmd *cobra.Command, args []string, toComplete string) []string {
@@ -243,14 +221,26 @@ func (t *podTailer) discoverPods(ctx context.Context) ([]string, error) {
 		}
 	}
 
+	var totalLabels []string
+
 	// Add label selectors
 	for _, label := range t.params.Labels {
-		args = append(args, "-l", label)
+		totalLabels = append(totalLabels, label)
 	}
 
 	// Add deployment label selectors
 	for _, deploy := range t.params.FromDeploy.Value() {
-		args = append(args, "-l", fmt.Sprintf("app.kubernetes.io/name=%s", deploy))
+		// fetch deploy spec, extract selector labels
+		selectorLabels := getDeploymentSelectorLabels(ctx, deploy, t.params.Namespace.Value(), t.params.AllNamespaces)
+		for key, value := range selectorLabels {
+			labelSelector := fmt.Sprintf("%s=%s", key, value)
+			totalLabels = append(totalLabels, labelSelector)
+		}
+	}
+
+	if len(totalLabels) > 0 {
+		labelSelectorArg := strings.Join(totalLabels, ",")
+		args = append(args, "-l", labelSelectorArg)
 	}
 
 	result := cmder.New(append([]string{"kubectl"}, args...)...).
@@ -296,6 +286,75 @@ func (t *podTailer) discoverPods(ctx context.Context) ([]string, error) {
 	}
 
 	return pods, nil
+}
+
+func getDeploymentSelectorLabels(ctx context.Context, deploy string, namespace string, allNamespaces bool) map[string]string {
+	foundDeployments := lo.Filter(findDeployments(ctx, namespace, allNamespaces), func(item string, index int) bool {
+		return item == deploy
+	})
+
+	if len(foundDeployments) == 0 {
+		_, _ = fmt.Fprintf(os.Stderr, "Warning: Deployment %s not found\n", deploy)
+		return nil
+	}
+
+	if len(foundDeployments) > 1 {
+		_, _ = fmt.Fprintf(os.Stderr, "Warning: Multiple deployments named %s found\n, picking first", deploy)
+	}
+
+	args := []string{"get", "deployment", deploy, "-o", "jsonpath={.spec.selector.matchLabels}"}
+	if allNamespaces {
+		args = append(args, "-A")
+	}
+	if namespace != "" {
+		args = append(args, "-n", namespace)
+	}
+	result := cmder.New(append([]string{"kubectl"}, args...)...).
+		WithAttemptTimeout(5 * time.Second).
+		Run(ctx)
+	if result.Err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "Warning: Failed to get deployment %s selector labels: %v\n", deploy, result.Err)
+		return nil
+	}
+
+	labelsStr := strings.TrimSpace(result.StdOut)
+	labels := make(map[string]string)
+	err := json.Unmarshal([]byte(labelsStr), &labels)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "Warning: Deployment %s selector labels JSON unmarshal failed: %v\n", deploy, err)
+		return nil
+	}
+
+	return labels
+}
+
+func findDeployments(ctx context.Context, namespace string, allNamespaces bool) []string {
+
+	cmdAndArgs := []string{"kubectl", "get", "deployments", "-o", "name"}
+	if namespace != "" {
+		cmdAndArgs = append(cmdAndArgs, "-n", namespace)
+	}
+	if allNamespaces {
+		cmdAndArgs = append(cmdAndArgs, "-A")
+	}
+
+	res := cmder.New(cmdAndArgs...).
+		WithAttemptTimeout(5 * time.Second).
+		Run(ctx)
+	if res.Err != nil {
+		return nil
+	}
+	var deployments []string
+	lines := strings.Split(strings.TrimSpace(res.StdOut), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		deployName := strings.TrimPrefix(strings.TrimPrefix(line, "deployment/"), "deployment.apps/")
+		deployments = append(deployments, deployName)
+	}
+	return deployments
 }
 
 func (t *podTailer) matchesNameFilter(podName string) bool {
