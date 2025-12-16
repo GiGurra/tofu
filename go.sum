@@ -19,6 +19,8 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/GiGurra/boa v0.3.32 h1:rYQXje+sbjPuM8Or9gpVilpX0x1P8O+bN0Ud34/b2ow=
 github.com/GiGurra/boa v0.3.32/go.mod h1:alF0PXOSHVqHEp7r15QfBdvtFVH7+xhpOzb5zamahCM=
+github.com/GiGurra/cmder v0.0.4 h1:4krkiNnWzq33n7LJ2sTqaSOuiJK65DQYo5/Q8WlM/I8=
+github.com/GiGurra/cmder v0.0.4/go.mod h1:rM1UyXHxD7GV1YqWtqISyUBMSLNle49sMUvaUkMyLDI=
 github.com/STARRY-S/zip v0.2.3 h1:luE4dMvRPDOWQdeDdUxUoZkzUIpTccdKdhHHsQJ1fm4=
 github.com/STARRY-S/zip v0.2.3/go.mod h1:lqJ9JdeRipyOQJrYSOtpNAiaesFO6zVDsE8GIGFaoSk=
 github.com/andybalholm/brotli v1.2.0 h1:ukwgCxwYrmACq68yiUqwIWnGY0cTPox/M94sVwToPjQ=

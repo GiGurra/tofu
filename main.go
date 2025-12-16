@@ -22,6 +22,7 @@ import (
 	"github.com/gigurra/tofu/cmd/http"
 	"github.com/gigurra/tofu/cmd/ip"
 	"github.com/gigurra/tofu/cmd/jwt"
+	"github.com/gigurra/tofu/cmd/k8s"
 	"github.com/gigurra/tofu/cmd/nc"
 	"github.com/gigurra/tofu/cmd/port"
 	"github.com/gigurra/tofu/cmd/ps"
@@ -79,6 +80,7 @@ func main() {
 			wget.Cmd(),
 			screensaver.Cmd(),
 			bird.Cmd(),
+			k8s.Cmd(),
 		},
 	}.Run()
 }

@@ -4,6 +4,7 @@ go 1.25
 
 require (
 	github.com/GiGurra/boa v0.3.32
+	github.com/GiGurra/cmder v0.0.4
 	github.com/atotto/clipboard v0.1.4
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
