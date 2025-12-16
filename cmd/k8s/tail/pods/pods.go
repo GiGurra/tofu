@@ -20,15 +20,15 @@ import (
 )
 
 type Params struct {
-	FromDeploy    []string `short:"d" optional:"true" help:"Filter pods by deployment name (can be repeated)"`
-	Labels        []string `short:"l" optional:"true" help:"Label selector (can be repeated, AND logic)"`
-	Names         []string `short:"n" optional:"true" help:"Pod name pattern filter (substring match, can be repeated, OR logic)"`
-	Namespace     string   `optional:"true" help:"Kubernetes namespace (default: current context)"`
-	AllNamespaces bool     `short:"A" help:"Search pods in all namespaces" default:"false"`
-	MaxPods       int      `help:"Maximum pods to tail simultaneously" default:"10"`
-	Tail          int      `help:"Number of lines to initially read" default:"20"`
-	Since         string   `optional:"true" help:"Only return logs newer than relative duration (e.g., 5m, 1h)"`
-	Interval      int      `help:"Pod discovery poll interval in milliseconds" default:"250"`
+	FromDeploy    boa.Required[[]string] `short:"d" optional:"true" help:"Filter pods by deployment name (can be repeated)" default:"[]"`
+	Labels        []string               `short:"l" optional:"true" help:"Label selector (can be repeated, AND logic)"`
+	Names         []string               `short:"n" optional:"true" help:"Pod name pattern filter (substring match, can be repeated, OR logic)"`
+	Namespace     boa.Required[string]   `optional:"true" help:"Kubernetes namespace (default: current context)" default:""`
+	AllNamespaces bool                   `short:"A" help:"Search pods in all namespaces" default:"false"`
+	MaxPods       int                    `help:"Maximum pods to tail simultaneously" default:"10"`
+	Tail          int                    `help:"Number of lines to initially read" default:"20"`
+	Since         string                 `optional:"true" help:"Only return logs newer than relative duration (e.g., 5m, 1h)"`
+	Interval      int                    `help:"Pod discovery poll interval in milliseconds" default:"250"`
 }
 
 func Cmd() *cobra.Command {
@@ -37,6 +37,63 @@ func Cmd() *cobra.Command {
 		Short:       "Tail logs from Kubernetes pods",
 		Long:        "Continuously tail logs from Kubernetes pods matching the specified criteria. Automatically discovers new pods and handles pod restarts.",
 		ParamEnrich: common.DefaultParamEnricher(),
+		InitFunc: func(params *Params, cmd *cobra.Command) error {
+
+			params.FromDeploy.AlternativesFunc = func(cmd *cobra.Command, args []string, toComplete string) []string {
+
+				cmdAndArgs := []string{"kubectl", "get", "deployments", "-o", "name"}
+				if params.Namespace.Value() != "" {
+					cmdAndArgs = append(cmdAndArgs, "-n", params.Namespace.Value())
+				}
+				if params.AllNamespaces {
+					cmdAndArgs = append(cmdAndArgs, "-A")
+				}
+
+				res := cmder.New(cmdAndArgs...).
+					WithAttemptTimeout(5 * time.Second).
+					Run(context.Background())
+				if res.Err != nil {
+					return nil
+				}
+				var deployments []string
+				lines := strings.Split(strings.TrimSpace(res.StdOut), "\n")
+				for _, line := range lines {
+					line = strings.TrimSpace(line)
+					if line == "" {
+						continue
+					}
+					deployName := strings.TrimPrefix(strings.TrimPrefix(line, "deployment/"), "deployment.apps/")
+					if strings.HasPrefix(deployName, toComplete) {
+						deployments = append(deployments, deployName)
+					}
+				}
+				return deployments
+			}
+
+			params.Namespace.AlternativesFunc = func(cmd *cobra.Command, args []string, toComplete string) []string {
+				res := cmder.New("kubectl", "get", "namespaces", "-o", "name").
+					WithAttemptTimeout(5 * time.Second).
+					Run(context.Background())
+				if res.Err != nil {
+					return nil
+				}
+				var namespaces []string
+				lines := strings.Split(strings.TrimSpace(res.StdOut), "\n")
+				for _, line := range lines {
+					line = strings.TrimSpace(line)
+					if line == "" {
+						continue
+					}
+					nsName := strings.TrimPrefix(line, "namespace/")
+					if strings.HasPrefix(nsName, toComplete) {
+						namespaces = append(namespaces, nsName)
+					}
+				}
+				return namespaces
+			}
+
+			return nil
+		},
 		RunFunc: func(params *Params, cmd *cobra.Command, args []string) {
 			if err := run(params, os.Stdout, os.Stderr); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -181,8 +238,8 @@ func (t *podTailer) discoverPods(ctx context.Context) ([]string, error) {
 		args = []string{"get", "pods", "-A", "-o", "custom-columns=NS:.metadata.namespace,NAME:.metadata.name", "--no-headers"}
 	} else {
 		args = []string{"get", "pods", "-o", "name"}
-		if t.params.Namespace != "" {
-			args = append(args, "-n", t.params.Namespace)
+		if t.params.Namespace.Value() != "" {
+			args = append(args, "-n", t.params.Namespace.Value())
 		}
 	}
 
@@ -192,7 +249,7 @@ func (t *podTailer) discoverPods(ctx context.Context) ([]string, error) {
 	}
 
 	// Add deployment label selectors
-	for _, deploy := range t.params.FromDeploy {
+	for _, deploy := range t.params.FromDeploy.Value() {
 		args = append(args, "-l", fmt.Sprintf("app.kubernetes.io/name=%s", deploy))
 	}
 
@@ -243,7 +300,7 @@ func (t *podTailer) discoverPods(ctx context.Context) ([]string, error) {
 
 func (t *podTailer) matchesNameFilter(podName string) bool {
 	// If no name filters and no deployment filters, match all
-	if len(t.params.Names) == 0 && len(t.params.FromDeploy) == 0 {
+	if len(t.params.Names) == 0 && len(t.params.FromDeploy.Value()) == 0 {
 		return true
 	}
 
@@ -255,12 +312,12 @@ func (t *podTailer) matchesNameFilter(podName string) bool {
 	}
 
 	// If we have deployment filters but no name filters, the label selector handles it
-	if len(t.params.Names) == 0 && len(t.params.FromDeploy) > 0 {
+	if len(t.params.Names) == 0 && len(t.params.FromDeploy.Value()) > 0 {
 		return true
 	}
 
 	// Also check if pod name starts with deployment name (fallback matching)
-	for _, deploy := range t.params.FromDeploy {
+	for _, deploy := range t.params.FromDeploy.Value() {
 		if strings.HasPrefix(podName, deploy+"-") {
 			return true
 		}
@@ -279,7 +336,7 @@ func (t *podTailer) parsePodKey(podKey string) (namespace, podName string) {
 			return parts[0], parts[1]
 		}
 	}
-	return t.params.Namespace, podKey
+	return t.params.Namespace.Value(), podKey
 }
 
 func (t *podTailer) isPodReady(ctx context.Context, podKey string) bool {
