@@ -30,7 +30,7 @@ type Params struct {
 	MaxPods       int                    `help:"Maximum pods to tail simultaneously" default:"10"`
 	Tail          int                    `help:"Number of lines to initially read" default:"20"`
 	Since         string                 `optional:"true" help:"Only return logs newer than relative duration (e.g., 5m, 1h)"`
-	Interval      int                    `help:"Pod discovery poll interval in milliseconds" default:"250"`
+	Interval      int                    `help:"Pod discovery poll interval in milliseconds" default:"500"`
 }
 
 func Cmd() *cobra.Command {
