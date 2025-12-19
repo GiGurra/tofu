@@ -16,6 +16,7 @@ import (
 	"github.com/gigurra/tofu/cmd/env"
 	"github.com/gigurra/tofu/cmd/find"
 	"github.com/gigurra/tofu/cmd/free"
+	"github.com/gigurra/tofu/cmd/gh"
 	"github.com/gigurra/tofu/cmd/grep"
 	"github.com/gigurra/tofu/cmd/hash"
 	"github.com/gigurra/tofu/cmd/head"
@@ -81,6 +82,7 @@ func main() {
 			screensaver.Cmd(),
 			bird.Cmd(),
 			k8s.Cmd(),
+			gh.Cmd(),
 		},
 	}.Run()
 }
