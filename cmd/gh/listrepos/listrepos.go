@@ -19,6 +19,7 @@ import (
 type Params struct {
 	Org  boa.Required[string] `help:"GitHub organization name"`
 	Team boa.Required[string] `help:"Team slug/name within the organization"`
+	Url  bool                 `descr:"Print full GitHub URLs instead of repo names" optional:"true"`
 }
 
 func Cmd() *cobra.Command {
@@ -67,7 +68,11 @@ func run(params *Params, stdout, stderr io.Writer) error {
 	}
 
 	for _, repo := range repos {
-		fmt.Fprintln(stdout, repo)
+		if params.Url {
+			fmt.Fprintf(stdout, "https://github.com/%s\n", repo)
+		} else {
+			fmt.Fprintln(stdout, repo)
+		}
 	}
 
 	return nil
