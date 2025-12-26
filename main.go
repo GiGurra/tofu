@@ -11,8 +11,10 @@ import (
 	"github.com/gigurra/tofu/cmd/clip"
 	"github.com/gigurra/tofu/cmd/count"
 	"github.com/gigurra/tofu/cmd/cron"
+	"github.com/gigurra/tofu/cmd/df"
 	"github.com/gigurra/tofu/cmd/diff"
 	"github.com/gigurra/tofu/cmd/dns"
+	"github.com/gigurra/tofu/cmd/du"
 	"github.com/gigurra/tofu/cmd/env"
 	"github.com/gigurra/tofu/cmd/find"
 	"github.com/gigurra/tofu/cmd/free"
@@ -83,6 +85,8 @@ func main() {
 			bird.Cmd(),
 			k8s.Cmd(),
 			gh.Cmd(),
+			du.Cmd(),
+			df.Cmd(),
 		},
 	}.Run()
 }
