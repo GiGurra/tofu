@@ -9,6 +9,11 @@ import (
 	"syscall"
 )
 
+// isExecutable checks if a file is executable on Unix
+func isExecutable(_ string, mode fs.FileMode) bool {
+	return mode&0111 != 0
+}
+
 // FileStatInfo contains platform-specific file metadata
 type FileStatInfo struct {
 	Nlink  uint64 // number of hard links

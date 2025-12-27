@@ -5,8 +5,26 @@ package ls
 import (
 	"io/fs"
 	"os/user"
+	"strings"
 	"syscall"
 )
+
+// isExecutable checks if a file is executable on Windows
+// Windows determines executability by file extension
+func isExecutable(name string, mode fs.FileMode) bool {
+	// Check Unix execute bit for cross-platform compatibility
+	if mode&0111 != 0 {
+		return true
+	}
+	// Check common Windows executable extensions
+	lower := strings.ToLower(name)
+	for _, ext := range []string{".exe", ".bat", ".cmd", ".com", ".ps1", ".msi"} {
+		if strings.HasSuffix(lower, ext) {
+			return true
+		}
+	}
+	return false
+}
 
 // FileStatInfo contains platform-specific file metadata
 type FileStatInfo struct {

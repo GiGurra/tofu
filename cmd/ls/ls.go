@@ -358,11 +358,11 @@ func printName(entry fileEntry, params *Params, stdout io.Writer, useColor bool)
 	fmt.Fprint(stdout, name)
 
 	if params.Classify {
-		fmt.Fprint(stdout, classifyChar(entry.info))
+		fmt.Fprint(stdout, classifyChar(entry.name, entry.info))
 	}
 }
 
-func classifyChar(info fs.FileInfo) string {
+func classifyChar(name string, info fs.FileInfo) string {
 	mode := info.Mode()
 	switch {
 	case mode.IsDir():
@@ -373,7 +373,7 @@ func classifyChar(info fs.FileInfo) string {
 		return "|"
 	case mode&os.ModeSocket != 0:
 		return "="
-	case mode&0111 != 0: // executable
+	case isExecutable(name, mode):
 		return "*"
 	default:
 		return ""
