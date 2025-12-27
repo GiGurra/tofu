@@ -1,285 +1,129 @@
-# �豆腐 tofu
+# 🥢 TOFU
 
 [![CI Status](https://github.com/GiGurra/tofu/actions/workflows/ci.yml/badge.svg)](https://github.com/GiGurra/tofu/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/GiGurra/tofu)](https://goreportcard.com/report/github.com/GiGurra/tofu)
 
-> Tools Of Fantastic Utility - the universal cross-platform protein for your command line
-
-**tofu** is a modern toolkit of CLI utilities that work seamlessly across Windows, macOS, and Linux. Like its namesake,
-tofu adapts to any environment while providing essential nutrition for your daily command-line workflows.
-
-⚠️ WARNING ⚠️ : This is just a satire coding hack vibe coded into even more stupidity. But at least now, I can use find
-and grep in powershell :P.
-
-⚠️ WARNING ⚠️ : Large parts of this project, including this readme, are likely written by some LLM.
-Expect weirdness and occasional poetry.
-
-## Philosophy
-
-Traditional Unix tools are powerful but often:
-
-- Have cryptic flags and syntax
-- Don't work consistently across platforms
-- Lack modern CLI niceties (autocomplete, colored output, progress bars)
-- Have interfaces designed in the 1970s
-
-**tofu** reimagines these essential tools with:
-
-- ✨ Modern, intuitive interfaces
-- 🎯 Smart defaults that just work
-- 🌈 Beautiful, colored output (maybe, easy there claude sonnet, maybe in the future)
-- ⚡ Blazing fast performance (written in Go)
-- 🔄 True cross-platform support (Windows, macOS, Linux)
-- 📝 Built-in autocomplete and help
-- 🎨 Consistent UX across all tools
-
-## Tools
-
-### tofu cat
-
-Regular-ish `cat`, but works in powershell without making you want to scream.
-
-See [man/man_cat.md](man/man_cat.md) for details.
-
-### tofu clip
-
-Clipboard copy and paste utility.
-
-See [man/man_clip.md](man/man_clip.md) for details.
-
-### tofu find
-
-A modern file finder that makes `find` feel like it's from this century.
-
-See [man/man_find.md](man/man_find.md) for details.
-
-### tofu grep
-
-Like gnu grep, but shittier - although, it works in powershell.
-
-See [man/man_grep.md](man/man_grep.md) for details.
-
-### tofu sed2
-
-Like gnu sed, but at the same time not. This one has an actually useful syntax.
-
-See [man/man_sed2.md](man/man_sed2.md) for details.
-
-### tofu watch
-
-Watches files for changes and executes commands. Like `watch` or `nodemon` but generic and simple.
-
-See [man/man_watch.md](man/man_watch.md) for details.
-
-### tofu serve
-
-Instant static file server. Perfect for previewing sites or sharing files.
-
-See [man/man_serve.md](man/man_serve.md) for details.
-
-### tofu uuid
-
-Generates Universally Unique Identifiers (UUIDs) with support for v1, v3, v4, v5, v6, and v7.
-
-See [man/man_uuid.md](man/man_uuid.md) for details.
-
-### tofu port
-
-List or kill processes listening on network ports. Cross-platform support for Linux, Windows, and macOS.
-
-See [man/man_port.md](man/man_port.md) for details.
-
-### tofu tree
-
-List contents of directories in a tree-like format, with options for depth and hidden files, and respecting `.gitignore`.
-
-See [man/man_tree.md](man/man_tree.md) for details.
-
-### tofu which
-
-Locates executable files associated with a given command.
-
-See [man/man_which.md](man/man_which.md) for details.
-
-### tofu ip
-
-Show local and public IP addresses, DNS servers, and default gateway.
-
-See [man/man_ip.md](man/man_ip.md) for details.
-
-### tofu dns
-
-Lookup DNS records (A, AAAA, MX, etc.) using custom or OS resolvers.
-
-See [man/man_dns.md](man/man_dns.md) for details.
-
-### tofu http
-
-Human-friendly HTTP client (curl/httpie alternative).
-
-See [man/man_http.md](man/man_http.md) for details.
-
-### tofu nc
-
-Netcat clone: Connect to or listen on sockets (TCP/UDP).
-
-See [man/man_nc.md](man/man_nc.md) for details.
-
-### tofu qr
-
-Render QR codes in the terminal.
-
-See [man/man_qr.md](man/man_qr.md) for details.
-
-### tofu base64
-
-Base64 encode/decode files or stdin.
-
-See [man/man_base64.md](man/man_base64.md) for details.
-
-### tofu jwt
-
-Decode and inspect JWT tokens (Header, Claims/Payload).
-
-See [man/man_jwt.md](man/man_jwt.md) for details.
-
-### tofu hash
-
-Calculate cryptographic hashes (MD5, SHA1, SHA256, SHA512) for files or stdin.
-
-See [man/man_hash.md](man/man_hash.md) for details.
-
-### tofu free
-
-Display amount of free and used memory in the system.
-
-See [man/man_free.md](man/man_free.md) for details.
-
-### tofu ps
-
-Report a snapshot of the current processes with filtering options.
-
-See [man/man_ps.md](man/man_ps.md) for details.
-
-### tofu time
-
-Show current time in various formats or parse a provided timestamp, with optional input format specification.
-
-See [man/man_time.md](man/man_time.md) for details.
-
-### tofu rand
-
-Generate random strings, integers, hex, base64, passwords, and passphrases.
-
-See [man/man_rand.md](man/man_rand.md) for details.
-
-### tofu env
-
-Cross-platform environment variable management. List, get, set, filter, and export environment variables.
-
-See [man/man_env.md](man/man_env.md) for details.
-
-### tofu cron
-
-Explain and validate cron expressions. Parses standard 5-field and extended 6-field cron expressions with human-readable output.
-
-See [man/man_cron.md](man/man_cron.md) for details.
-
-### tofu count
-
-Count lines, words, characters, and bytes in files. A modern alternative to `wc` with clearer flags and Unicode support.
-
-See [man/man_count.md](man/man_count.md) for details.
-
-### tofu diff
-
-Compare two files line by line with colored output. Supports unified and side-by-side formats.
-
-See [man/man_diff.md](man/man_diff.md) for details.
-
-### tofu head
-
-Output the first part of files. Works like the Unix `head` command but cross-platform.
-
-See [man/man_head.md](man/man_head.md) for details.
-
-### tofu tail
-
-Output the last part of files with optional real-time following. Works like the Unix `tail` command but cross-platform.
-
-See [man/man_tail.md](man/man_tail.md) for details.
-
-### tofu archive
-
-Create, extract, and list archive files. Supports tar, tar.gz, tar.bz2, tar.xz, tar.zst, zip, 7z, and rar formats.
-
-See [man/man_archive.md](man/man_archive.md) for details.
-
-### tofu wget
-
-Download files from the web with progress indication and resume support.
-
-See [man/man_wget.md](man/man_wget.md) for details.
-
-**Coming soon:**
-
-- `tofu json` - Simple JSON formatter and query tool (jq lite)
-- `tofu url` - URL encoder/decoder and parser
-- `tofu semver` - Semantic versioning utilities (bump, sort)
-- `tofu yaml` - YAML validation and conversion
-- ...and more based on what we're all tired of fighting with
+---
+
+**ARE YOU TIRED** of your command line tools not working the same way on Windows, Mac, and Linux?
+
+**ARE YOU SICK** of cryptic flags that were designed when disco was still cool?
+
+**DO YOU LIE AWAKE AT NIGHT** wondering why `grep` works differently in PowerShell?
+
+## WELL LOOK NO FURTHER, FRIEND!
+
+Introducing **TOFU** - *Tools Of Fantastic Utility!*
+
+For the LOW LOW PRICE of **absolutely nothing**, you get not one, not two, but **OVER 40 COMMAND LINE TOOLS** that work EVERYWHERE!
+
+---
+
+### But wait - there's MORE!
+
+You get `cat`! You get `grep`! You get `find`! You get `ls`!
+
+**ALL WORKING IN POWERSHELL WITHOUT MAKING YOU WANT TO FLIP YOUR DESK!**
+
+---
+
+### But wait - there's EVEN MORE!
+
+| Tool | What It Does | Wow Factor |
+|------|--------------|------------|
+| `cat` | Concatenates files | Works in PowerShell! |
+| `grep` | Searches text | Actually readable output! |
+| `find` | Finds files | No more `-name` confusion! |
+| `ls`, `ll`, `la` | Lists directories | Colors! Sorting! Sanity! |
+| `tree` | Shows directory trees | Respects .gitignore! |
+| `sed2` | Stream editing | Syntax from THIS century! |
+| `diff` | Compares files | With actual colors! |
+| `head` / `tail` | Shows file parts | Cross-platform! |
+| `cp`, `mv`, `rm` | File operations | The classics, everywhere! |
+| `mkdir`, `rmdir`, `touch` | More file ops | You know what these do! |
+| `watch` | Watches for changes | Like nodemon but better! |
+| `serve` | HTTP file server | One command, done! |
+| `http` | HTTP client | Like curl but readable! |
+| `ping` | Network ping | Real ICMP packets! |
+| `nc` | Netcat | TCP/UDP connections! |
+| `dns` | DNS lookups | All record types! |
+| `ip` | Network info | Local AND public IPs! |
+| `port` | Port management | Find and kill by port! |
+| `ps` | Process list | With filtering! |
+| `free` | Memory info | Human readable! |
+| `du`, `df` | Disk usage | Storage stats! |
+| `uuid` | UUID generator | v1 through v7! |
+| `rand` | Random generator | Strings, passwords, passphrases! |
+| `hash` | Cryptographic hashes | MD5, SHA1, SHA256, SHA512! |
+| `base64` | Base64 encode/decode | For your encoding needs! |
+| `jwt` | JWT decoder | Inspect those tokens! |
+| `qr` | QR code generator | In your terminal! |
+| `time` | Time utilities | Parse and format! |
+| `cron` | Cron explainer | Human readable schedules! |
+| `env` | Environment vars | Cross-platform management! |
+| `count` | Line/word counter | Modern wc replacement! |
+| `clip` | Clipboard | Copy/paste from CLI! |
+| `archive` | Archive tool | tar, zip, 7z, rar! |
+| `wget` | File downloader | With progress bars! |
+| `reverse` | Reverse lines | Because why not! |
+| `tee` | Output splitter | To files AND stdout! |
+
+---
+
+### But wait - there's STILL MORE!
+
+**ORDER NOW** and we'll throw in:
+
+- 🌈 Colored output *(where applicable)*
+- 📝 Shell completions for bash, zsh, fish, AND PowerShell
+- ⚡ Blazing fast Go performance
+- 🎯 Smart defaults that actually make sense
+- 🤖 Partially written by LLMs *(for that authentic 2024 vibe)*
+
+---
 
 ## Installation
 
 ```shell
-# Coming soon
 go install github.com/gigurra/tofu@latest
 ```
 
-### Shell completion
+That's it. That's the whole thing. **NO ASSEMBLY REQUIRED!**
 
-Shell completion is auto generated and available for:
+---
 
-- bash
-- zsh
-- fish
-- powershell
+## Documentation
 
-see:
+*For the fine print and actual documentation, see the [man/](man/) directory.*
 
-```shell
-tofu completions <shell> [--help]
-```
+*We have to put the real docs somewhere, and lawyers said we can't just yell at people forever.*
 
-## Why "tofu"?
+---
 
-Like tofu, these tools are:
+## FAQ
 
-- **Universal** - Works in any environment (platform)
-- **Adaptable** - Fits into any workflow
-- **Essential** - The protein your CLI diet needs
-- **Modern** - A contemporary take on traditional ingredients
+**Q: Is this a joke?**
+A: The README is. The tools actually work.
 
-(And perhaps, in a very specific light, almost as divinely inspired as TempleOS. Almost.)
+**Q: Why is it called tofu?**
+A: Because it adapts to any environment, just like tofu absorbs any flavor. Also we couldn't get the domain for "tools".
 
-Plus, it's fun to say you're "serving fresh tofu" when you ship a new tool. 🍴
+**Q: Does this require sudo?**
+A: Only `ping`. We're not animals.
 
-## Development Status
+**Q: Who made this?**
+A: The Satire Coders Collective, with generous assistance from our robot overlords.
 
-🚧 **Early Development** - a.k.a. who the heck knows.
-
-## Contributing
-
-Ideas, issues, and PRs welcome! Let's make CLI tools that spark joy.
+---
 
 ## License
 
-MIT
-
-## Original author(s?)
-
-Satire Coders Collective
+MIT - *Because sharing is caring!*
 
 ---
+
+**CALL NOW!** *(Just kidding, just run `go install`)*
+
+*Operators are standing by!* *(They're not, it's just a GitHub repo)*
 
 *Silky smooth commands, firm reliable results.* 🥢
