@@ -54,7 +54,7 @@ func getOwner(stat FileStatInfo, numeric bool) string {
 }
 
 // getGroup returns the group name or gid for a file
-func getGroup(stat FileStatInfo, numeric bool) string {
+func getGroup(stat FileStatInfo, numeric bool, fullGroup bool) string {
 	if !stat.Valid {
 		return "?"
 	}

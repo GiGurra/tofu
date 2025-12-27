@@ -85,20 +85,25 @@ func getOwner(stat FileStatInfo, numeric bool) string {
 }
 
 // getGroup returns the group name for a file on Windows
-func getGroup(stat FileStatInfo, numeric bool) string {
-	// On Windows, groups work differently
-	// Return a placeholder or try to get primary group
+func getGroup(stat FileStatInfo, numeric bool, fullGroup bool) string {
+	// On Windows, groups work differently than Unix
+	// The Gid is typically a long SID like S-1-5-21-...
 	if u, err := user.Current(); err == nil {
-		if numeric {
+		if numeric || fullGroup {
+			// Show the full SID when requested
 			return u.Gid
 		}
 		// Try to look up group name
 		if g, err := user.LookupGroupId(u.Gid); err == nil {
 			return g.Name
 		}
+		// SID didn't resolve to a friendly name, truncate it
+		if len(u.Gid) > 5 {
+			return u.Gid[:5] + ".."
+		}
 		return u.Gid
 	}
-	return "GROUP"
+	return ".."
 }
 
 // getFileIndex retrieves the unique file index for Windows files

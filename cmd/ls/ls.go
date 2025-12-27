@@ -36,6 +36,7 @@ type Params struct {
 	GroupDirsFirst   bool     `help:"Group directories before files."`
 	NoGroup          bool     `short:"G" help:"In a long listing, don't print group names."`
 	NumericUidGid    bool     `short:"n" help:"Like -l, but list numeric user and group IDs."`
+	FullGroup        bool     `help:"Show full group identifier (e.g., Windows SID)."`
 }
 
 type fileEntry struct {
@@ -265,7 +266,7 @@ func printLongFormat(entries []fileEntry, params *Params, stdout io.Writer, useC
 			}
 
 			if !params.NoGroup {
-				group := getGroup(stat, params.NumericUidGid)
+				group := getGroup(stat, params.NumericUidGid, params.FullGroup)
 				if len(group) > maxGroup {
 					maxGroup = len(group)
 				}
@@ -320,7 +321,7 @@ func printLongFormat(entries []fileEntry, params *Params, stdout io.Writer, useC
 
 			// Group
 			if !params.NoGroup {
-				group := getGroup(stat, params.NumericUidGid)
+				group := getGroup(stat, params.NumericUidGid, params.FullGroup)
 				fmt.Fprintf(&line, "%-*s ", maxGroup, group)
 			}
 		} else {
