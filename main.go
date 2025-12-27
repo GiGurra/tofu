@@ -10,6 +10,7 @@ import (
 	"github.com/gigurra/tofu/cmd/cat"
 	"github.com/gigurra/tofu/cmd/clip"
 	"github.com/gigurra/tofu/cmd/count"
+	"github.com/gigurra/tofu/cmd/cp"
 	"github.com/gigurra/tofu/cmd/cron"
 	"github.com/gigurra/tofu/cmd/df"
 	"github.com/gigurra/tofu/cmd/diff"
@@ -27,18 +28,23 @@ import (
 	"github.com/gigurra/tofu/cmd/jwt"
 	"github.com/gigurra/tofu/cmd/k8s"
 	"github.com/gigurra/tofu/cmd/ls"
+	"github.com/gigurra/tofu/cmd/mkdir"
+	"github.com/gigurra/tofu/cmd/mv"
 	"github.com/gigurra/tofu/cmd/nc"
+	"github.com/gigurra/tofu/cmd/ping"
 	"github.com/gigurra/tofu/cmd/port"
 	"github.com/gigurra/tofu/cmd/ps"
 	"github.com/gigurra/tofu/cmd/qr"
 	"github.com/gigurra/tofu/cmd/rand"
 	"github.com/gigurra/tofu/cmd/reverse"
+	"github.com/gigurra/tofu/cmd/rm"
 	"github.com/gigurra/tofu/cmd/screensaver"
 	"github.com/gigurra/tofu/cmd/sed2"
 	"github.com/gigurra/tofu/cmd/serve"
 	"github.com/gigurra/tofu/cmd/tail"
 	"github.com/gigurra/tofu/cmd/tee"
 	"github.com/gigurra/tofu/cmd/time"
+	"github.com/gigurra/tofu/cmd/touch"
 	"github.com/gigurra/tofu/cmd/tree"
 	"github.com/gigurra/tofu/cmd/uuid"
 	"github.com/gigurra/tofu/cmd/watch"
@@ -83,6 +89,7 @@ func main() {
 			diff.Cmd(),
 			tail.Cmd(),
 			tee.Cmd(),
+			touch.Cmd(),
 			head.Cmd(),
 			archive.Cmd(),
 			wget.Cmd(),
@@ -93,6 +100,13 @@ func main() {
 			du.Cmd(),
 			df.Cmd(),
 			ls.Cmd(),
+			ls.LlCmd(),
+			ls.LaCmd(),
+			mkdir.Cmd(),
+			mv.Cmd(),
+			cp.Cmd(),
+			rm.Cmd(),
+			ping.Cmd(),
 		},
 	}.Run()
 }

@@ -52,5 +52,6 @@ require (
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go4.org v0.0.0-20230225012048-214862532bf5 // indirect
+	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
 )

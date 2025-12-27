@@ -63,6 +63,43 @@ func Cmd() *cobra.Command {
 	}.ToCobra()
 }
 
+func LlCmd() *cobra.Command {
+	return boa.CmdT[Params]{
+		Use:         "ll",
+		Short:       "List directory contents in long format (alias for ls -l)",
+		Long:        "List information about the FILEs in long format (alias for ls -l).",
+		ParamEnrich: common.DefaultParamEnricher(),
+		InitFunc: func(params *Params, cmd *cobra.Command) error {
+			cmd.Flags().BoolP("help", "", false, "help for ll")
+			return nil
+		},
+		RunFunc: func(params *Params, cmd *cobra.Command, args []string) {
+			params.Long = true
+			exitCode := Run(params, os.Stdout, os.Stderr)
+			os.Exit(exitCode)
+		},
+	}.ToCobra()
+}
+
+func LaCmd() *cobra.Command {
+	return boa.CmdT[Params]{
+		Use:         "la",
+		Short:       "List all directory contents in long format (alias for ls -la)",
+		Long:        "List information about all FILEs including hidden files in long format (alias for ls -la).",
+		ParamEnrich: common.DefaultParamEnricher(),
+		InitFunc: func(params *Params, cmd *cobra.Command) error {
+			cmd.Flags().BoolP("help", "", false, "help for la")
+			return nil
+		},
+		RunFunc: func(params *Params, cmd *cobra.Command, args []string) {
+			params.Long = true
+			params.All = true
+			exitCode := Run(params, os.Stdout, os.Stderr)
+			os.Exit(exitCode)
+		},
+	}.ToCobra()
+}
+
 func Run(params *Params, stdout, stderr io.Writer) int {
 	// -n implies -l
 	if params.NumericUidGid {
