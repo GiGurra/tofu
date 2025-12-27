@@ -81,6 +81,7 @@ func run(params *Params, stdout, _ io.Writer) error {
 
 	// Apply filters
 	filter := repoFilter{
+		owner:      params.Owner.Value(),
 		visibility: params.Visibility,
 		archived:   params.Archived,
 	}
@@ -183,11 +184,20 @@ type repoResponse struct {
 }
 
 type repoFilter struct {
+	owner      string   // filter by owner (case-insensitive)
 	visibility []string // empty means all
 	archived   string   // "all", "archived", "not-archived"
 }
 
 func (f repoFilter) matches(repo repoResponse) bool {
+	// Check owner (repo full_name is "owner/repo")
+	if f.owner != "" {
+		parts := strings.SplitN(repo.FullName, "/", 2)
+		if len(parts) < 2 || !strings.EqualFold(parts[0], f.owner) {
+			return false
+		}
+	}
+
 	// Check visibility
 	if len(f.visibility) > 0 && !lo.Contains(f.visibility, "all") {
 		if !lo.Contains(f.visibility, repo.Visibility) {
@@ -276,7 +286,8 @@ func isAuthenticatedUser(ctx context.Context, owner string) bool {
 	if result.Err != nil {
 		return false
 	}
-	return strings.TrimSpace(result.StdOut) == owner
+	// Case-insensitive comparison (GitHub usernames are case-insensitive)
+	return strings.EqualFold(strings.TrimSpace(result.StdOut), owner)
 }
 
 type ownerResponse struct {
