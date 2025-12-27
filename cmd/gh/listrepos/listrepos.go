@@ -20,7 +20,7 @@ import (
 type Params struct {
 	Owner      boa.Required[string] `short:"o" help:"GitHub organization or user name"`
 	Team       boa.Optional[string] `help:"Team slug/name within the organization (optional, lists all repos if not specified)"`
-	Visibility []string             `short:"v" help:"Filter by visibility (can specify multiple)" alts:"all,public,private,internal"`
+	Visibility []string             `short:"v" help:"Filter by visibility (can specify multiple)" default:"all" alts:"all,public,private,internal"`
 	Archived   string               `help:"Filter by archived status" default:"all" alts:"all,archived,not-archived"`
 	Sort       string               `help:"Sort repos by field" default:"full_name" alts:"full_name,created,updated,pushed"`
 	Direction  string               `help:"Sort direction" default:"asc" alts:"asc,desc"`
