@@ -1,4 +1,4 @@
-//go:build !windows
+//go:build darwin
 
 package touch
 
@@ -10,5 +10,5 @@ import (
 
 func getAtime(info os.FileInfo) time.Time {
 	stat := info.Sys().(*syscall.Stat_t)
-	return time.Unix(stat.Atim.Sec, stat.Atim.Nsec)
+	return time.Unix(stat.Atimespec.Sec, stat.Atimespec.Nsec)
 }
