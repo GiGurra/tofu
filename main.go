@@ -38,6 +38,7 @@ import (
 	"github.com/gigurra/tofu/cmd/rand"
 	"github.com/gigurra/tofu/cmd/reverse"
 	"github.com/gigurra/tofu/cmd/rm"
+	"github.com/gigurra/tofu/cmd/rmdir"
 	"github.com/gigurra/tofu/cmd/screensaver"
 	"github.com/gigurra/tofu/cmd/sed2"
 	"github.com/gigurra/tofu/cmd/serve"
@@ -106,6 +107,7 @@ func main() {
 			mv.Cmd(),
 			cp.Cmd(),
 			rm.Cmd(),
+			rmdir.Cmd(),
 			ping.Cmd(),
 		},
 	}.Run()
