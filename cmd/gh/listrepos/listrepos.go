@@ -240,7 +240,14 @@ func listOwnerRepos(ctx context.Context, owner string) ([]repoResponse, error) {
 	if isOrg {
 		endpoint = fmt.Sprintf("/orgs/%s/repos", owner)
 	} else {
-		endpoint = fmt.Sprintf("/users/%s/repos", owner)
+		// Check if owner is the authenticated user
+		// /users/{username}/repos only returns public repos
+		// /user/repos returns all repos (including private) for the authenticated user
+		if isAuthenticatedUser(ctx, owner) {
+			endpoint = "/user/repos"
+		} else {
+			endpoint = fmt.Sprintf("/users/%s/repos", owner)
+		}
 	}
 
 	result := cmder.New("gh", "api", endpoint, "--paginate").
@@ -260,6 +267,16 @@ func listOwnerRepos(ctx context.Context, owner string) ([]repoResponse, error) {
 	}
 
 	return repos, nil
+}
+
+func isAuthenticatedUser(ctx context.Context, owner string) bool {
+	result := cmder.New("gh", "api", "/user", "--jq", ".login").
+		WithAttemptTimeout(10 * time.Second).
+		Run(ctx)
+	if result.Err != nil {
+		return false
+	}
+	return strings.TrimSpace(result.StdOut) == owner
 }
 
 type ownerResponse struct {
