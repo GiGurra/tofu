@@ -18,12 +18,12 @@ import (
 )
 
 type Params struct {
-	Host     string `pos:"true" required:"true" help:"Host to ping."`
-	Count    int    `short:"c" optional:"true" help:"Stop after sending count ECHO_REQUEST packets." default:"0"`
+	Host     string  `pos:"true" required:"true" help:"Host to ping."`
+	Count    int     `short:"c" optional:"true" help:"Stop after sending count ECHO_REQUEST packets." default:"0"`
 	Interval float64 `short:"i" optional:"true" help:"Wait interval seconds between sending each packet." default:"1"`
 	Timeout  float64 `short:"W" optional:"true" help:"Time to wait for a response, in seconds." default:"5"`
-	IPv4     bool   `short:"4" optional:"true" help:"Use IPv4 only."`
-	IPv6     bool   `short:"6" optional:"true" help:"Use IPv6 only."`
+	IPv4     bool    `short:"4" optional:"true" help:"Use IPv4 only."`
+	IPv6     bool    `short:"6" optional:"true" help:"Use IPv6 only."`
 }
 
 type pingStats struct {
@@ -38,7 +38,7 @@ func Cmd() *cobra.Command {
 	return boa.CmdT[Params]{
 		Use:         "ping",
 		Short:       "Send ICMP ECHO_REQUEST to network hosts",
-		Long:        "ping uses the ICMP protocol's mandatory ECHO_REQUEST datagram to elicit an ICMP ECHO_RESPONSE from a host or gateway.",
+		Long:        "ping uses the ICMP protocol's mandatory ECHO_REQUEST datagram to elicit an ICMP ECHO_RESPONSE from a host or gateway. Requires root/sudo on most systems.",
 		ParamEnrich: common.DefaultParamEnricher(),
 		RunFunc: func(params *Params, cmd *cobra.Command, args []string) {
 			exitCode := Run(params, os.Stdout, os.Stderr)
@@ -49,13 +49,6 @@ func Cmd() *cobra.Command {
 
 func Run(params *Params, stdout, stderr io.Writer) int {
 	// Resolve the host
-	network := "ip"
-	if params.IPv4 {
-		network = "ip4"
-	} else if params.IPv6 {
-		network = "ip6"
-	}
-
 	addrs, err := net.LookupIP(params.Host)
 	if err != nil {
 		fmt.Fprintf(stderr, "ping: %s: %v\n", params.Host, err)
@@ -82,6 +75,8 @@ func Run(params *Params, stdout, stderr io.Writer) int {
 	}
 
 	isIPv6 := addr.To4() == nil
+
+	var network string
 	if isIPv6 {
 		network = "ip6:ipv6-icmp"
 	} else {
@@ -90,7 +85,7 @@ func Run(params *Params, stdout, stderr io.Writer) int {
 
 	conn, err := icmp.ListenPacket(network, "")
 	if err != nil {
-		fmt.Fprintf(stderr, "ping: %v\n", err)
+		fmt.Fprintf(stderr, "ping: %v (try running with sudo)\n", err)
 		return 1
 	}
 	defer conn.Close()
@@ -167,12 +162,7 @@ func sendPing(conn *icmp.PacketConn, addr net.IP, seq int, isIPv6 bool, params *
 		return
 	}
 
-	var dst net.Addr
-	if isIPv6 {
-		dst = &net.IPAddr{IP: addr}
-	} else {
-		dst = &net.IPAddr{IP: addr}
-	}
+	dst := &net.IPAddr{IP: addr}
 
 	start := time.Now()
 	if _, err := conn.WriteTo(msgBytes, dst); err != nil {
