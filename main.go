@@ -26,6 +26,7 @@ import (
 	"github.com/gigurra/tofu/cmd/ip"
 	"github.com/gigurra/tofu/cmd/jwt"
 	"github.com/gigurra/tofu/cmd/k8s"
+	"github.com/gigurra/tofu/cmd/ls"
 	"github.com/gigurra/tofu/cmd/nc"
 	"github.com/gigurra/tofu/cmd/port"
 	"github.com/gigurra/tofu/cmd/ps"
@@ -89,6 +90,7 @@ func main() {
 			gh.Cmd(),
 			du.Cmd(),
 			df.Cmd(),
+			ls.Cmd(),
 		},
 	}.Run()
 }
