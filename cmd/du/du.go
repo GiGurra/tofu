@@ -23,7 +23,7 @@ type Params struct {
 	MaxDepth     int      `short:"d" help:"Print the total for a directory only if it is N or fewer levels deep." default:"-1"`
 	Bytes        bool     `short:"b" help:"Apparent size in bytes (equivalent to --apparent-size --block-size=1)." optional:"true"`
 	ApparentSize bool     `help:"Print apparent sizes rather than disk usage." optional:"true"`
-	Killobytes   bool     `short:"k" help:"Print in kilobytes." optional:"true"`
+	Kilobytes    bool     `short:"k" help:"Print in kilobytes." optional:"true"`
 	Sort         string   `short:"S" help:"Sort by: 'size' (largest last), 'name', or 'none' (fastest, streams output)." default:"size" alts:"size,name,none"`
 	Reverse      bool     `short:"r" help:"Reverse the sort order." optional:"true"`
 	IgnoreGit    bool     `help:"Respect .gitignore files." optional:"true"`
@@ -63,7 +63,7 @@ func Run(params *Params) error {
 	if params.Bytes {
 		blockSize = 1
 		apparentSize = true // -b implies --apparent-size
-	} else if params.Killobytes {
+	} else if params.Kilobytes {
 		blockSize = 1024
 	}
 
