@@ -347,6 +347,321 @@ func TestArchiveExtract_PreservesSymlinks_TarGz(t *testing.T) {
 	testArchiveSymlinkPreservation(t, "tar.gz")
 }
 
+func TestParseEncryptionMethod(t *testing.T) {
+	tests := []struct {
+		method    string
+		expectErr bool
+	}{
+		{"legacy", false},
+		{"LEGACY", false},
+		{"zipcrypto", false},
+		{"ZIPCRYPTO", false},
+		{"aes128", false},
+		{"AES128", false},
+		{"aes192", false},
+		{"AES192", false},
+		{"aes256", false},
+		{"AES256", false},
+		{"", false}, // empty defaults to aes256
+		{"invalid", true},
+		{"aes512", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.method, func(t *testing.T) {
+			_, err := parseEncryptionMethod(tt.method)
+			if tt.expectErr && err == nil {
+				t.Errorf("expected error for method %q", tt.method)
+			}
+			if !tt.expectErr && err != nil {
+				t.Errorf("unexpected error for method %q: %v", tt.method, err)
+			}
+		})
+	}
+}
+
+func TestEncryptedZip_CreateAndExtract(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create test file
+	srcFile := filepath.Join(dir, "secret.txt")
+	testContent := "this is secret content"
+	os.WriteFile(srcFile, []byte(testContent), 0644)
+
+	archivePath := filepath.Join(dir, "encrypted.zip")
+	password := "testpassword123"
+
+	// Create encrypted archive
+	createParams := &CreateParams{
+		Output:     archivePath,
+		Files:      []string{srcFile},
+		Password:   password,
+		Encryption: "aes256",
+		Verbose:    false,
+	}
+
+	err := runArchiveCreate(createParams)
+	if err != nil {
+		t.Fatalf("failed to create encrypted archive: %v", err)
+	}
+
+	// Verify archive was created
+	if _, err := os.Stat(archivePath); os.IsNotExist(err) {
+		t.Fatal("encrypted archive was not created")
+	}
+
+	// Extract encrypted archive
+	extractDir := filepath.Join(dir, "extracted")
+	extractParams := &ExtractParams{
+		Archive:  archivePath,
+		Output:   extractDir,
+		Password: password,
+		Verbose:  false,
+	}
+
+	err = runArchiveExtract(extractParams)
+	if err != nil {
+		t.Fatalf("failed to extract encrypted archive: %v", err)
+	}
+
+	// Verify extracted file content
+	extractedFile := filepath.Join(extractDir, "secret.txt")
+	content, err := os.ReadFile(extractedFile)
+	if err != nil {
+		t.Fatalf("failed to read extracted file: %v", err)
+	}
+	if string(content) != testContent {
+		t.Errorf("content mismatch: expected %q, got %q", testContent, string(content))
+	}
+}
+
+func TestEncryptedZip_List(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create test file
+	srcFile := filepath.Join(dir, "test.txt")
+	os.WriteFile(srcFile, []byte("test content"), 0644)
+
+	archivePath := filepath.Join(dir, "encrypted.zip")
+	password := "testpassword123"
+
+	// Create encrypted archive
+	createParams := &CreateParams{
+		Output:     archivePath,
+		Files:      []string{srcFile},
+		Password:   password,
+		Encryption: "aes256",
+	}
+
+	err := runArchiveCreate(createParams)
+	if err != nil {
+		t.Fatalf("failed to create encrypted archive: %v", err)
+	}
+
+	// List encrypted archive
+	listParams := &ListParams{
+		Archive:  archivePath,
+		Password: password,
+		Long:     true,
+	}
+
+	err = runArchiveList(listParams)
+	if err != nil {
+		t.Fatalf("failed to list encrypted archive: %v", err)
+	}
+}
+
+func TestEncryptedZip_WrongPassword(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create test file
+	srcFile := filepath.Join(dir, "test.txt")
+	os.WriteFile(srcFile, []byte("test content"), 0644)
+
+	archivePath := filepath.Join(dir, "encrypted.zip")
+	password := "correctpassword"
+
+	// Create encrypted archive
+	createParams := &CreateParams{
+		Output:     archivePath,
+		Files:      []string{srcFile},
+		Password:   password,
+		Encryption: "aes256",
+	}
+
+	err := runArchiveCreate(createParams)
+	if err != nil {
+		t.Fatalf("failed to create encrypted archive: %v", err)
+	}
+
+	// Try to extract with wrong password
+	extractDir := filepath.Join(dir, "extracted")
+	extractParams := &ExtractParams{
+		Archive:  archivePath,
+		Output:   extractDir,
+		Password: "wrongpassword",
+	}
+
+	err = runArchiveExtract(extractParams)
+	if err == nil {
+		t.Error("expected error when extracting with wrong password, but got none")
+	}
+}
+
+func TestEncryptedZip_DifferentEncryptionMethods(t *testing.T) {
+	methods := []string{"legacy", "aes128", "aes192", "aes256"}
+
+	for _, method := range methods {
+		t.Run(method, func(t *testing.T) {
+			dir := t.TempDir()
+
+			// Create test file
+			srcFile := filepath.Join(dir, "test.txt")
+			testContent := "content for " + method
+			os.WriteFile(srcFile, []byte(testContent), 0644)
+
+			archivePath := filepath.Join(dir, "encrypted.zip")
+			password := "testpassword"
+
+			// Create encrypted archive
+			createParams := &CreateParams{
+				Output:     archivePath,
+				Files:      []string{srcFile},
+				Password:   password,
+				Encryption: method,
+			}
+
+			err := runArchiveCreate(createParams)
+			if err != nil {
+				t.Fatalf("failed to create archive with %s: %v", method, err)
+			}
+
+			// Extract and verify
+			extractDir := filepath.Join(dir, "extracted")
+			extractParams := &ExtractParams{
+				Archive:  archivePath,
+				Output:   extractDir,
+				Password: password,
+			}
+
+			err = runArchiveExtract(extractParams)
+			if err != nil {
+				t.Fatalf("failed to extract archive with %s: %v", method, err)
+			}
+
+			// Verify content
+			extractedFile := filepath.Join(extractDir, "test.txt")
+			content, err := os.ReadFile(extractedFile)
+			if err != nil {
+				t.Fatalf("failed to read extracted file: %v", err)
+			}
+			if string(content) != testContent {
+				t.Errorf("content mismatch for %s", method)
+			}
+		})
+	}
+}
+
+func TestEncryptedZip_Directory(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create test directory structure
+	srcDir := filepath.Join(dir, "mydir")
+	os.MkdirAll(srcDir, 0755)
+
+	file1 := filepath.Join(srcDir, "file1.txt")
+	file2 := filepath.Join(srcDir, "file2.txt")
+	os.WriteFile(file1, []byte("content 1"), 0644)
+	os.WriteFile(file2, []byte("content 2"), 0644)
+
+	subDir := filepath.Join(srcDir, "subdir")
+	os.MkdirAll(subDir, 0755)
+	file3 := filepath.Join(subDir, "file3.txt")
+	os.WriteFile(file3, []byte("content 3"), 0644)
+
+	archivePath := filepath.Join(dir, "encrypted.zip")
+	password := "testpassword"
+
+	// Create encrypted archive
+	createParams := &CreateParams{
+		Output:     archivePath,
+		Files:      []string{srcDir},
+		Password:   password,
+		Encryption: "aes256",
+	}
+
+	err := runArchiveCreate(createParams)
+	if err != nil {
+		t.Fatalf("failed to create encrypted archive: %v", err)
+	}
+
+	// Extract and verify
+	extractDir := filepath.Join(dir, "extracted")
+	extractParams := &ExtractParams{
+		Archive:  archivePath,
+		Output:   extractDir,
+		Password: password,
+	}
+
+	err = runArchiveExtract(extractParams)
+	if err != nil {
+		t.Fatalf("failed to extract encrypted archive: %v", err)
+	}
+
+	// Verify all files were extracted
+	entries, err := os.ReadDir(extractDir)
+	if err != nil {
+		t.Fatalf("failed to read extracted dir: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Error("no files were extracted")
+	}
+}
+
+func TestNonEncryptedZip_StillWorks(t *testing.T) {
+	// Verify that creating non-encrypted ZIP archives still works
+	dir := t.TempDir()
+
+	srcFile := filepath.Join(dir, "test.txt")
+	os.WriteFile(srcFile, []byte("test content"), 0644)
+
+	archivePath := filepath.Join(dir, "normal.zip")
+
+	// Create non-encrypted archive (no password)
+	createParams := &CreateParams{
+		Output: archivePath,
+		Files:  []string{srcFile},
+		Format: "zip",
+	}
+
+	err := runArchiveCreate(createParams)
+	if err != nil {
+		t.Fatalf("failed to create non-encrypted archive: %v", err)
+	}
+
+	// Extract without password
+	extractDir := filepath.Join(dir, "extracted")
+	extractParams := &ExtractParams{
+		Archive: archivePath,
+		Output:  extractDir,
+	}
+
+	err = runArchiveExtract(extractParams)
+	if err != nil {
+		t.Fatalf("failed to extract non-encrypted archive: %v", err)
+	}
+
+	// Verify content
+	extractedFile := filepath.Join(extractDir, "test.txt")
+	content, err := os.ReadFile(extractedFile)
+	if err != nil {
+		t.Fatalf("failed to read extracted file: %v", err)
+	}
+	if string(content) != "test content" {
+		t.Errorf("content mismatch")
+	}
+}
+
 func testArchiveSymlinkPreservation(t *testing.T, format string) {
 	dir := t.TempDir()
 

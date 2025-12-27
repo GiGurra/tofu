@@ -12,14 +12,17 @@ import (
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/mholt/archives"
 	"github.com/spf13/cobra"
+	"github.com/yeka/zip"
 )
 
 // CreateParams holds parameters for archive creation
 type CreateParams struct {
-	Output  string   `short:"o" help:"Output archive file name (format auto-detected from extension)"`
-	Files   []string `pos:"true" optional:"true" help:"Files and directories to archive"`
-	Verbose bool     `short:"v" optional:"true" help:"Verbose output - list files as they are added"`
-	Format  string   `short:"f" optional:"true" help:"Archive format (tar, tar.gz, tar.bz2, tar.xz, tar.zst, zip, 7z). Overrides extension detection."`
+	Output     string   `short:"o" help:"Output archive file name (format auto-detected from extension)"`
+	Files      []string `pos:"true" optional:"true" help:"Files and directories to archive"`
+	Verbose    bool     `short:"v" optional:"true" help:"Verbose output - list files as they are added"`
+	Format     string   `short:"f" optional:"true" help:"Archive format (tar, tar.gz, tar.bz2, tar.xz, tar.zst, zip, 7z). Overrides extension detection."`
+	Password   string   `short:"p" optional:"true" help:"Password for encrypted ZIP archives"`
+	Encryption string   `short:"e" optional:"true" help:"Encryption method for ZIP: legacy (insecure), aes128, aes192, aes256 (default: aes256)" default:"aes256"`
 }
 
 // ExtractParams holds parameters for archive extraction
@@ -27,14 +30,14 @@ type ExtractParams struct {
 	Archive  string `pos:"true" help:"Archive file to extract"`
 	Output   string `short:"o" optional:"true" help:"Output directory (default: current directory)" default:"."`
 	Verbose  bool   `short:"v" optional:"true" help:"Verbose output - list files as they are extracted"`
-	Password string `short:"p" optional:"true" help:"Password for encrypted archives (7z, rar)"`
+	Password string `short:"p" optional:"true" help:"Password for encrypted archives (zip, 7z, rar)"`
 }
 
 // ListParams holds parameters for listing archive contents
 type ListParams struct {
 	Archive  string `pos:"true" help:"Archive file to list"`
 	Long     bool   `short:"l" optional:"true" help:"Long listing format (show size and permissions)"`
-	Password string `short:"p" optional:"true" help:"Password for encrypted archives (7z, rar)"`
+	Password string `short:"p" optional:"true" help:"Password for encrypted archives (zip, 7z, rar)"`
 }
 
 func Cmd() *cobra.Command {
@@ -50,12 +53,13 @@ Supported formats:
   - tar.xz      XZ-compressed tar
   - tar.zst     Zstd-compressed tar
   - tar.lz4     LZ4-compressed tar
-  - zip         ZIP archive
+  - zip         ZIP archive (password supported with AES encryption)
   - 7z          7-Zip archive (extract only, password supported)
   - rar         RAR archive (extract only, password supported)
 
 The format is auto-detected from the file extension, or can be specified explicitly.
-Password-protected 7z and rar archives can be extracted using the -p flag.`,
+Password-protected zip, 7z, and rar archives can be extracted using the -p flag.
+ZIP archives can be created with password protection using the -p flag (AES encryption).`,
 	}
 
 	cmd.AddCommand(createCmd())
@@ -74,10 +78,16 @@ func createCmd() *cobra.Command {
 The archive format is determined by the output file extension, or can be
 specified explicitly with the --format flag.
 
+ZIP archives can be encrypted using the -p (password) and -e (encryption) flags.
+Supported encryption methods: legacy (insecure, for compatibility), aes128, aes192, aes256 (default).
+
 Examples:
   tofu archive create -o backup.tar.gz file1.txt dir1/
   tofu archive create -o project.zip src/ README.md
-  tofu archive create -f tar.zst -o backup.tar.zst data/`,
+  tofu archive create -f tar.zst -o backup.tar.zst data/
+  tofu archive create -o secret.zip -p mypassword file.txt
+  tofu archive create -o secret.zip -p mypassword -e aes128 file.txt
+  tofu archive create -o compat.zip -p mypassword -e legacy file.txt`,
 		ParamEnrich: common.DefaultParamEnricher(),
 		InitFunc: func(params *CreateParams, cmd *cobra.Command) error {
 			cmd.Aliases = []string{"c"}
@@ -107,11 +117,13 @@ func extractCmd() *cobra.Command {
 		Long: `Extract all files from an archive to the specified directory.
 
 The archive format is auto-detected from the file contents.
+For encrypted archives (zip, 7z, rar), use the -p flag to specify the password.
 
 Examples:
   tofu archive extract backup.tar.gz
   tofu archive extract -o /tmp/output project.zip
-  tofu archive extract -v archive.7z`,
+  tofu archive extract -v archive.7z
+  tofu archive extract -p mypassword secret.zip`,
 		ParamEnrich: common.DefaultParamEnricher(),
 		InitFunc: func(params *ExtractParams, cmd *cobra.Command) error {
 			cmd.Aliases = []string{"x"}
@@ -136,9 +148,12 @@ func listCmd() *cobra.Command {
 		Short: "List contents of an archive",
 		Long: `List all files contained in an archive.
 
+For encrypted archives (zip, 7z, rar), use the -p flag to specify the password.
+
 Examples:
   tofu archive list backup.tar.gz
-  tofu archive list -l project.zip`,
+  tofu archive list -l project.zip
+  tofu archive list -p mypassword secret.zip`,
 		ParamEnrich: common.DefaultParamEnricher(),
 		InitFunc: func(params *ListParams, cmd *cobra.Command) error {
 			cmd.Aliases = []string{"l", "ls"}
@@ -164,6 +179,14 @@ func runArchiveCreate(params *CreateParams) error {
 	format, err := getArchiveFormat(params.Output, params.Format)
 	if err != nil {
 		return err
+	}
+
+	// Use encrypted ZIP writer when password provided for zip format
+	if params.Password != "" {
+		if _, isZip := format.(archives.Zip); isZip {
+			return createEncryptedZip(params)
+		}
+		return fmt.Errorf("password encryption is only supported for ZIP format")
 	}
 
 	archiver, ok := format.(archives.Archiver)
@@ -232,6 +255,10 @@ func runArchiveExtract(params *ExtractParams) error {
 	// Apply password to formats that support it
 	if params.Password != "" {
 		switch f := format.(type) {
+		case archives.Zip:
+			// Use yeka/zip for encrypted ZIP extraction
+			archiveFile.Close()
+			return extractEncryptedZip(params)
 		case archives.SevenZip:
 			f.Password = params.Password
 			format = f
@@ -339,6 +366,10 @@ func runArchiveList(params *ListParams) error {
 	// Apply password to formats that support it
 	if params.Password != "" {
 		switch f := format.(type) {
+		case archives.Zip:
+			// Use yeka/zip for encrypted ZIP listing
+			archiveFile.Close()
+			return listEncryptedZip(params)
 		case archives.SevenZip:
 			f.Password = params.Password
 			format = f
@@ -474,4 +505,230 @@ func parseFormatFromExtension(filename string) (archives.Format, error) {
 	default:
 		return nil, fmt.Errorf("cannot determine format from extension: %s", ext)
 	}
+}
+
+func parseEncryptionMethod(method string) (zip.EncryptionMethod, error) {
+	switch strings.ToLower(method) {
+	case "legacy", "zipcrypto":
+		return zip.StandardEncryption, nil
+	case "aes128":
+		return zip.AES128Encryption, nil
+	case "aes192":
+		return zip.AES192Encryption, nil
+	case "aes256", "":
+		return zip.AES256Encryption, nil
+	default:
+		return 0, fmt.Errorf("invalid encryption method: %s (use legacy, aes128, aes192, or aes256)", method)
+	}
+}
+
+func createEncryptedZip(params *CreateParams) error {
+	encMethod, err := parseEncryptionMethod(params.Encryption)
+	if err != nil {
+		return err
+	}
+
+	// Create output file
+	outFile, err := os.Create(params.Output)
+	if err != nil {
+		return fmt.Errorf("cannot create output file: %w", err)
+	}
+	defer outFile.Close()
+
+	zw := zip.NewWriter(outFile)
+	defer zw.Close()
+
+	// Process each input file/directory
+	for _, inputPath := range params.Files {
+		info, err := os.Lstat(inputPath)
+		if err != nil {
+			os.Remove(params.Output)
+			return fmt.Errorf("cannot access %s: %w", inputPath, err)
+		}
+
+		if info.IsDir() {
+			// Walk directory - compute relative paths from the directory's parent
+			baseDir := filepath.Dir(inputPath)
+			err = filepath.Walk(inputPath, func(path string, fi os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				// Compute name relative to the base directory
+				relPath, err := filepath.Rel(baseDir, path)
+				if err != nil {
+					relPath = filepath.Base(path)
+				}
+				return addFileToEncryptedZip(zw, path, relPath, fi, params.Password, encMethod, params.Verbose)
+			})
+			if err != nil {
+				os.Remove(params.Output)
+				return fmt.Errorf("failed to add directory %s: %w", inputPath, err)
+			}
+		} else {
+			// Single file - use just the base name
+			nameInArchive := filepath.Base(inputPath)
+			if err := addFileToEncryptedZip(zw, inputPath, nameInArchive, info, params.Password, encMethod, params.Verbose); err != nil {
+				os.Remove(params.Output)
+				return fmt.Errorf("failed to add file %s: %w", inputPath, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func addFileToEncryptedZip(zw *zip.Writer, path string, nameInArchive string, info os.FileInfo, password string, encMethod zip.EncryptionMethod, verbose bool) error {
+	if verbose {
+		fmt.Printf("a %s\n", nameInArchive)
+	}
+
+	// Handle directories
+	if info.IsDir() {
+		_, err := zw.Create(nameInArchive + "/")
+		return err
+	}
+
+	// Handle symlinks - store them as regular entries with link target as content
+	if info.Mode()&os.ModeSymlink != 0 {
+		linkTarget, err := os.Readlink(path)
+		if err != nil {
+			return err
+		}
+		w, err := zw.Encrypt(nameInArchive, password, encMethod)
+		if err != nil {
+			return err
+		}
+		_, err = w.Write([]byte(linkTarget))
+		return err
+	}
+
+	// Regular file - encrypt it
+	w, err := zw.Encrypt(nameInArchive, password, encMethod)
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = io.Copy(w, f)
+	return err
+}
+
+func extractEncryptedZip(params *ExtractParams) error {
+	zr, err := zip.OpenReader(params.Archive)
+	if err != nil {
+		return fmt.Errorf("cannot open archive: %w", err)
+	}
+	defer zr.Close()
+
+	// Create output directory if needed
+	absOutputRootDir, err := filepath.Abs(params.Output)
+	if err != nil {
+		return fmt.Errorf("invalid output directory: %s", params.Output)
+	}
+	if params.Output != "." {
+		if err := os.MkdirAll(absOutputRootDir, 0755); err != nil {
+			return fmt.Errorf("cannot create output directory: %w", err)
+		}
+	}
+
+	for _, f := range zr.File {
+		// Set password if file is encrypted
+		if f.IsEncrypted() {
+			f.SetPassword(params.Password)
+		}
+
+		// Sanitize the path
+		destPath := filepath.Join(absOutputRootDir, filepath.Clean(f.Name))
+		destPathAbs, err := filepath.Abs(destPath)
+		if err != nil {
+			return fmt.Errorf("invalid file path: %s", f.Name)
+		}
+
+		// Security check: ensure we're not writing outside the output directory
+		if !strings.HasPrefix(destPathAbs, filepath.Clean(absOutputRootDir)) &&
+			destPathAbs != filepath.Clean(absOutputRootDir) {
+			return fmt.Errorf("invalid file path: %s", f.Name)
+		}
+
+		if params.Verbose {
+			fmt.Printf("x %s\n", f.Name)
+		}
+
+		// Handle directories
+		if f.FileInfo().IsDir() {
+			// Use 0755 for directories to ensure they're writable
+			mode := f.Mode()
+			if mode == 0 {
+				mode = 0755
+			}
+			if err := os.MkdirAll(destPathAbs, mode|0700); err != nil {
+				return err
+			}
+			continue
+		}
+
+		// Ensure parent directory exists
+		if err := os.MkdirAll(filepath.Dir(destPathAbs), 0755); err != nil {
+			return err
+		}
+
+		// Extract file
+		rc, err := f.Open()
+		if err != nil {
+			return fmt.Errorf("cannot open file in archive: %s: %w", f.Name, err)
+		}
+
+		outFile, err := os.OpenFile(destPathAbs, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, f.Mode())
+		if err != nil {
+			rc.Close()
+			return err
+		}
+
+		_, err = io.Copy(outFile, rc)
+		outFile.Close()
+		rc.Close()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func listEncryptedZip(params *ListParams) error {
+	zr, err := zip.OpenReader(params.Archive)
+	if err != nil {
+		return fmt.Errorf("cannot open archive: %w", err)
+	}
+	defer zr.Close()
+
+	for _, f := range zr.File {
+		// Set password if file is encrypted (needed to read file info for some archives)
+		if f.IsEncrypted() && params.Password != "" {
+			f.SetPassword(params.Password)
+		}
+
+		if params.Long {
+			mode := f.Mode().String()
+			size := f.UncompressedSize64
+			name := f.Name
+			if f.FileInfo().IsDir() {
+				name += "/"
+			}
+			fmt.Printf("%s %10d  %s\n", mode, size, name)
+		} else {
+			name := f.Name
+			if f.FileInfo().IsDir() {
+				name += "/"
+			}
+			fmt.Println(name)
+		}
+	}
+
+	return nil
 }
