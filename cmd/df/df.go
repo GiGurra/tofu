@@ -3,6 +3,7 @@ package df
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -133,14 +134,78 @@ func getAllFilesystems(params *Params) ([]FilesystemInfo, error) {
 	return infos, nil
 }
 
-// getFilesystemInfo returns info for a specific path
+// getFilesystemInfo returns info for a specific path by finding its containing mount
 func getFilesystemInfo(path string) (FilesystemInfo, error) {
-	stat, err := getStatfs(path)
+	// Resolve to absolute path and clean it
+	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return FilesystemInfo{}, err
 	}
+	absPath = filepath.Clean(absPath)
 
-	return statToFilesystemInfo(stat, path, path, ""), nil
+	// Find the mount point that contains this path
+	mount, err := findMountForPath(absPath)
+	if err != nil {
+		// Fallback: just use the path itself with statfs data
+		stat, err := getStatfs(path)
+		if err != nil {
+			return FilesystemInfo{}, err
+		}
+		return statToFilesystemInfo(stat, path, path, ""), nil
+	}
+
+	return getFilesystemInfoForMount(mount)
+}
+
+// findMountForPath finds the mount point that contains the given absolute path
+func findMountForPath(absPath string) (MountInfo, error) {
+	mounts, err := getMounts()
+	if err != nil {
+		return MountInfo{}, err
+	}
+
+	// Find the longest matching mount point (most specific)
+	var bestMatch MountInfo
+	bestLen := -1
+
+	for _, mount := range mounts {
+		mountPoint := filepath.Clean(mount.MountPoint)
+		if pathHasPrefix(absPath, mountPoint) && len(mountPoint) > bestLen {
+			bestMatch = mount
+			bestLen = len(mountPoint)
+		}
+	}
+
+	if bestLen < 0 {
+		return MountInfo{}, fmt.Errorf("no mount point found for %s", absPath)
+	}
+
+	return bestMatch, nil
+}
+
+// pathHasPrefix checks if path starts with prefix as a proper path prefix
+// (handles path separators correctly across platforms)
+func pathHasPrefix(path, prefix string) bool {
+	// Normalize both paths
+	path = filepath.Clean(path)
+	prefix = filepath.Clean(prefix)
+
+	// Root is a prefix of everything
+	if prefix == string(filepath.Separator) || prefix == "/" {
+		return true
+	}
+
+	// Exact match
+	if path == prefix {
+		return true
+	}
+
+	// Check if path starts with prefix followed by separator
+	if len(path) > len(prefix) && strings.HasPrefix(path, prefix) {
+		return path[len(prefix)] == filepath.Separator
+	}
+
+	return false
 }
 
 // getFilesystemInfoForMount returns info for a mounted filesystem
