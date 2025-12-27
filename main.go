@@ -35,6 +35,7 @@ import (
 	"github.com/gigurra/tofu/cmd/sed2"
 	"github.com/gigurra/tofu/cmd/serve"
 	"github.com/gigurra/tofu/cmd/tail"
+	"github.com/gigurra/tofu/cmd/tee"
 	"github.com/gigurra/tofu/cmd/time"
 	"github.com/gigurra/tofu/cmd/tree"
 	"github.com/gigurra/tofu/cmd/uuid"
@@ -78,6 +79,7 @@ func main() {
 			count.Cmd(),
 			diff.Cmd(),
 			tail.Cmd(),
+			tee.Cmd(),
 			head.Cmd(),
 			archive.Cmd(),
 			wget.Cmd(),
