@@ -3,13 +3,12 @@ package df
 import (
 	"fmt"
 	"os"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/GiGurra/boa/pkg/boa"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
-	"golang.org/x/sys/unix"
 )
 
 type Params struct {
@@ -18,8 +17,8 @@ type Params struct {
 	Human   bool     `short:"h" help:"Print sizes in human readable format." optional:"true"`
 	Inode   bool     `short:"i" help:"List inode information instead of block usage." optional:"true"`
 	Local   bool     `short:"l" help:"Limit listing to local filesystems." optional:"true"`
-	Type    string   `short:"t" help:"List only filesystems of a specific type." default:""`
-	Sort    string   `short:"S" help:"Sort by: 'used', 'available', 'percent' (default: filesystem)." default:""`
+	Type    string   `short:"t" help:"Limit listing to filesystems of a specific type." default:""`
+	Sort    string   `short:"S" help:"Sort by: 'used', 'available', 'percent', or 'name' (default)." default:"name" alts:"name,used,available,percent"`
 	Reverse bool     `short:"r" help:"Reverse the sort order." optional:"true"`
 }
 
@@ -48,7 +47,7 @@ func Cmd() *cobra.Command {
 		},
 		RunFunc: func(params *Params, cmd *cobra.Command, args []string) {
 			if err := Run(params); err != nil {
-				fmt.Fprintf(os.Stderr, "df: %v\n", err)
+				_, _ = fmt.Fprintf(os.Stderr, "df: %v\n", err)
 				os.Exit(1)
 			}
 		},
@@ -56,170 +55,218 @@ func Cmd() *cobra.Command {
 }
 
 func Run(params *Params) error {
-	var statfsInfos []FilesystemInfo
+	var fsInfos []FilesystemInfo
 
-	if len(params.Paths) == 0 {
+	if len(params.Paths) == 0 || (len(params.Paths) == 1 && params.Paths[0] == "") {
 		// Get info for all mounted filesystems
-		infos, err := getFilesystemsInfo(params)
+		infos, err := getAllFilesystems(params)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "df: %v\n", err)
 			return err
 		}
-		statfsInfos = infos
+		fsInfos = infos
 	} else {
 		// Get info for specific paths
 		for _, path := range params.Paths {
-			info, err := getPathInfo(path, params)
+			info, err := getFilesystemInfo(path)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "df: cannot access '%s': %v\n", path, err)
+				_, _ = fmt.Fprintf(os.Stderr, "df: cannot access '%s': %v\n", path, err)
 				continue
 			}
-			statfsInfos = append(statfsInfos, info)
+			fsInfos = append(fsInfos, info)
 		}
 	}
 
-	if len(statfsInfos) == 0 {
+	if len(fsInfos) == 0 {
 		return fmt.Errorf("no filesystems found")
 	}
 
 	// Sort the results
-	sortFilesystems(statfsInfos, params.Sort, params.Reverse)
+	sortFilesystems(fsInfos, params.Sort, params.Reverse)
 
-	// Print header
-	if params.Inode {
-		fmt.Printf("%-30s %10s %10s %10s %4s %-20s\n",
-			"Filesystem", "Inodes", "IUsed", "IFree", "IUse%", "Mounted on")
-		fmt.Println(strings.Repeat("-", 85))
-
-		for _, info := range statfsInfos {
-			fmt.Printf("%-30s %10d %10d %10d %3.0f%% %-20s\n",
-				info.Filesystem,
-				info.IAvailable+info.IUsed,
-				info.IUsed,
-				info.IAvailable,
-				info.IPercent,
-				info.MountPoint)
-		}
-	} else {
-		if params.Human {
-			fmt.Printf("%-30s %8s %8s %8s %4s %-20s\n",
-				"Filesystem", "Size", "Used", "Avail", "Use%", "Mounted on")
-			fmt.Println(strings.Repeat("-", 85))
-
-			for _, info := range statfsInfos {
-				fmt.Printf("%-30s %8s %8s %8s %3.0f%% %-20s\n",
-					info.Filesystem,
-					formatHumanReadable(info.Size),
-					formatHumanReadable(info.Used),
-					formatHumanReadable(info.Available),
-					info.Percent,
-					info.MountPoint)
-			}
-		} else {
-			// Print in 1K blocks (like traditional df)
-			fmt.Printf("%-30s %10s %10s %10s %4s %-20s\n",
-				"Filesystem", "1K-blocks", "Used", "Available", "Use%", "Mounted on")
-			fmt.Println(strings.Repeat("-", 95))
-
-			for _, info := range statfsInfos {
-				size := info.Size / 1024
-				used := info.Used / 1024
-				avail := info.Available / 1024
-
-				fmt.Printf("%-30s %10d %10d %10d %3.0f%% %-20s\n",
-					info.Filesystem,
-					size,
-					used,
-					avail,
-					info.Percent,
-					info.MountPoint)
-			}
-		}
-	}
+	// Print output
+	printOutput(fsInfos, params)
 
 	return nil
 }
 
-func getFilesystemsInfo(params *Params) ([]FilesystemInfo, error) {
-	// This is a placeholder implementation
-	// On Unix systems, we should parse /proc/mounts or similar
-	// For now, just get info for root
-	var infos []FilesystemInfo
+// getAllFilesystems returns info for all mounted filesystems, applying filters
+func getAllFilesystems(params *Params) ([]FilesystemInfo, error) {
+	mounts, err := getMounts()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get mounted filesystems: %v", err)
+	}
 
-	if err := os.Chdir("/"); err == nil {
-		if info, err := getPathInfo("/", params); err == nil {
-			infos = append(infos, info)
+	var infos []FilesystemInfo
+	seen := make(map[string]bool) // Deduplicate by mount point
+
+	for _, mount := range mounts {
+		// Skip duplicates
+		if seen[mount.MountPoint] {
+			continue
 		}
+
+		// Filter: skip pseudo filesystems unless -a is specified
+		if !params.All && isPseudoFilesystem(mount.FSType) {
+			continue
+		}
+
+		// Filter: only local filesystems if -l is specified
+		if params.Local && !isLocalFilesystem(mount.FSType) {
+			continue
+		}
+
+		// Filter: specific filesystem type if -t is specified
+		if params.Type != "" && mount.FSType != params.Type {
+			continue
+		}
+
+		info, err := getFilesystemInfoForMount(mount)
+		if err != nil {
+			// Skip filesystems we can't stat (permission denied, etc.)
+			continue
+		}
+
+		seen[mount.MountPoint] = true
+		infos = append(infos, info)
 	}
 
 	return infos, nil
 }
 
-func getPathInfo(path string, params *Params) (FilesystemInfo, error) {
-	var statBuf unix.Statfs_t
-	err := unix.Statfs(path, &statBuf)
+// getFilesystemInfo returns info for a specific path
+func getFilesystemInfo(path string) (FilesystemInfo, error) {
+	stat, err := getStatfs(path)
 	if err != nil {
 		return FilesystemInfo{}, err
 	}
 
-	info := FilesystemInfo{
-		Filesystem: path,
-		Size:       statBuf.Blocks * uint64(statBuf.Bsize),
-		Available:  statBuf.Bavail * uint64(statBuf.Bsize),
-		MountPoint: path,
+	return statToFilesystemInfo(stat, path, path, ""), nil
+}
+
+// getFilesystemInfoForMount returns info for a mounted filesystem
+func getFilesystemInfoForMount(mount MountInfo) (FilesystemInfo, error) {
+	stat, err := getStatfs(mount.MountPoint)
+	if err != nil {
+		return FilesystemInfo{}, err
 	}
 
-	info.Used = info.Size - (statBuf.Bfree * uint64(statBuf.Bsize))
+	return statToFilesystemInfo(stat, mount.Device, mount.MountPoint, mount.FSType), nil
+}
+
+// statToFilesystemInfo converts statfs result to FilesystemInfo
+func statToFilesystemInfo(stat interface{}, device, mountPoint, fsType string) FilesystemInfo {
+	var info FilesystemInfo
+	info.Filesystem = device
+	info.MountPoint = mountPoint
+	info.FSType = fsType
+
+	// Handle platform-specific stat types
+	switch s := stat.(type) {
+	case interface{ GetBlocks() (uint64, uint64, uint64, int64) }:
+		blocks, bfree, bavail, bsize := s.GetBlocks()
+		info.Size = blocks * uint64(bsize)
+		info.Available = bavail * uint64(bsize)
+		info.Used = info.Size - (bfree * uint64(bsize))
+	default:
+		// Use reflection or type assertion for the actual types
+		info = extractStatInfo(stat, device, mountPoint, fsType)
+	}
 
 	if info.Size > 0 {
 		info.Percent = float64(info.Used) / float64(info.Size) * 100
 	}
 
-	// Inode info
-	total := statBuf.Files
-	free := statBuf.Ffree
-	info.IAvailable = free
-	info.IUsed = total - free
-
-	if total > 0 {
-		info.IPercent = float64(info.IUsed) / float64(total) * 100
-	}
-
-	return info, nil
+	return info
 }
 
 func sortFilesystems(infos []FilesystemInfo, sortBy string, reverse bool) {
-	switch sortBy {
-	case "used":
-		sort.Slice(infos, func(i, j int) bool {
-			if reverse {
-				return infos[i].Used < infos[j].Used
+	slices.SortFunc(infos, func(a, b FilesystemInfo) int {
+		var cmp int
+		switch sortBy {
+		case "used":
+			cmp = int(int64(a.Used) - int64(b.Used))
+		case "available":
+			cmp = int(int64(a.Available) - int64(b.Available))
+		case "percent":
+			if a.Percent < b.Percent {
+				cmp = -1
+			} else if a.Percent > b.Percent {
+				cmp = 1
 			}
-			return infos[i].Used > infos[j].Used
-		})
-	case "available":
-		sort.Slice(infos, func(i, j int) bool {
-			if reverse {
-				return infos[i].Available < infos[j].Available
-			}
-			return infos[i].Available > infos[j].Available
-		})
-	case "percent":
-		sort.Slice(infos, func(i, j int) bool {
-			if reverse {
-				return infos[i].Percent < infos[j].Percent
-			}
-			return infos[i].Percent > infos[j].Percent
-		})
-	default:
-		// Sort by filesystem name
-		sort.Slice(infos, func(i, j int) bool {
-			if reverse {
-				return infos[i].Filesystem > infos[j].Filesystem
-			}
-			return infos[i].Filesystem < infos[j].Filesystem
-		})
+		default: // "name" or empty
+			cmp = strings.Compare(a.Filesystem, b.Filesystem)
+		}
+		if reverse {
+			cmp = -cmp
+		}
+		return cmp
+	})
+}
+
+func printOutput(infos []FilesystemInfo, params *Params) {
+	if params.Inode {
+		printInodeOutput(infos)
+	} else if params.Human {
+		printHumanOutput(infos)
+	} else {
+		printBlockOutput(infos)
 	}
+}
+
+func printInodeOutput(infos []FilesystemInfo) {
+	fmt.Printf("%-30s %12s %12s %12s %5s %-20s\n",
+		"Filesystem", "Inodes", "IUsed", "IFree", "IUse%", "Mounted on")
+	fmt.Println(strings.Repeat("-", 95))
+
+	for _, info := range infos {
+		totalInodes := info.IAvailable + info.IUsed
+		fmt.Printf("%-30s %12d %12d %12d %4.0f%% %-20s\n",
+			truncate(info.Filesystem, 30),
+			totalInodes,
+			info.IUsed,
+			info.IAvailable,
+			info.IPercent,
+			info.MountPoint)
+	}
+}
+
+func printHumanOutput(infos []FilesystemInfo) {
+	fmt.Printf("%-30s %8s %8s %8s %5s %-20s\n",
+		"Filesystem", "Size", "Used", "Avail", "Use%", "Mounted on")
+	fmt.Println(strings.Repeat("-", 85))
+
+	for _, info := range infos {
+		fmt.Printf("%-30s %8s %8s %8s %4.0f%% %-20s\n",
+			truncate(info.Filesystem, 30),
+			formatHumanReadable(info.Size),
+			formatHumanReadable(info.Used),
+			formatHumanReadable(info.Available),
+			info.Percent,
+			info.MountPoint)
+	}
+}
+
+func printBlockOutput(infos []FilesystemInfo) {
+	fmt.Printf("%-30s %12s %12s %12s %5s %-20s\n",
+		"Filesystem", "1K-blocks", "Used", "Available", "Use%", "Mounted on")
+	fmt.Println(strings.Repeat("-", 95))
+
+	for _, info := range infos {
+		fmt.Printf("%-30s %12d %12d %12d %4.0f%% %-20s\n",
+			truncate(info.Filesystem, 30),
+			info.Size/1024,
+			info.Used/1024,
+			info.Available/1024,
+			info.Percent,
+			info.MountPoint)
+	}
+}
+
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen-3] + "..."
 }
 
 func formatHumanReadable(bytes uint64) string {
@@ -228,6 +275,9 @@ func formatHumanReadable(bytes uint64) string {
 
 	for _, unit := range units {
 		if value < 1024 {
+			if value < 10 {
+				return fmt.Sprintf("%.1f%s", value, unit)
+			}
 			return fmt.Sprintf("%.0f%s", value, unit)
 		}
 		value /= 1024
