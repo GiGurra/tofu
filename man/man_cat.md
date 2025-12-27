@@ -1,65 +1,49 @@
-# `tofu find`
+# `tofu cat`
 
-Finds items on the filesystem with a modern and user-friendly interface.
+Concatenate files to standard output.
 
-## Interface
-
-```
-> tofu cat --help
-Concatenate files to standard output
-
-Usage:
-  tofu cat [files] [flags]
-
-Flags:
-  -A, --show-all            Equivalent to -vET (show all non-printing chars, ends, and tabs). (default false)
-  -b, --number-nonblank     Number non-empty output lines, overrides -n. (default false)
-  -E, --show-ends           Display $ at end of each line. (default false)
-  -n, --number              Number all output lines. (default false)
-  -s, --squeeze-blank       Suppress repeated empty output lines. (default false)
-  -T, --show-tabs           Display TAB characters as ^I. (default false)
-  -v, --show-non-printing   Use ^ and M- notation for non-printing characters (except LFD and TAB). (default false)
-  -h, --help                help for cat
-```
-
-### Examples
+## Synopsis
 
 ```
-> tofu cat main.go
-package main
+tofu cat [files] [flags]
+```
 
-import (
-        "runtime/debug"
+## Description
 
-        "github.com/GiGurra/boa/pkg/boa"
-        "github.com/gigurra/tofu/cmd"
-        "github.com/spf13/cobra"
-)
+Concatenate FILE(s) to standard output. If no FILE is given, read from standard input.
 
-func main() {
-        boa.CmdT[boa.NoParams]{
-                Use:     "tofu",
-                Short:   "Tools Of Fantastic Utility",
-                Version: appVersion(),
-                SubCmds: []*cobra.Command{
-                        cmd.CatCmd(),
-                        cmd.FindCmd(),
-                        cmd.GrepCmd(),
-                },
-        }.Run()
-}
+## Options
 
-func appVersion() string {
-        bi, hasBuilInfo := debug.ReadBuildInfo()
-        if !hasBuilInfo {
-                return "unknown-(no build info)"
-        }
+- `-A, --show-all`: Equivalent to -vET (show all non-printing chars, ends, and tabs)
+- `-b, --number-nonblank`: Number non-empty output lines, overrides -n
+- `-E, --show-ends`: Display $ at end of each line
+- `-n, --number`: Number all output lines
+- `-s, --squeeze-blank`: Suppress repeated empty output lines
+- `-T, --show-tabs`: Display TAB characters as ^I
+- `-v, --show-non-printing`: Use ^ and M- notation for non-printing characters (except LFD and TAB)
 
-        versionString := bi.Main.Version
-        if versionString == "" {
-                versionString = "unknown-(no version)"
-        }
+## Examples
 
-        return versionString
-}
+Display file contents:
+
+```
+tofu cat file.txt
+```
+
+Number all lines:
+
+```
+tofu cat -n file.txt
+```
+
+Show line endings and tabs:
+
+```
+tofu cat -ET file.txt
+```
+
+Concatenate multiple files:
+
+```
+tofu cat file1.txt file2.txt > combined.txt
 ```
