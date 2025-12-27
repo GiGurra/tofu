@@ -162,17 +162,22 @@ func listTeamRepos(ctx context.Context, org, team string) ([]string, error) {
 }
 
 func listOwnerRepos(ctx context.Context, owner string) ([]string, error) {
-	// Try org endpoint first
-	result := cmder.New("gh", "api", fmt.Sprintf("/orgs/%s/repos", owner), "--paginate").
+	// Check if owner is a user or org
+	isOrg, err := isOrganization(ctx, owner)
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine account type: %w", err)
+	}
+
+	var endpoint string
+	if isOrg {
+		endpoint = fmt.Sprintf("/orgs/%s/repos", owner)
+	} else {
+		endpoint = fmt.Sprintf("/users/%s/repos", owner)
+	}
+
+	result := cmder.New("gh", "api", endpoint, "--paginate").
 		WithAttemptTimeout(60 * time.Second).
 		Run(ctx)
-
-	// If org endpoint fails (404 for regular users), try user endpoint
-	if result.Err != nil && strings.Contains(result.Combined, "404") {
-		result = cmder.New("gh", "api", fmt.Sprintf("/users/%s/repos", owner), "--paginate").
-			WithAttemptTimeout(60 * time.Second).
-			Run(ctx)
-	}
 
 	if result.Err != nil {
 		if result.Combined != "" {
@@ -189,4 +194,28 @@ func listOwnerRepos(ctx context.Context, owner string) ([]string, error) {
 	return lo.Map(repos, func(r repoResponse, _ int) string {
 		return r.FullName
 	}), nil
+}
+
+type ownerResponse struct {
+	Type string `json:"type"`
+}
+
+func isOrganization(ctx context.Context, owner string) (bool, error) {
+	result := cmder.New("gh", "api", fmt.Sprintf("/users/%s", owner)).
+		WithAttemptTimeout(10 * time.Second).
+		Run(ctx)
+
+	if result.Err != nil {
+		if result.Combined != "" {
+			return false, fmt.Errorf("%w\n%s", result.Err, result.Combined)
+		}
+		return false, result.Err
+	}
+
+	var resp ownerResponse
+	if err := json.Unmarshal([]byte(result.StdOut), &resp); err != nil {
+		return false, err
+	}
+
+	return resp.Type == "Organization", nil
 }
