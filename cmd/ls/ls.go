@@ -5,12 +5,10 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"os/user"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/GiGurra/boa/pkg/boa"
@@ -254,8 +252,9 @@ func printLongFormat(entries []fileEntry, params *Params, stdout io.Writer, useC
 	// Calculate column widths
 	var maxLinks, maxOwner, maxGroup, maxSize, maxInode, maxBlocks int
 	for _, entry := range entries {
-		if stat, ok := entry.info.Sys().(*syscall.Stat_t); ok {
-			linkStr := strconv.FormatUint(uint64(stat.Nlink), 10)
+		stat := getFileStatInfo(entry.info)
+		if stat.Valid {
+			linkStr := strconv.FormatUint(stat.Nlink, 10)
 			if len(linkStr) > maxLinks {
 				maxLinks = len(linkStr)
 			}
@@ -273,7 +272,7 @@ func printLongFormat(entries []fileEntry, params *Params, stdout io.Writer, useC
 			}
 
 			if params.Inode {
-				inodeStr := strconv.FormatUint(stat.Ino, 10)
+				inodeStr := strconv.FormatUint(stat.Inode, 10)
 				if len(inodeStr) > maxInode {
 					maxInode = len(inodeStr)
 				}
@@ -297,9 +296,10 @@ func printLongFormat(entries []fileEntry, params *Params, stdout io.Writer, useC
 	for _, entry := range entries {
 		var line strings.Builder
 
-		if stat, ok := entry.info.Sys().(*syscall.Stat_t); ok {
+		stat := getFileStatInfo(entry.info)
+		if stat.Valid {
 			if params.Inode {
-				fmt.Fprintf(&line, "%*d ", maxInode, stat.Ino)
+				fmt.Fprintf(&line, "%*d ", maxInode, stat.Inode)
 			}
 
 			if params.Size {
@@ -451,26 +451,6 @@ func permChar(set bool, c byte) byte {
 		return c
 	}
 	return '-'
-}
-
-func getOwner(stat *syscall.Stat_t, numeric bool) string {
-	if numeric {
-		return strconv.FormatUint(uint64(stat.Uid), 10)
-	}
-	if u, err := user.LookupId(strconv.FormatUint(uint64(stat.Uid), 10)); err == nil {
-		return u.Username
-	}
-	return strconv.FormatUint(uint64(stat.Uid), 10)
-}
-
-func getGroup(stat *syscall.Stat_t, numeric bool) string {
-	if numeric {
-		return strconv.FormatUint(uint64(stat.Gid), 10)
-	}
-	if g, err := user.LookupGroupId(strconv.FormatUint(uint64(stat.Gid), 10)); err == nil {
-		return g.Name
-	}
-	return strconv.FormatUint(uint64(stat.Gid), 10)
 }
 
 func formatSize(size int64, human bool) string {
