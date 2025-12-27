@@ -17,26 +17,26 @@ import (
 )
 
 type Params struct {
-	Paths            []string `pos:"true" optional:"true" help:"Files or directories to list." default:"."`
-	All              bool     `short:"a" help:"Do not ignore entries starting with ."`
-	AlmostAll        bool     `short:"A" help:"Do not list implied . and .."`
-	Long             bool     `short:"l" help:"Use a long listing format."`
-	HumanReadable    bool     `short:"h" help:"With -l, print sizes like 1K 234M 2G etc."`
-	OnePerLine       bool     `short:"1" help:"List one file per line."`
-	Reverse          bool     `short:"r" help:"Reverse order while sorting."`
-	SortByTime       bool     `short:"t" help:"Sort by time, newest first."`
-	SortBySize       bool     `short:"S" help:"Sort by file size, largest first."`
-	NoSort           bool     `short:"U" help:"Do not sort; list entries in directory order."`
-	Classify         bool     `short:"F" help:"Append indicator (one of */=>@|) to entries."`
-	Directory        bool     `short:"d" help:"List directories themselves, not their contents."`
-	Recursive        bool     `short:"R" help:"List subdirectories recursively."`
-	Inode            bool     `short:"i" help:"Print the index number of each file."`
-	Size             bool     `short:"s" help:"Print the allocated size of each file, in blocks."`
-	Color            string   `help:"Colorize the output: 'always', 'auto', or 'never'." default:"auto"`
-	GroupDirsFirst   bool     `help:"Group directories before files."`
-	NoGroup          bool     `short:"G" help:"In a long listing, don't print group names."`
-	NumericUidGid    bool     `short:"n" help:"Like -l, but list numeric user and group IDs."`
-	FullGroup        bool     `help:"Show full group identifier (e.g., Windows SID)."`
+	Paths          []string `pos:"true" optional:"true" help:"Files or directories to list." default:"."`
+	All            bool     `short:"a" help:"Do not ignore entries starting with ."`
+	AlmostAll      bool     `short:"A" help:"Do not list implied . and .."`
+	Long           bool     `short:"l" help:"Use a long listing format."`
+	HumanReadable  bool     `short:"h" help:"With -l, print sizes like 1K 234M 2G etc."`
+	OnePerLine     bool     `short:"1" help:"List one file per line."`
+	Reverse        bool     `short:"r" help:"Reverse order while sorting."`
+	SortByTime     bool     `short:"t" help:"Sort by time, newest first."`
+	SortBySize     bool     `short:"S" help:"Sort by file size, largest first."`
+	NoSort         bool     `short:"U" help:"Do not sort; list entries in directory order."`
+	Classify       bool     `short:"F" help:"Append indicator (one of */=>@|) to entries."`
+	Directory      bool     `short:"d" help:"List directories themselves, not their contents."`
+	Recursive      bool     `short:"R" help:"List subdirectories recursively."`
+	Inode          bool     `short:"i" help:"Print the index number of each file."`
+	Size           bool     `short:"s" help:"Print the allocated size of each file, in blocks."`
+	Color          string   `help:"Colorize the output: 'always', 'auto', or 'never'." default:"auto" alts:"always,auto,never"`
+	GroupDirsFirst bool     `help:"Group directories before files."`
+	NoGroup        bool     `short:"G" help:"In a long listing, don't print group names."`
+	NumericUidGid  bool     `short:"n" help:"Like -l, but list numeric user and group IDs."`
+	FullGroup      bool     `help:"Show full group identifier (e.g., Windows SID)."`
 }
 
 type fileEntry struct {
