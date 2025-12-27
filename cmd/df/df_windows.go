@@ -117,8 +117,10 @@ func getMounts() ([]MountInfo, error) {
 				fsType = syscall.UTF16ToString(fsNameBuf)
 			}
 
+			// Format: "C: (Fixed)" for better readability
+			driveLetter := string(rune('A'+i)) + ":"
 			mounts = append(mounts, MountInfo{
-				Device:     getDriveTypeName(driveType),
+				Device:     driveLetter + " (" + getDriveTypeName(driveType) + ")",
 				MountPoint: drive,
 				FSType:     fsType,
 			})
