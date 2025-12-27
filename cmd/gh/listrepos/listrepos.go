@@ -17,19 +17,19 @@ import (
 )
 
 type Params struct {
-	Org  boa.Required[string] `help:"GitHub organization name"`
-	Team boa.Optional[string] `help:"Team slug/name within the organization (optional, lists all org repos if not specified)"`
-	Url  bool                 `help:"Print full GitHub URLs instead of repo names" optional:"true"`
+	Owner boa.Required[string] `short:"o" help:"GitHub organization or user name"`
+	Team  boa.Optional[string] `help:"Team slug/name within the organization (optional, lists all repos if not specified)"`
+	Url   bool                 `help:"Print full GitHub URLs instead of repo names" optional:"true"`
 }
 
 func Cmd() *cobra.Command {
 	return boa.CmdT[Params]{
 		Use:         "list-repos",
-		Short:       "List repositories for an org or team",
-		Long:        "List all repositories in an organization, optionally filtered by team. Requires gh CLI to be installed and authenticated.",
+		Short:       "List repositories for a user, org, or team",
+		Long:        "List all repositories for a GitHub user or organization, optionally filtered by team. Requires gh CLI to be installed and authenticated.",
 		ParamEnrich: common.DefaultParamEnricher(),
 		InitFunc: func(params *Params, cmd *cobra.Command) error {
-			params.Org.AlternativesFunc = func(cmd *cobra.Command, args []string, toComplete string) []string {
+			params.Owner.AlternativesFunc = func(cmd *cobra.Command, args []string, toComplete string) []string {
 				orgs := listOrgs(context.Background())
 				return lo.Filter(orgs, func(item string, index int) bool {
 					return strings.HasPrefix(item, toComplete)
@@ -37,10 +37,10 @@ func Cmd() *cobra.Command {
 			}
 
 			params.Team.AlternativesFunc = func(cmd *cobra.Command, args []string, toComplete string) []string {
-				if params.Org.Value() == "" {
+				if params.Owner.Value() == "" {
 					return nil
 				}
-				teams := listTeams(context.Background(), params.Org.Value())
+				teams := listTeams(context.Background(), params.Owner.Value())
 				return lo.Filter(teams, func(item string, index int) bool {
 					return strings.HasPrefix(item, toComplete)
 				})
@@ -66,9 +66,9 @@ func run(params *Params, stdout, _ io.Writer) error {
 	var err error
 
 	if params.Team.HasValue() {
-		repos, err = listTeamRepos(context.Background(), params.Org.Value(), *params.Team.Value())
+		repos, err = listTeamRepos(context.Background(), params.Owner.Value(), *params.Team.Value())
 	} else {
-		repos, err = listOrgRepos(context.Background(), params.Org.Value())
+		repos, err = listOwnerRepos(context.Background(), params.Owner.Value())
 	}
 	if err != nil {
 		return err
@@ -161,15 +161,24 @@ func listTeamRepos(ctx context.Context, org, team string) ([]string, error) {
 	}), nil
 }
 
-func listOrgRepos(ctx context.Context, org string) ([]string, error) {
-	result := cmder.New("gh", "api", fmt.Sprintf("/orgs/%s/repos", org), "--paginate").
+func listOwnerRepos(ctx context.Context, owner string) ([]string, error) {
+	// Try org endpoint first
+	result := cmder.New("gh", "api", fmt.Sprintf("/orgs/%s/repos", owner), "--paginate").
 		WithAttemptTimeout(60 * time.Second).
 		Run(ctx)
+
+	// If org endpoint fails (404 for regular users), try user endpoint
+	if result.Err != nil && strings.Contains(result.Combined, "404") {
+		result = cmder.New("gh", "api", fmt.Sprintf("/users/%s/repos", owner), "--paginate").
+			WithAttemptTimeout(60 * time.Second).
+			Run(ctx)
+	}
+
 	if result.Err != nil {
 		if result.Combined != "" {
-			return nil, fmt.Errorf("failed to list org repos: %w\n%s", result.Err, result.Combined)
+			return nil, fmt.Errorf("failed to list repos: %w\n%s", result.Err, result.Combined)
 		}
-		return nil, fmt.Errorf("failed to list org repos: %w", result.Err)
+		return nil, fmt.Errorf("failed to list repos: %w", result.Err)
 	}
 
 	var repos []repoResponse
