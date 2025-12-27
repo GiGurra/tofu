@@ -24,7 +24,7 @@ type Params struct {
 	Bytes        bool     `short:"b" help:"Apparent size in bytes (equivalent to --apparent-size --block-size=1)." optional:"true"`
 	ApparentSize bool     `help:"Print apparent sizes rather than disk usage." optional:"true"`
 	Killobytes   bool     `short:"k" help:"Print in kilobytes." optional:"true"`
-	Sort         string   `short:"S" help:"Sort by: 'size' (largest last) or 'name'." default:"size"`
+	Sort         string   `short:"S" help:"Sort by: 'size' (largest last), 'name', or 'none' (fastest, streams output)." default:"size" alts:"size,name,none"`
 	Reverse      bool     `short:"r" help:"Reverse the sort order." optional:"true"`
 	IgnoreGit    bool     `help:"Respect .gitignore files." optional:"true"`
 }
@@ -74,8 +74,22 @@ func Run(params *Params) error {
 	}
 
 	for _, path := range params.Paths {
+		// Streaming mode: print as we go, no tree building
+		if params.Sort == "none" {
+			onFinish := func(nodePath string, depth int, totalSize int64) {
+				if maxDepth == -1 || depth <= maxDepth {
+					printSize(totalSize, blockSize, params.Human, nodePath)
+				}
+			}
+			_, err := walkDir(path, apparentSize, onFinish)
+			if err != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "du: error reading '%s': %v\n", path, err)
+			}
+			continue
+		}
 
-		rootNode, err := walkDir(path, apparentSize)
+		// Tree mode: build tree, sort, then print
+		rootNode, err := walkDir(path, apparentSize, nil)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "du: error reading '%s': %v\n", path, err)
 			continue
@@ -83,7 +97,6 @@ func Run(params *Params) error {
 		pruneNodesToMaxDepth(rootNode, maxDepth, 0)
 		sortNodes(rootNode, params.Sort, params.Reverse)
 		printNodes(rootNode, blockSize, params.Human)
-
 	}
 
 	return nil
@@ -143,7 +156,13 @@ func pruneNodesToMaxDepth(node *DirNode, maxDepth int, currentDepth int) {
 	}
 }
 
-func walkDir(rootPath string, apparentSize bool) (*DirNode, error) {
+// walkDir walks a directory tree and either builds a tree structure (when onFinish is nil)
+// or streams output via the callback (when onFinish is provided).
+// In streaming mode, onFinish is called with (path, depth, totalSize) for each directory.
+func walkDir(rootPath string, apparentSize bool, onFinish func(path string, depth int, totalSize int64)) (*DirNode, error) {
+	// Normalize path to handle trailing slashes (e.g., "./" -> ".")
+	rootPath = filepath.Clean(rootPath)
+	streaming := onFinish != nil
 
 	// Helper to get the right size based on mode
 	getFileSize := func(info fs.FileInfo) int64 {
@@ -174,15 +193,30 @@ func walkDir(rootPath string, apparentSize bool) (*DirNode, error) {
 
 	// Stack-based approach: since WalkDir is depth-first, we use a stack
 	// that mirrors the traversal. Push on dir entry, pop when we leave.
-	stack := []*DirNode{rootNode}
+	type stackEntry struct {
+		node  *DirNode
+		depth int
+	}
+	stack := []stackEntry{{node: rootNode, depth: 0}}
 
-	// Helper to finalize a directory: calculate TotalSize from LevelSize + children
-	finalizeDir := func(node *DirNode) {
-		var childSum int64
-		for _, child := range node.ChildDirs {
-			childSum += child.TotalSize
+	// Helper to finalize a directory: calculate TotalSize and optionally stream output
+	finalizeDir := func(entry stackEntry) {
+		node := entry.node
+		if streaming {
+			// In streaming mode, child totals are accumulated in LevelSize
+			node.TotalSize = node.LevelSize
+		} else {
+			// In tree mode, sum up children
+			var childSum int64
+			for _, child := range node.ChildDirs {
+				childSum += child.TotalSize
+			}
+			node.TotalSize = node.LevelSize + childSum
 		}
-		node.TotalSize = node.LevelSize + childSum
+
+		if streaming {
+			onFinish(node.Path, entry.depth, node.TotalSize)
+		}
 	}
 
 	err = filepath.WalkDir(rootPath, func(path string, d fs.DirEntry, err error) error {
@@ -198,9 +232,15 @@ func walkDir(rootPath string, apparentSize bool) (*DirNode, error) {
 		parentPath := filepath.Dir(path)
 
 		// Pop finished directories until stack top is our parent
-		for len(stack) > 0 && stack[len(stack)-1].Path != parentPath {
+		for len(stack) > 0 && stack[len(stack)-1].node.Path != parentPath {
 			finalizeDir(stack[len(stack)-1])
+			finished := stack[len(stack)-1]
 			stack = stack[:len(stack)-1]
+
+			// Add finished total to parent's LevelSize (for streaming mode where we don't keep ChildDirs)
+			if streaming && len(stack) > 0 {
+				stack[len(stack)-1].node.LevelSize += finished.node.TotalSize
+			}
 		}
 
 		if len(stack) == 0 {
@@ -220,15 +260,18 @@ func walkDir(rootPath string, apparentSize bool) (*DirNode, error) {
 				Path:      path,
 				LevelSize: getDirSize(dirInfo),
 			}
-			parent.ChildDirs = append(parent.ChildDirs, node)
-			stack = append(stack, node)
+			// Only build tree structure when not streaming
+			if !streaming {
+				parent.node.ChildDirs = append(parent.node.ChildDirs, node)
+			}
+			stack = append(stack, stackEntry{node: node, depth: parent.depth + 1})
 		} else {
 			fileInfo, err := d.Info()
 			if err != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "du: cannot access info for '%s': %v\n", path, err)
 				return nil
 			}
-			parent.LevelSize += getFileSize(fileInfo)
+			parent.node.LevelSize += getFileSize(fileInfo)
 		}
 
 		return nil
@@ -241,9 +284,17 @@ func walkDir(rootPath string, apparentSize bool) (*DirNode, error) {
 	// Finalize remaining directories on the stack
 	for len(stack) > 0 {
 		finalizeDir(stack[len(stack)-1])
+		finished := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
+
+		if streaming && len(stack) > 0 {
+			stack[len(stack)-1].node.LevelSize += finished.node.TotalSize
+		}
 	}
 
+	if streaming {
+		return nil, nil
+	}
 	return rootNode, nil
 }
 
