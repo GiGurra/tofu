@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -46,8 +47,15 @@ func (f *TestFixture) setup() {
 
 	f.mkdir("dir2")
 
-	f.writeFile("executable", "#!/bin/bash\necho hello")
-	os.Chmod(filepath.Join(f.Root, "executable"), 0755)
+	// Create executable file - platform-specific approach
+	if runtime.GOOS == "windows" {
+		// On Windows, use .exe extension for executable detection
+		f.writeFile("executable.exe", "MZ") // Minimal PE header marker
+	} else {
+		// On Unix, use execute permission bit
+		f.writeFile("executable", "#!/bin/bash\necho hello")
+		os.Chmod(filepath.Join(f.Root, "executable"), 0755)
+	}
 }
 
 func (f *TestFixture) writeFile(name, content string) {
@@ -213,9 +221,13 @@ func TestClassify(t *testing.T) {
 	if !strings.Contains(stdout, "dir1/") {
 		t.Error("expected dir1/ with -F flag")
 	}
-	// Executables should have *
-	if !strings.Contains(stdout, "executable*") {
-		t.Error("expected executable* with -F flag")
+	// Executables should have * (filename differs by platform)
+	expectedExec := "executable*"
+	if runtime.GOOS == "windows" {
+		expectedExec = "executable.exe*"
+	}
+	if !strings.Contains(stdout, expectedExec) {
+		t.Errorf("expected %s with -F flag, got: %s", expectedExec, stdout)
 	}
 }
 
