@@ -2,7 +2,6 @@ package bird
 
 import (
 	"bufio"
-	"embed"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -76,43 +75,39 @@ type pipe struct {
 	passed bool
 }
 
-// Embed fs under /music
-//
-//go:embed music
-var musicFS embed.FS
-
 func runBird(params *Params) error {
 
-	// initialize jukebox if needed
-	slog.Info("Loading music for Flappy Tofu...")
+	// initialize jukebox
 	jb := jukebox.New()
 	defer jb.Clear()
-	// list files in musicFS
-	musicFiles, err := musicFS.ReadDir("music")
-	if err == nil && len(musicFiles) > 0 {
-		for _, file := range musicFiles {
-			if !file.IsDir() && strings.HasSuffix(strings.ToLower(file.Name()), ".mp3") {
-				songPath := "music/" + file.Name()
-				slog.Info("loading embedded music file", "file", file.Name())
-				bytes, err := fs.ReadFile(musicFS, songPath)
-				if err != nil {
-					slog.Error("failed to read embedded music file", "file", file.Name(), "error", err)
-					continue
-				}
-				_, err = jb.LoadBytes(file.Name(), bytes)
-				if err != nil {
-					slog.Error("failed to load embedded music file into jukebox", "file", file.Name(), "error", err)
+
+	// load music only if audio is available
+	if jukebox.AudioAvailable {
+		slog.Info("Loading music for Flappy Tofu...")
+		// list files in musicFS
+		musicFiles, err := musicFS.ReadDir("music")
+		if err == nil && len(musicFiles) > 0 {
+			for _, file := range musicFiles {
+				if !file.IsDir() && strings.HasSuffix(strings.ToLower(file.Name()), ".mp3") {
+					songPath := "music/" + file.Name()
+					slog.Info("loading embedded music file", "file", file.Name())
+					bytes, err := fs.ReadFile(musicFS, songPath)
+					if err != nil {
+						slog.Error("failed to read embedded music file", "file", file.Name(), "error", err)
+						continue
+					}
+					_, err = jb.LoadBytes(file.Name(), bytes)
+					if err != nil {
+						slog.Error("failed to load embedded music file into jukebox", "file", file.Name(), "error", err)
+					}
 				}
 			}
 		}
+		jb.SetShuffle(true)
+		slog.Info("Done loading music, starting game")
+	} else {
+		slog.Info("Audio not available (CGO build required), starting game without music")
 	}
-
-	jb.SetShuffle(true)
-	if err != nil {
-		slog.Error("failed to start jukebox playback", "error", err)
-	}
-
-	slog.Info("Done loading music, starting game")
 
 	// Set terminal to raw mode for input
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
@@ -415,11 +410,17 @@ func renderGame(game *gameState, backBuffer [][]rune, level int, jb *jukebox.Juk
 	}
 
 	// Draw score line into buffer
-	currentSongStr := ""
-	if song := jb.CurrentSong(); song != nil {
-		currentSongStr = strings.TrimSuffix(song.Name, ".mp3")
+	var audioStr string
+	if jukebox.AudioAvailable {
+		currentSongStr := ""
+		if song := jb.CurrentSong(); song != nil {
+			currentSongStr = strings.TrimSuffix(song.Name, ".mp3")
+		}
+		audioStr = fmt.Sprintf("Song: %s  |  N=Next", currentSongStr)
+	} else {
+		audioStr = "No audio (CGO build required)"
 	}
-	scoreText := fmt.Sprintf(" Score: %d  |  High Score: %d  |  Level: %d  |  Song: %s  |  SPACE=Flap  Q=Quit  N=Next Song ", game.score, game.highScore, level, currentSongStr)
+	scoreText := fmt.Sprintf(" Score: %d  |  High Score: %d  |  Level: %d  |  %s  |  SPACE=Flap  Q=Quit ", game.score, game.highScore, level, audioStr)
 	drawTextToRow(backBuffer[game.height], scoreText, 0)
 
 	// Draw game state messages into buffer

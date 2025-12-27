@@ -1,3 +1,5 @@
+//go:build cgo
+
 package jukebox
 
 import (
@@ -9,6 +11,9 @@ import (
 	"github.com/gopxl/beep/v2/mp3"
 	"github.com/gopxl/beep/v2/speaker"
 )
+
+// AudioAvailable indicates whether audio playback is supported in this build.
+const AudioAvailable = true
 
 // player handles the actual audio output using beep.
 type player struct {
