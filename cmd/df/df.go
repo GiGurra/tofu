@@ -190,7 +190,7 @@ func pathHasPrefix(path, prefix string) bool {
 	path = filepath.Clean(path)
 	prefix = filepath.Clean(prefix)
 
-	// Root is a prefix of everything
+	// Root is a prefix of everything (Unix "/" or Windows "C:\")
 	if prefix == string(filepath.Separator) || prefix == "/" {
 		return true
 	}
@@ -198,6 +198,23 @@ func pathHasPrefix(path, prefix string) bool {
 	// Exact match
 	if path == prefix {
 		return true
+	}
+
+	// Handle Windows drive roots (e.g., "C:\") which already end with separator
+	if len(prefix) >= 2 && prefix[1] == ':' {
+		// Windows drive path - check if path starts with same drive
+		if len(path) >= 2 && strings.EqualFold(path[:2], prefix[:2]) {
+			// Same drive letter (case-insensitive)
+			if len(prefix) <= 3 { // "C:" or "C:\"
+				return true
+			}
+			// Longer prefix like "C:\Users" - check normally
+			if len(path) > len(prefix) && strings.EqualFold(path[:len(prefix)], prefix) {
+				return path[len(prefix)] == filepath.Separator || path[len(prefix)] == '/' || path[len(prefix)] == '\\'
+			}
+			return strings.EqualFold(path, prefix)
+		}
+		return false
 	}
 
 	// Check if path starts with prefix followed by separator
