@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -17,9 +18,13 @@ import (
 )
 
 type Params struct {
-	Owner boa.Required[string] `short:"o" help:"GitHub organization or user name"`
-	Team  boa.Optional[string] `help:"Team slug/name within the organization (optional, lists all repos if not specified)"`
-	Url   bool                 `help:"Print full GitHub URLs instead of repo names" optional:"true"`
+	Owner      boa.Required[string] `short:"o" help:"GitHub organization or user name"`
+	Team       boa.Optional[string] `help:"Team slug/name within the organization (optional, lists all repos if not specified)"`
+	Visibility []string             `short:"v" help:"Filter by visibility (can specify multiple)" alts:"all,public,private,internal"`
+	Archived   string               `help:"Filter by archived status" default:"all" alts:"all,archived,not-archived"`
+	Sort       string               `help:"Sort repos by field" default:"full_name" alts:"full_name,created,updated,pushed"`
+	Direction  string               `help:"Sort direction" default:"asc" alts:"asc,desc"`
+	Url        bool                 `help:"Print full GitHub URLs instead of repo names" optional:"true"`
 }
 
 func Cmd() *cobra.Command {
@@ -62,7 +67,7 @@ func run(params *Params, stdout, _ io.Writer) error {
 		return err
 	}
 
-	var repos []string
+	var repos []repoResponse
 	var err error
 
 	if params.Team.HasValue() {
@@ -74,15 +79,47 @@ func run(params *Params, stdout, _ io.Writer) error {
 		return err
 	}
 
+	// Apply filters
+	filter := repoFilter{
+		visibility: params.Visibility,
+		archived:   params.Archived,
+	}
+	repos = lo.Filter(repos, func(r repoResponse, _ int) bool {
+		return filter.matches(r)
+	})
+
+	// Apply sorting
+	sortRepos(repos, params.Sort, params.Direction)
+
 	for _, repo := range repos {
 		if params.Url {
-			fmt.Fprintf(stdout, "https://github.com/%s\n", repo)
+			fmt.Fprintf(stdout, "https://github.com/%s\n", repo.FullName)
 		} else {
-			fmt.Fprintln(stdout, repo)
+			fmt.Fprintln(stdout, repo.FullName)
 		}
 	}
 
 	return nil
+}
+
+func sortRepos(repos []repoResponse, sortBy, direction string) {
+	slices.SortFunc(repos, func(a, b repoResponse) int {
+		var cmp int
+		switch sortBy {
+		case "created":
+			cmp = strings.Compare(a.CreatedAt, b.CreatedAt)
+		case "updated":
+			cmp = strings.Compare(a.UpdatedAt, b.UpdatedAt)
+		case "pushed":
+			cmp = strings.Compare(a.PushedAt, b.PushedAt)
+		default: // full_name
+			cmp = strings.Compare(strings.ToLower(a.FullName), strings.ToLower(b.FullName))
+		}
+		if direction == "desc" {
+			cmp = -cmp
+		}
+		return cmp
+	})
 }
 
 func checkGh() error {
@@ -137,10 +174,43 @@ func listTeams(ctx context.Context, org string) []string {
 }
 
 type repoResponse struct {
-	FullName string `json:"full_name"`
+	FullName   string `json:"full_name"`
+	Visibility string `json:"visibility"`
+	Archived   bool   `json:"archived"`
+	CreatedAt  string `json:"created_at"`
+	UpdatedAt  string `json:"updated_at"`
+	PushedAt   string `json:"pushed_at"`
 }
 
-func listTeamRepos(ctx context.Context, org, team string) ([]string, error) {
+type repoFilter struct {
+	visibility []string // empty means all
+	archived   string   // "all", "archived", "not-archived"
+}
+
+func (f repoFilter) matches(repo repoResponse) bool {
+	// Check visibility
+	if len(f.visibility) > 0 && !lo.Contains(f.visibility, "all") {
+		if !lo.Contains(f.visibility, repo.Visibility) {
+			return false
+		}
+	}
+
+	// Check archived status
+	switch f.archived {
+	case "archived":
+		if !repo.Archived {
+			return false
+		}
+	case "not-archived":
+		if repo.Archived {
+			return false
+		}
+	}
+
+	return true
+}
+
+func listTeamRepos(ctx context.Context, org, team string) ([]repoResponse, error) {
 	result := cmder.New("gh", "api", fmt.Sprintf("/orgs/%s/teams/%s/repos", org, team), "--paginate").
 		WithAttemptTimeout(60 * time.Second).
 		Run(ctx)
@@ -156,12 +226,10 @@ func listTeamRepos(ctx context.Context, org, team string) ([]string, error) {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	return lo.Map(repos, func(r repoResponse, _ int) string {
-		return r.FullName
-	}), nil
+	return repos, nil
 }
 
-func listOwnerRepos(ctx context.Context, owner string) ([]string, error) {
+func listOwnerRepos(ctx context.Context, owner string) ([]repoResponse, error) {
 	// Check if owner is a user or org
 	isOrg, err := isOrganization(ctx, owner)
 	if err != nil {
@@ -191,9 +259,7 @@ func listOwnerRepos(ctx context.Context, owner string) ([]string, error) {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	return lo.Map(repos, func(r repoResponse, _ int) string {
-		return r.FullName
-	}), nil
+	return repos, nil
 }
 
 type ownerResponse struct {
