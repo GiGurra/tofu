@@ -13,6 +13,10 @@
 
 ## WELL LOOK NO FURTHER, FRIEND!
 
+```shell
+go install github.com/gigurra/tofu@latest
+```
+
 Introducing **TOFU** - *Tools Of Fantastic Utility!*
 
 For the LOW LOW PRICE of **absolutely nothing**, you get not one, not two, but **OVER 40 COMMAND LINE TOOLS** that work EVERYWHERE!
