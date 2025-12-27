@@ -18,15 +18,15 @@ import (
 
 type Params struct {
 	Org  boa.Required[string] `help:"GitHub organization name"`
-	Team boa.Required[string] `help:"Team slug/name within the organization"`
-	Url  bool                 `descr:"Print full GitHub URLs instead of repo names" optional:"true"`
+	Team boa.Optional[string] `help:"Team slug/name within the organization (optional, lists all org repos if not specified)"`
+	Url  bool                 `help:"Print full GitHub URLs instead of repo names" optional:"true"`
 }
 
 func Cmd() *cobra.Command {
 	return boa.CmdT[Params]{
 		Use:         "list-repos",
-		Short:       "List repositories belonging to a team",
-		Long:        "List all repositories that a specific team has access to within an organization. Requires gh CLI to be installed and authenticated.",
+		Short:       "List repositories for an org or team",
+		Long:        "List all repositories in an organization, optionally filtered by team. Requires gh CLI to be installed and authenticated.",
 		ParamEnrich: common.DefaultParamEnricher(),
 		InitFunc: func(params *Params, cmd *cobra.Command) error {
 			params.Org.AlternativesFunc = func(cmd *cobra.Command, args []string, toComplete string) []string {
@@ -57,12 +57,19 @@ func Cmd() *cobra.Command {
 	}.ToCobra()
 }
 
-func run(params *Params, stdout, stderr io.Writer) error {
+func run(params *Params, stdout, _ io.Writer) error {
 	if err := checkGh(); err != nil {
 		return err
 	}
 
-	repos, err := listTeamRepos(context.Background(), params.Org.Value(), params.Team.Value())
+	var repos []string
+	var err error
+
+	if params.Team.HasValue() {
+		repos, err = listTeamRepos(context.Background(), params.Org.Value(), *params.Team.Value())
+	} else {
+		repos, err = listOrgRepos(context.Background(), params.Org.Value())
+	}
 	if err != nil {
 		return err
 	}
@@ -142,6 +149,27 @@ func listTeamRepos(ctx context.Context, org, team string) ([]string, error) {
 			return nil, fmt.Errorf("failed to list team repos: %w\n%s", result.Err, result.Combined)
 		}
 		return nil, fmt.Errorf("failed to list team repos: %w", result.Err)
+	}
+
+	var repos []repoResponse
+	if err := json.Unmarshal([]byte(result.StdOut), &repos); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return lo.Map(repos, func(r repoResponse, _ int) string {
+		return r.FullName
+	}), nil
+}
+
+func listOrgRepos(ctx context.Context, org string) ([]string, error) {
+	result := cmder.New("gh", "api", fmt.Sprintf("/orgs/%s/repos", org), "--paginate").
+		WithAttemptTimeout(60 * time.Second).
+		Run(ctx)
+	if result.Err != nil {
+		if result.Combined != "" {
+			return nil, fmt.Errorf("failed to list org repos: %w\n%s", result.Err, result.Combined)
+		}
+		return nil, fmt.Errorf("failed to list org repos: %w", result.Err)
 	}
 
 	var repos []repoResponse
