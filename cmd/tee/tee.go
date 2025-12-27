@@ -16,6 +16,7 @@ type Params struct {
 	Files            []string `pos:"true" optional:"true" help:"Files to write to. If none specified, only write to stdout."`
 	Append           bool     `short:"a" help:"Append to the given FILEs, do not overwrite."`
 	IgnoreInterrupts bool     `short:"i" help:"Ignore interrupt signals (SIGINT)."`
+	Silent           bool     `short:"s" help:"Silent mode: do not write to stdout, only to files."`
 }
 
 func Cmd() *cobra.Command {
@@ -38,7 +39,10 @@ func Run(params *Params, stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 
 	// Open all output files
-	writers := []io.Writer{stdout}
+	var writers []io.Writer
+	if !params.Silent {
+		writers = append(writers, stdout)
+	}
 	var closers []func() error
 
 	for _, filename := range params.Files {
