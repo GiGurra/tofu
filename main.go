@@ -32,6 +32,7 @@ import (
 	"github.com/gigurra/tofu/cmd/ps"
 	"github.com/gigurra/tofu/cmd/qr"
 	"github.com/gigurra/tofu/cmd/rand"
+	"github.com/gigurra/tofu/cmd/reverse"
 	"github.com/gigurra/tofu/cmd/screensaver"
 	"github.com/gigurra/tofu/cmd/sed2"
 	"github.com/gigurra/tofu/cmd/serve"
@@ -75,6 +76,7 @@ func main() {
 			ps.Cmd(),
 			time.Cmd(),
 			rand.Cmd(),
+			reverse.Cmd(),
 			env.Cmd(),
 			cron.Cmd(),
 			count.Cmd(),
