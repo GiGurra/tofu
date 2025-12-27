@@ -12,7 +12,6 @@ import (
 
 	"github.com/GiGurra/boa/pkg/boa"
 	"github.com/gigurra/tofu/cmd/common"
-	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
 
@@ -81,7 +80,6 @@ func Run(params *Params) error {
 			_, _ = fmt.Fprintf(os.Stderr, "du: error reading '%s': %v\n", path, err)
 			continue
 		}
-		aggregateNodeSizesOnDisk(rootNode)
 		pruneNodesToMaxDepth(rootNode, maxDepth, 0)
 		sortNodes(rootNode, params.Sort, params.Reverse)
 		printNodes(rootNode, blockSize, params.Human)
@@ -147,8 +145,6 @@ func pruneNodesToMaxDepth(node *DirNode, maxDepth int, currentDepth int) {
 
 func walkDir(rootPath string, apparentSize bool) (*DirNode, error) {
 
-	nodeLkup := make(map[string]*DirNode)
-
 	// Helper to get the right size based on mode
 	getFileSize := func(info fs.FileInfo) int64 {
 		if apparentSize {
@@ -175,7 +171,19 @@ func walkDir(rootPath string, apparentSize bool) (*DirNode, error) {
 		Path:      rootPath,
 		LevelSize: getDirSize(rootInfo),
 	}
-	nodeLkup[rootPath] = rootNode
+
+	// Stack-based approach: since WalkDir is depth-first, we use a stack
+	// that mirrors the traversal. Push on dir entry, pop when we leave.
+	stack := []*DirNode{rootNode}
+
+	// Helper to finalize a directory: calculate TotalSize from LevelSize + children
+	finalizeDir := func(node *DirNode) {
+		var childSum int64
+		for _, child := range node.ChildDirs {
+			childSum += child.TotalSize
+		}
+		node.TotalSize = node.LevelSize + childSum
+	}
 
 	err = filepath.WalkDir(rootPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -183,48 +191,44 @@ func walkDir(rootPath string, apparentSize bool) (*DirNode, error) {
 			return nil // Skip errors
 		}
 
+		if path == rootPath {
+			return nil // Root already on stack
+		}
+
+		parentPath := filepath.Dir(path)
+
+		// Pop finished directories until stack top is our parent
+		for len(stack) > 0 && stack[len(stack)-1].Path != parentPath {
+			finalizeDir(stack[len(stack)-1])
+			stack = stack[:len(stack)-1]
+		}
+
+		if len(stack) == 0 {
+			panic("Bug: stack empty, parent not found for " + path)
+		}
+
+		parent := stack[len(stack)-1]
+
 		if d.IsDir() {
-
-			if path == rootPath {
-				return nil // Skip root processing here
-			}
-
-			parentPath := filepath.Dir(path)
-			parentNode, ok := nodeLkup[parentPath]
-			if !ok {
-				panic("Bug: parent not found for dir " + path)
-			}
-
-			// Get actual disk usage for this directory
 			dirInfo, err := d.Info()
 			if err != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "du: cannot access info for '%s': %v\n", path, err)
 				return nil
 			}
 
-			currentNode, ok := nodeLkup[path]
-			if !ok {
-				currentNode = &DirNode{
-					Path:      path,
-					LevelSize: getDirSize(dirInfo),
-				}
-				nodeLkup[path] = currentNode
-				parentNode.ChildDirs = append(parentNode.ChildDirs, currentNode)
+			node := &DirNode{
+				Path:      path,
+				LevelSize: getDirSize(dirInfo),
 			}
-
+			parent.ChildDirs = append(parent.ChildDirs, node)
+			stack = append(stack, node)
 		} else {
-
-			parentPath := filepath.Dir(path)
-			parentNode := nodeLkup[parentPath]
-			if parentNode == nil {
-				panic("Bug: parent not found for " + path)
-			}
 			fileInfo, err := d.Info()
 			if err != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "du: cannot access info for '%s': %v\n", path, err)
 				return nil
 			}
-			parentNode.LevelSize += getFileSize(fileInfo)
+			parent.LevelSize += getFileSize(fileInfo)
 		}
 
 		return nil
@@ -232,6 +236,12 @@ func walkDir(rootPath string, apparentSize bool) (*DirNode, error) {
 
 	if err != nil {
 		return nil, fmt.Errorf("error walking directory '%s': %v", rootPath, err)
+	}
+
+	// Finalize remaining directories on the stack
+	for len(stack) > 0 {
+		finalizeDir(stack[len(stack)-1])
+		stack = stack[:len(stack)-1]
 	}
 
 	return rootNode, nil
@@ -242,14 +252,6 @@ func printNodes(node *DirNode, blockSize int64, human bool) {
 		printNodes(child, blockSize, human)
 	}
 	printSize(node.TotalSize, blockSize, human, node.Path)
-}
-
-func aggregateNodeSizesOnDisk(node *DirNode) {
-	childSum := lo.SumBy(node.ChildDirs, func(n *DirNode) int64 {
-		aggregateNodeSizesOnDisk(n)
-		return n.TotalSize
-	})
-	node.TotalSize = node.LevelSize + childSum
 }
 
 func printSize(size int64, blockSize int64, human bool, path string) {
