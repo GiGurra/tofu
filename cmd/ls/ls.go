@@ -552,7 +552,7 @@ func colorize(name string, info fs.FileInfo) string {
 		colorCode = "\033[33m" // Yellow
 	case mode&os.ModeSocket != 0:
 		colorCode = "\033[1;35m" // Bold magenta
-	case mode&0111 != 0: // executable
+	case isExecutable(name, mode):
 		colorCode = "\033[1;32m" // Bold green
 	default:
 		return name // No color for regular files
