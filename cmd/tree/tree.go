@@ -13,11 +13,15 @@ import (
 )
 
 type Params struct {
-	Dir             string   `pos:"true" optional:"true" help:"Directory to start the tree from." default:"."`
-	Depth           int      `short:"L" help:"Descend only level directories deep." default:"-1"` // -1 means infinite depth
-	All             bool     `short:"a" help:"Do not ignore entries starting with ." default:"false"`
-	IgnoreGitignore bool     `help:".gitignore" default:"false"`
-	Exclude         []string `help:"Exclude files matching the pattern." default:"[]"`
+	Dir     string   `pos:"true" optional:"true" help:"Directory to start the tree from." default:"."`
+	Depth   int      `short:"L" help:"Descend only level directories deep." default:"-1"` // -1 means infinite depth
+	All     bool     `short:"a" help:"Do not ignore entries starting with ." default:"false"`
+	Exclude []string `help:"Exclude files matching the pattern." default:"[]"`
+}
+
+type counters struct {
+	dirs  int
+	files int
 }
 
 func Cmd() *cobra.Command {
@@ -40,124 +44,103 @@ func Run(params *Params) error {
 		return fmt.Errorf("failed to resolve directory %s: %w", params.Dir, err)
 	}
 
-	if _, err := os.Stat(absDir); os.IsNotExist(err) {
+	info, err := os.Stat(absDir)
+	if os.IsNotExist(err) {
 		return fmt.Errorf("directory does not exist: %s", absDir)
 	}
+	if err != nil {
+		return fmt.Errorf("failed to stat directory %s: %w", absDir, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("not a directory: %s", absDir)
+	}
 
-	// Simple exclusion logic (can be expanded to gitignore later)
-	isExcluded := func(path string, isDir bool) bool {
-		// Handle hidden files unless -a is used
-		if !params.All && strings.HasPrefix(filepath.Base(path), ".") && filepath.Base(path) != "." {
-			return true
+	// Print root directory
+	fmt.Println(params.Dir)
+
+	c := &counters{dirs: 1, files: 0}
+	printTree(absDir, "", 1, params, c)
+
+	fmt.Printf("\n%d directories, %d files\n", c.dirs, c.files)
+	return nil
+}
+
+// printTree recursively prints directory contents in tree format.
+// prefix is the indentation string for the current level.
+// depth is the current depth (1-based, root children are depth 1).
+func printTree(dirPath string, prefix string, depth int, params *Params, c *counters) {
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "Warning: cannot read directory %s: %v\n", dirPath, err)
+		return
+	}
+
+	// Filter entries according to exclusion rules
+	filtered := filterEntries(entries, dirPath, params)
+
+	for i, entry := range filtered {
+		isLast := i == len(filtered)-1
+
+		// Choose connector based on whether this is the last entry
+		connector := "├── "
+		if isLast {
+			connector = "└── "
 		}
 
-		// Basic glob exclusion (can be improved with proper gitignore parsing)
-		for _, pattern := range params.Exclude {
-			matched, _ := filepath.Match(pattern, filepath.Base(path))
-			if matched {
+		fmt.Printf("%s%s%s\n", prefix, connector, entry.Name())
+
+		if entry.IsDir() {
+			c.dirs++
+
+			// Recurse into subdirectory if within depth limit
+			if params.Depth == -1 || depth < params.Depth {
+				// Extend prefix: use "│   " if more siblings follow, "    " if last
+				childPrefix := prefix
+				if isLast {
+					childPrefix += "    "
+				} else {
+					childPrefix += "│   "
+				}
+				printTree(filepath.Join(dirPath, entry.Name()), childPrefix, depth+1, params, c)
+			}
+		} else {
+			c.files++
+		}
+	}
+}
+
+// filterEntries filters directory entries based on exclusion rules.
+func filterEntries(entries []fs.DirEntry, dirPath string, params *Params) []fs.DirEntry {
+	var filtered []fs.DirEntry
+	for _, entry := range entries {
+		if !isExcluded(entry.Name(), dirPath, entry.IsDir(), params) {
+			filtered = append(filtered, entry)
+		}
+	}
+	return filtered
+}
+
+// isExcluded checks if an entry should be excluded based on params.
+func isExcluded(name string, dirPath string, isDir bool, params *Params) bool {
+	// Hidden files (starting with .) unless -a is used
+	if !params.All && strings.HasPrefix(name, ".") {
+		return true
+	}
+
+	// Check exclusion patterns
+	for _, pattern := range params.Exclude {
+		// Try matching just the name
+		if matched, _ := filepath.Match(pattern, name); matched {
+			return true
+		}
+		// Try matching the full path for patterns with path separators
+		if strings.Contains(pattern, string(os.PathSeparator)) || strings.Contains(pattern, "/") {
+			fullPath := filepath.Join(dirPath, name)
+			if matched, _ := filepath.Match(pattern, fullPath); matched {
 				return true
 			}
 		}
-		return false
 	}
 
-	nDirs := 1
-	nFiles := 0
-
-	listingAtDir := map[string][]os.DirEntry{}
-	err = filepath.WalkDir(absDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "Warning: skipping %s: %v\n", path, err)
-			return nil // Skip errors for now
-		}
-
-		relPath, err := filepath.Rel(absDir, path)
-		if err != nil {
-			return err
-		}
-
-		if relPath == "." {
-			fmt.Println(params.Dir)
-			return nil
-		}
-
-		depth := strings.Count(relPath, string(os.PathSeparator))
-		if relPath != "." {
-			depth++ // Increment depth for all non-root items
-		}
-		if params.Depth != -1 && depth > params.Depth {
-			if d.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		// Exclusion check
-		if isExcluded(path, d.IsDir()) {
-			if d.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		// if it is the last entry in this level, use └ instead of ├
-		// This is just stupid hacky way to do it, but whatever,
-		// fix later if needed
-		prefix := "├── "
-		parentDir := filepath.Dir(path)
-		_, ok := listingAtDir[parentDir]
-		if !ok {
-			entries, err := os.ReadDir(parentDir)
-			if err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "Warning: could not read dir listing for %s: %v\n", parentDir, err)
-				listingAtDir[parentDir] = []fs.DirEntry{}
-			} else {
-				// filter entries according to exclusion rules
-				listingAtDir[parentDir] = entries
-			}
-		}
-
-		listing, ok := listingAtDir[parentDir]
-		if !ok {
-			_, _ = fmt.Fprintf(os.Stderr, "Warning: could not read parent dir listing for %s\n", path)
-			return nil
-		}
-		if len(listing) > 0 {
-			lastEntry := listing[len(listing)-1]
-			if lastEntry.Name() == d.Name() {
-				prefix = "└── "
-			}
-		}
-
-		// Check for current and all parents if we are the last entry. If we are the last entry, don't print │ for that level.
-		parentPath := path
-		indent := ""
-		for dParentDepth := depth - 1; dParentDepth > 0; dParentDepth-- {
-			parentPath = filepath.Dir(parentPath)
-			parentListing, ok := listingAtDir[filepath.Dir(parentPath)]
-			if !ok || len(parentListing) == 0 {
-				continue
-			}
-			lastParentEntry := parentListing[len(parentListing)-1]
-			if lastParentEntry.Name() == filepath.Base(parentPath) {
-				indent = "    " + indent
-			} else {
-				indent = "│   " + indent
-			}
-		}
-
-		if d.IsDir() {
-			nDirs++
-		} else {
-			nFiles++
-		}
-		fmt.Printf("%s%s%s\n", indent, prefix, d.Name())
-
-		return nil
-	})
-
-	// print summary,
-	// 5 directories, 36 files
-	fmt.Printf("\n%d directories, %d files\n", nDirs, nFiles)
-	return err
+	return false
 }
