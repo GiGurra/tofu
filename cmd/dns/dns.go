@@ -2,6 +2,7 @@ package dns
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -20,6 +21,24 @@ type Params struct {
 	Server   string `short:"s" help:"DNS server to use (e.g. 8.8.8.8). Defaults to 8.8.8.8:53" default:"8.8.8.8:53"`
 	UseOS    bool   `short:"o" long:"use-os" help:"Use OS resolver instead of direct query (ignores --server)"`
 	Types    string `short:"t" help:"Comma-separated list of record types to query (A,AAAA,CNAME,MX,TXT,NS,PTR). Default: all common types" default:""`
+	Json     bool   `short:"j" help:"Output in JSON format."`
+}
+
+type MXRecord struct {
+	Pref uint16 `json:"preference"`
+	Host string `json:"host"`
+}
+
+type DNSOutput struct {
+	Server   string     `json:"server"`
+	Hostname string     `json:"hostname"`
+	A        []string   `json:"a,omitempty"`
+	AAAA     []string   `json:"aaaa,omitempty"`
+	CNAME    string     `json:"cname,omitempty"`
+	MX       []MXRecord `json:"mx,omitempty"`
+	TXT      []string   `json:"txt,omitempty"`
+	NS       []string   `json:"ns,omitempty"`
+	PTR      []string   `json:"ptr,omitempty"`
 }
 
 func Cmd() *cobra.Command {
@@ -63,8 +82,10 @@ func runDns(params *Params, stdout io.Writer) {
 		}
 	}
 
-	fmt.Fprintf(stdout, "Server:  %s\n", serverName)
-	fmt.Fprintf(stdout, "Address: %s\n\n", params.Hostname)
+	output := DNSOutput{
+		Server:   serverName,
+		Hostname: params.Hostname,
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -75,80 +96,146 @@ func runDns(params *Params, stdout io.Writer) {
 		switch recordType {
 		case "A":
 			ips, err := resolver.LookupIPAddr(ctx, params.Hostname)
-			printSection(stdout, "A Records", err, func() {
-				found := false
+			if err == nil {
 				for _, ip := range ips {
 					if ip.IP.To4() != nil {
-						fmt.Fprintf(stdout, "  %s\n", ip.String())
-						found = true
+						output.A = append(output.A, ip.String())
 					}
 				}
-				if !found && err == nil {
-					fmt.Fprintln(stdout, "  (None)")
-				}
-			})
+			} else if !params.Json {
+				printSection(stdout, "A Records", err, func() {})
+			}
 
 		case "AAAA":
 			ips, err := resolver.LookupIPAddr(ctx, params.Hostname)
-			printSection(stdout, "AAAA Records", err, func() {
-				found := false
+			if err == nil {
 				for _, ip := range ips {
 					if ip.IP.To4() == nil {
-						fmt.Fprintf(stdout, "  %s\n", ip.String())
-						found = true
+						output.AAAA = append(output.AAAA, ip.String())
 					}
 				}
-				if !found && err == nil {
-					fmt.Fprintln(stdout, "  (None)")
-				}
-			})
+			} else if !params.Json {
+				printSection(stdout, "AAAA Records", err, func() {})
+			}
 
 		case "CNAME":
 			cname, err := resolver.LookupCNAME(ctx, params.Hostname)
-			// LookupCNAME often returns error if no CNAME (it returns the name itself if it's canonical).
-			// Standard lib behavior: "The returned CNAME is followed to its end."
-			printSection(stdout, "CNAME", err, func() {
-				if cname != "" && cname != params.Hostname && cname != params.Hostname+"." {
-					fmt.Fprintf(stdout, "  %s\n", cname)
-				} else if err == nil {
-					fmt.Fprintf(stdout, "  (None)\n")
-				}
-			})
+			if err == nil && cname != "" && cname != params.Hostname && cname != params.Hostname+"." {
+				output.CNAME = cname
+			} else if err != nil && !params.Json {
+				printSection(stdout, "CNAME", err, func() {})
+			}
 
 		case "MX":
 			mxs, err := resolver.LookupMX(ctx, params.Hostname)
-			printSection(stdout, "MX Records", err, func() {
-				// Sort by pref
+			if err == nil {
 				sort.Slice(mxs, func(i, j int) bool { return mxs[i].Pref < mxs[j].Pref })
 				for _, mx := range mxs {
-					fmt.Fprintf(stdout, "  %d %s\n", mx.Pref, mx.Host)
+					output.MX = append(output.MX, MXRecord{Pref: mx.Pref, Host: mx.Host})
 				}
-			})
+			} else if !params.Json {
+				printSection(stdout, "MX Records", err, func() {})
+			}
 
 		case "TXT":
 			txts, err := resolver.LookupTXT(ctx, params.Hostname)
-			printSection(stdout, "TXT Records", err, func() {
-				for _, txt := range txts {
-					fmt.Fprintf(stdout, "  %s\n", txt)
-				}
-			})
+			if err == nil {
+				output.TXT = txts
+			} else if !params.Json {
+				printSection(stdout, "TXT Records", err, func() {})
+			}
 
 		case "NS":
 			nss, err := resolver.LookupNS(ctx, params.Hostname)
-			printSection(stdout, "NS Records", err, func() {
+			if err == nil {
 				for _, ns := range nss {
-					fmt.Fprintf(stdout, "  %s\n", ns.Host)
+					output.NS = append(output.NS, ns.Host)
 				}
-			})
+			} else if !params.Json {
+				printSection(stdout, "NS Records", err, func() {})
+			}
 
 		case "PTR":
-			// Usually for IPs, but user might ask for it on a hostname
 			names, err := resolver.LookupAddr(ctx, params.Hostname)
-			printSection(stdout, "PTR Records", err, func() {
-				for _, name := range names {
+			if err == nil {
+				output.PTR = names
+			} else if !params.Json {
+				printSection(stdout, "PTR Records", err, func() {})
+			}
+		}
+	}
+
+	if params.Json {
+		encoder := json.NewEncoder(stdout)
+		encoder.SetIndent("", "  ")
+		_ = encoder.Encode(output)
+	} else {
+		outputDnsPlain(stdout, params, output)
+	}
+}
+
+func outputDnsPlain(stdout io.Writer, params *Params, output DNSOutput) {
+	fmt.Fprintf(stdout, "Server:  %s\n", output.Server)
+	fmt.Fprintf(stdout, "Address: %s\n\n", output.Hostname)
+
+	typesToQuery := parseTypes(params.Types)
+
+	for _, recordType := range typesToQuery {
+		switch recordType {
+		case "A":
+			if len(output.A) > 0 {
+				fmt.Fprintln(stdout, "A Records:")
+				for _, ip := range output.A {
+					fmt.Fprintf(stdout, "  %s\n", ip)
+				}
+				fmt.Fprintln(stdout)
+			}
+		case "AAAA":
+			if len(output.AAAA) > 0 {
+				fmt.Fprintln(stdout, "AAAA Records:")
+				for _, ip := range output.AAAA {
+					fmt.Fprintf(stdout, "  %s\n", ip)
+				}
+				fmt.Fprintln(stdout)
+			}
+		case "CNAME":
+			if output.CNAME != "" {
+				fmt.Fprintln(stdout, "CNAME:")
+				fmt.Fprintf(stdout, "  %s\n", output.CNAME)
+				fmt.Fprintln(stdout)
+			}
+		case "MX":
+			if len(output.MX) > 0 {
+				fmt.Fprintln(stdout, "MX Records:")
+				for _, mx := range output.MX {
+					fmt.Fprintf(stdout, "  %d %s\n", mx.Pref, mx.Host)
+				}
+				fmt.Fprintln(stdout)
+			}
+		case "TXT":
+			if len(output.TXT) > 0 {
+				fmt.Fprintln(stdout, "TXT Records:")
+				for _, txt := range output.TXT {
+					fmt.Fprintf(stdout, "  %s\n", txt)
+				}
+				fmt.Fprintln(stdout)
+			}
+		case "NS":
+			if len(output.NS) > 0 {
+				fmt.Fprintln(stdout, "NS Records:")
+				for _, ns := range output.NS {
+					fmt.Fprintf(stdout, "  %s\n", ns)
+				}
+				fmt.Fprintln(stdout)
+			}
+		case "PTR":
+			if len(output.PTR) > 0 {
+				fmt.Fprintln(stdout, "PTR Records:")
+				for _, name := range output.PTR {
 					fmt.Fprintf(stdout, "  %s\n", name)
 				}
-			})
+				fmt.Fprintln(stdout)
+			}
 		}
 	}
 }
