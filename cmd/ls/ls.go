@@ -75,6 +75,7 @@ func LlCmd() *cobra.Command {
 		},
 		RunFunc: func(params *Params, cmd *cobra.Command, args []string) {
 			params.Long = true
+			params.HumanReadable = true
 			exitCode := Run(params, os.Stdout, os.Stderr)
 			os.Exit(exitCode)
 		},
@@ -94,6 +95,7 @@ func LaCmd() *cobra.Command {
 		RunFunc: func(params *Params, cmd *cobra.Command, args []string) {
 			params.Long = true
 			params.All = true
+			params.HumanReadable = true
 			exitCode := Run(params, os.Stdout, os.Stderr)
 			os.Exit(exitCode)
 		},
