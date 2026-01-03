@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -16,6 +17,16 @@ import (
 // and check output formatting.
 
 func TestFreeCommand(t *testing.T) {
+	// OS-specific expected labels
+	var memLabel, swapLabel string
+	if runtime.GOOS == "windows" {
+		memLabel = "Physical:"
+		swapLabel = "Page File:"
+	} else {
+		memLabel = "Mem:"
+		swapLabel = "Swap:"
+	}
+
 	tests := []struct {
 		name       string
 		params     *Params
@@ -26,25 +37,25 @@ func TestFreeCommand(t *testing.T) {
 			name:       "default_output_bytes",
 			params:     &Params{},
 			expectsErr: false,
-			expectsOut: []string{"Mem:", "Swap:", "KiB"},
+			expectsOut: []string{memLabel, swapLabel, "KiB"},
 		},
 		{
 			name:       "megabytes_output",
 			params:     &Params{MegaBytes: true},
 			expectsErr: false,
-			expectsOut: []string{"Mem:", "Swap:", "MiB"},
+			expectsOut: []string{memLabel, swapLabel, "MiB"},
 		},
 		{
 			name:       "gigabytes_output",
 			params:     &Params{GigaBytes: true},
 			expectsErr: false,
-			expectsOut: []string{"Mem:", "Swap:", "GiB"},
+			expectsOut: []string{memLabel, swapLabel, "GiB"},
 		},
 		{
 			name:       "both_mb_gb_should_prefer_gb",
 			params:     &Params{MegaBytes: true, GigaBytes: true},
 			expectsErr: false, // The cobra param enricher should handle this, but let's test what runFree does
-			expectsOut: []string{"Mem:", "Swap:", "GiB"},
+			expectsOut: []string{memLabel, swapLabel, "GiB"},
 		},
 	}
 
