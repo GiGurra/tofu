@@ -56,24 +56,7 @@ func runFree(params *Params) error {
 		unitLabel = "KiB"
 	}
 
-	fmt.Printf("%12s %10s %10s %10s %10s %10s %10s\n", "", "total", "used", "free", "shared", "buff/cache", "available")
-	fmt.Printf("%12s %10.0f %10.0f %10.0f %10.0f %10.0f %10.0f %s\n",
-		"Mem:",
-		float64(virtualMem.Total)/unitFactor,
-		float64(virtualMem.Used)/unitFactor,
-		float64(virtualMem.Free)/unitFactor,
-		float64(virtualMem.Shared)/unitFactor,
-		float64(virtualMem.Buffers+virtualMem.Cached)/unitFactor,
-		float64(virtualMem.Available)/unitFactor,
-		unitLabel,
-	)
-	fmt.Printf("%12s %10.0f %10.0f %10.0f %s\n",
-		"Swap:",
-		float64(swapMem.Total)/unitFactor,
-		float64(swapMem.Used)/unitFactor,
-		float64(swapMem.Free)/unitFactor,
-		unitLabel,
-	)
+	printMemoryInfo(os.Stdout, virtualMem, swapMem, unitFactor, unitLabel)
 
 	return nil
 }
