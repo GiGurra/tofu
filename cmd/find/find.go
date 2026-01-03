@@ -32,7 +32,7 @@ const (
 )
 
 type Params struct {
-	SearchTerm string       `pos:"true" help:"Term to search for in module names."`
+	SearchTerm string       `pos:"true" optional:"true" help:"Term to search for in file names. If omitted, all matching items are listed."`
 	SearchType SearchType   `short:"s" help:"Type of search to perform (exact,contains,prefix,suffix,regex)." default:"contains" alts:"exact,contains,prefix,suffix,regex"`
 	IgnoreCase bool         `short:"i" help:"Perform a case-insensitive search." default:"false"`
 	WorkDir    string       `short:"c" help:"The working directory to start the search from." default:"."`
@@ -43,12 +43,9 @@ type Params struct {
 func Cmd() *cobra.Command {
 	return boa.CmdT[Params]{
 		Use:         "find",
-		Short:       "Find file system items matching a search term",
+		Short:       "Find file system items, optionally matching a search term",
 		ParamEnrich: common.DefaultParamEnricher(),
 		PreExecuteFunc: func(params *Params, cmd *cobra.Command, args []string) error {
-			if params.SearchTerm == "" {
-				return fmt.Errorf("search term cannot be empty")
-			}
 			if len(params.Types) == 0 {
 				return fmt.Errorf("at least one type must be specified")
 			}
@@ -97,29 +94,32 @@ func Run(params *Params, stdout, stderr io.Writer) {
 		}
 
 		if matchesType {
-			switch params.SearchType {
-			case SearchTypeExact:
-				if !MatchExact(d.Name(), params.SearchTerm, params.IgnoreCase) {
-					return nil
+			// If search term is provided, filter by it
+			if params.SearchTerm != "" {
+				switch params.SearchType {
+				case SearchTypeExact:
+					if !MatchExact(d.Name(), params.SearchTerm, params.IgnoreCase) {
+						return nil
+					}
+				case SearchTypeContains:
+					if !MatchContains(d.Name(), params.SearchTerm, params.IgnoreCase) {
+						return nil
+					}
+				case SearchTypePrefix:
+					if !MatchPrefix(d.Name(), params.SearchTerm, params.IgnoreCase) {
+						return nil
+					}
+				case SearchTypeSuffix:
+					if !MatchSuffix(d.Name(), params.SearchTerm, params.IgnoreCase) {
+						return nil
+					}
+				case SearchTypeRegex:
+					if precompiledRegex == nil || !MatchRegex(d.Name(), precompiledRegex) {
+						return nil
+					}
+				default:
+					panic(fmt.Errorf("unsupported search type: %s", params.SearchType))
 				}
-			case SearchTypeContains:
-				if !MatchContains(d.Name(), params.SearchTerm, params.IgnoreCase) {
-					return nil
-				}
-			case SearchTypePrefix:
-				if !MatchPrefix(d.Name(), params.SearchTerm, params.IgnoreCase) {
-					return nil
-				}
-			case SearchTypeSuffix:
-				if !MatchSuffix(d.Name(), params.SearchTerm, params.IgnoreCase) {
-					return nil
-				}
-			case SearchTypeRegex:
-				if precompiledRegex == nil || !MatchRegex(d.Name(), precompiledRegex) {
-					return nil
-				}
-			default:
-				panic(fmt.Errorf("unsupported search type: %s", params.SearchType))
 			}
 			fmt.Fprintln(stdout, path)
 		}
