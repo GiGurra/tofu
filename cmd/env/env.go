@@ -16,7 +16,7 @@ import (
 
 type Params struct {
 	Command []string `pos:"true" optional:"true" help:"Command to run with modified environment."`
-	Format  string   `short:"f" help:"Output format (plain, json, shell, powershell)." default:"plain"`
+	Format  string   `short:"f" help:"Output format (plain, json, shell, powershell)." default:"plain" alts:"plain,json,shell,powershell"`
 	Filter  string   `help:"Filter variables by prefix (case-insensitive)." optional:"true"`
 	Sort    bool     `short:"s" help:"Sort variables alphabetically." default:"true"`
 	Keys    bool     `short:"k" help:"Show only variable names (keys)." optional:"true"`

@@ -20,7 +20,7 @@ type Params struct {
 	Hostname string `pos:"true" help:"Hostname to lookup"`
 	Server   string `short:"s" help:"DNS server to use (e.g. 8.8.8.8). Defaults to 8.8.8.8:53" default:"8.8.8.8:53"`
 	UseOS    bool   `short:"o" long:"use-os" help:"Use OS resolver instead of direct query (ignores --server)"`
-	Types    string `short:"t" help:"Comma-separated list of record types to query (A,AAAA,CNAME,MX,TXT,NS,PTR). Default: all common types" default:""`
+	Types    string `short:"t" help:"Comma-separated list of record types to query (A,AAAA,CNAME,MX,TXT,NS,PTR). Default: all common types" default:"" alts:"A,AAAA,CNAME,MX,TXT,NS,PTR" strict:"false"`
 	Json     bool   `short:"j" help:"Output in JSON format."`
 }
 

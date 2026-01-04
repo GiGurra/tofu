@@ -16,7 +16,7 @@ import (
 
 type Params struct {
 	URL             string   `pos:"true" help:"The URL to request."`
-	Method          string   `short:"X" optional:"true" help:"HTTP method to use (GET, POST, PUT, DELETE, etc.). Default is GET." default:"GET"`
+	Method          string   `short:"X" optional:"true" help:"HTTP method to use (GET, POST, PUT, DELETE, etc.). Default is GET." default:"GET" alts:"GET,POST,PUT,DELETE,PATCH,HEAD,OPTIONS" strict:"false"`
 	Headers         []string `short:"H" optional:"true" help:"Pass custom header(s) to server."`
 	Data            string   `short:"d" optional:"true" help:"HTTP POST data."`
 	OutputFile      string   `short:"o" optional:"true" help:"Write to file instead of stdout."`

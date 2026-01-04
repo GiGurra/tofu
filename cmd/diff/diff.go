@@ -18,7 +18,7 @@ type Params struct {
 	Context     int    `short:"c" help:"Output NUM lines of context." default:"0" optional:"true"`
 	SideBySide  bool   `short:"y" help:"Output in two columns side by side." optional:"true"`
 	Width       int    `short:"W" help:"Output at most NUM columns (for side-by-side)." default:"130" optional:"true"`
-	Color       string `help:"Color output (auto, always, never)." default:"auto" optional:"true"`
+	Color       string `help:"Color output (auto, always, never)." default:"auto" optional:"true" alts:"auto,always,never"`
 	NoColor     bool   `help:"Disable color output." optional:"true"`
 	Brief       bool   `short:"q" help:"Report only when files differ." optional:"true"`
 	IgnoreCase  bool   `short:"i" help:"Ignore case differences." optional:"true"`

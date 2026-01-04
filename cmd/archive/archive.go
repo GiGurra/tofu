@@ -20,9 +20,9 @@ type CreateParams struct {
 	Output     string   `short:"o" help:"Output archive file name (format auto-detected from extension)"`
 	Files      []string `pos:"true" optional:"true" help:"Files and directories to archive"`
 	Verbose    bool     `short:"v" optional:"true" help:"Verbose output - list files as they are added"`
-	Format     string   `short:"f" optional:"true" help:"Archive format (tar, tar.gz, tar.bz2, tar.xz, tar.zst, zip, 7z). Overrides extension detection."`
+	Format     string   `short:"f" optional:"true" help:"Archive format (tar, tar.gz, tar.bz2, tar.xz, tar.zst, zip, 7z). Overrides extension detection." alts:"tar,tar.gz,tar.bz2,tar.xz,tar.zst,zip,7z"`
 	Password   string   `short:"p" optional:"true" help:"Password for encrypted ZIP archives"`
-	Encryption string   `short:"e" optional:"true" help:"Encryption method for ZIP: legacy (insecure), aes128, aes192, aes256 (default: aes256)" default:"aes256"`
+	Encryption string   `short:"e" optional:"true" help:"Encryption method for ZIP: legacy (insecure), aes128, aes192, aes256 (default: aes256)" default:"aes256" alts:"legacy,aes128,aes192,aes256"`
 }
 
 // ExtractParams holds parameters for archive extraction

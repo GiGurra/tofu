@@ -17,8 +17,8 @@ cloud.google.com/go/storage v1.5.0/go.mod h1:tpKbwo567HUNpVclU5sGELwQWBDZ8gh0Zeo
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
-github.com/GiGurra/boa v0.3.33 h1:gbGEwX43a1Y90oZ/iHxN5Ol8PdrOBvSLVGbaHmJy8II=
-github.com/GiGurra/boa v0.3.33/go.mod h1:alF0PXOSHVqHEp7r15QfBdvtFVH7+xhpOzb5zamahCM=
+github.com/GiGurra/boa v0.3.34 h1:l6tUxPHhV0adi27IPgazzv3R81en3g93WsixjFXIia8=
+github.com/GiGurra/boa v0.3.34/go.mod h1:alF0PXOSHVqHEp7r15QfBdvtFVH7+xhpOzb5zamahCM=
 github.com/GiGurra/cmder v0.0.5 h1:czoAgB6lhXDU+bZLmpa5c50OIx6zyy+LkP4KhOLXZus=
 github.com/GiGurra/cmder v0.0.5/go.mod h1:rM1UyXHxD7GV1YqWtqISyUBMSLNle49sMUvaUkMyLDI=
 github.com/STARRY-S/zip v0.2.3 h1:luE4dMvRPDOWQdeDdUxUoZkzUIpTccdKdhHHsQJ1fm4=

@@ -3,7 +3,7 @@ module github.com/gigurra/tofu
 go 1.25
 
 require (
-	github.com/GiGurra/boa v0.3.33
+	github.com/GiGurra/boa v0.3.34
 	github.com/GiGurra/cmder v0.0.5
 	github.com/atotto/clipboard v0.1.4
 	github.com/fsnotify/fsnotify v1.9.0
@@ -15,7 +15,9 @@ require (
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/spf13/cobra v1.10.2
+	github.com/yeka/zip v0.0.0-20231116150916-03d6312748a9
 	go.1password.io/spg v0.1.0
+	golang.org/x/net v0.48.0
 	golang.org/x/sys v0.39.0
 	golang.org/x/term v0.38.0
 )
@@ -50,10 +52,8 @@ require (
 	github.com/tklauser/go-sysconf v0.3.16 // indirect
 	github.com/tklauser/numcpus v0.11.0 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
-	github.com/yeka/zip v0.0.0-20231116150916-03d6312748a9 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go4.org v0.0.0-20230225012048-214862532bf5 // indirect
 	golang.org/x/crypto v0.46.0 // indirect
-	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
 )

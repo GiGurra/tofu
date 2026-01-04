@@ -15,14 +15,14 @@ import (
 )
 
 type Params struct {
-	Type       string `short:"t" help:"Type of random data (str, int, hex, base64, password, phrase)." default:"str"`
+	Type       string `short:"t" help:"Type of random data (str, int, hex, base64, password, phrase)." default:"str" alts:"str,int,hex,base64,password,phrase"`
 	Length     int    `short:"l" help:"Length (chars for str/password/hex/base64, words for phrase)." default:"16"`
 	Min        int64  `help:"Minimum value for integer generation." default:"0"`
 	Max        int64  `help:"Maximum value for integer generation." default:"100"`
 	Charset    string `short:"c" help:"Custom character set for string generation." default:""`
 	Count      int    `short:"n" help:"Number of items to generate." default:"1"`
 	Separator  string `help:"Separator for phrases." default:" "`
-	Capitalize string `help:"Capitalization for phrases (none, first, all, random, one)." default:"none"`
+	Capitalize string `help:"Capitalization for phrases (none, first, all, random, one)." default:"none" alts:"none,first,all,random,one"`
 }
 
 func Cmd() *cobra.Command {

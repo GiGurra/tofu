@@ -25,7 +25,7 @@ type DecodeParams struct {
 }
 
 type CreateParams struct {
-	Algorithm string `short:"a" help:"Signing algorithm (HS256, HS384, HS512, RS256, RS384, RS512, ES256, ES384, ES512, none)." default:"HS256"`
+	Algorithm string `short:"a" help:"Signing algorithm (HS256, HS384, HS512, RS256, RS384, RS512, ES256, ES384, ES512, none)." default:"HS256" alts:"HS256,HS384,HS512,RS256,RS384,RS512,ES256,ES384,ES512,none"`
 	Secret    string `short:"s" help:"Secret key for HMAC algorithms or path to private key file for RSA/ECDSA." optional:"true"`
 	Subject   string `help:"Subject claim (sub)." optional:"true"`
 	Issuer    string `help:"Issuer claim (iss)." optional:"true"`

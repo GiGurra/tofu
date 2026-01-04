@@ -16,7 +16,7 @@ type Params struct {
 	Decode    bool     `short:"d" help:"Decode data."`
 	UrlSafe   bool     `short:"u" help:"Use URL-safe character set (alias for --alphabet url)."`
 	NoPadding bool     `short:"r" help:"Do not write padding characters (raw) when encoding. Handle unpadded input when decoding."`
-	Alphabet  string   `short:"a" help:"Custom 64-character alphabet or predefined set (standard, url)." default:"standard" optional:"true"`
+	Alphabet  string   `short:"a" help:"Custom 64-character alphabet or predefined set (standard, url)." default:"standard" optional:"true" alts:"standard,url" strict:"false"`
 }
 
 func Cmd() *cobra.Command {
