@@ -14,7 +14,7 @@ import (
 
 type Params struct {
 	Text          string `pos:"true" optional:"true" help:"Text to encode in QR code. If not provided or '-', reads from stdin."`
-	RecoveryLevel string `short:"r" optional:"true" help:"Error recovery level (low, medium, high, highest)." default:"medium"`
+	RecoveryLevel string `short:"r" optional:"true" help:"Error recovery level (low, medium, high, highest)." default:"medium" alts:"low,medium,high,highest"`
 	Invert        bool   `short:"i" optional:"true" help:"Invert colors (white on black). Default is standard black on white."`
 }
 
