@@ -42,6 +42,7 @@ import (
 	"github.com/gigurra/tofu/cmd/screensaver"
 	"github.com/gigurra/tofu/cmd/sed2"
 	"github.com/gigurra/tofu/cmd/serve"
+	"github.com/gigurra/tofu/cmd/sponge"
 	"github.com/gigurra/tofu/cmd/tail"
 	"github.com/gigurra/tofu/cmd/tee"
 	"github.com/gigurra/tofu/cmd/time"
@@ -90,6 +91,7 @@ func main() {
 			diff.Cmd(),
 			tail.Cmd(),
 			tee.Cmd(),
+			sponge.Cmd(),
 			touch.Cmd(),
 			head.Cmd(),
 			archive.Cmd(),
