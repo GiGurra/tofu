@@ -276,6 +276,10 @@ func runDns(params *Params, stdout io.Writer) {
 			}()
 
 		case "PTR":
+			// PTR lookups only make sense for IP addresses, not hostnames
+			if net.ParseIP(params.Hostname) == nil {
+				continue
+			}
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
