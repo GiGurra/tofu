@@ -3,16 +3,23 @@
 package dns
 
 import (
+	"context"
 	"net"
+	"time"
 )
 
 // cgoEnabled indicates whether this build has CGO support
 const cgoEnabled = false
 
+// defaultTimeout for DNS lookups when no context is provided
+const defaultTimeout = 2 * time.Second
+
 // lookupHostCgo is a stub when CGO is not available.
-// It falls back to Go's default resolver.
+// It falls back to Go's default resolver with a timeout.
 func lookupHostCgo(hostname string) ([]net.IP, error) {
-	return net.LookupIP(hostname)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	return net.DefaultResolver.LookupIP(ctx, "ip", hostname)
 }
 
 // MXRecordCgo represents an MX record
@@ -21,14 +28,18 @@ type MXRecordCgo struct {
 	Host string
 }
 
-// lookupCNAMECgo falls back to Go's resolver
+// lookupCNAMECgo falls back to Go's resolver with a timeout
 func lookupCNAMECgo(hostname string) (string, error) {
-	return net.LookupCNAME(hostname)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	return net.DefaultResolver.LookupCNAME(ctx, hostname)
 }
 
-// lookupMXCgo falls back to Go's resolver
+// lookupMXCgo falls back to Go's resolver with a timeout
 func lookupMXCgo(hostname string) ([]*MXRecordCgo, error) {
-	mxs, err := net.LookupMX(hostname)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	mxs, err := net.DefaultResolver.LookupMX(ctx, hostname)
 	if err != nil {
 		return nil, err
 	}
@@ -42,14 +53,18 @@ func lookupMXCgo(hostname string) ([]*MXRecordCgo, error) {
 	return result, nil
 }
 
-// lookupTXTCgo falls back to Go's resolver
+// lookupTXTCgo falls back to Go's resolver with a timeout
 func lookupTXTCgo(hostname string) ([]string, error) {
-	return net.LookupTXT(hostname)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	return net.DefaultResolver.LookupTXT(ctx, hostname)
 }
 
-// lookupNSCgo falls back to Go's resolver
+// lookupNSCgo falls back to Go's resolver with a timeout
 func lookupNSCgo(hostname string) ([]string, error) {
-	nss, err := net.LookupNS(hostname)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	nss, err := net.DefaultResolver.LookupNS(ctx, hostname)
 	if err != nil {
 		return nil, err
 	}

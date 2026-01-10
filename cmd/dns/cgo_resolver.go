@@ -126,8 +126,10 @@ char* cgo_res_query(const char* hostname, int type) {
     size_t result_len = 0;
     size_t result_cap = 1024;
 
-    // Initialize resolver
+    // Initialize resolver with short timeout for non-existent records
     res_init();
+    _res.retrans = 1;  // 1 second timeout
+    _res.retry = 1;    // Only 1 retry
 
     int len = res_query(hostname, C_IN, type, answer, sizeof(answer));
     if (len < 0) {
