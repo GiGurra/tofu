@@ -25,8 +25,9 @@ func TestRunDns_Integration(t *testing.T) {
 	// Test with a known stable domain
 	params := &Params{
 		Hostname: "google.com",
-		UseOS:    true, // Use OS resolver to avoid firewall issues with 8.8.8.8 in some envs
-		Types:    "A",
+		Server:   "os", // Use OS resolver to avoid firewall issues with 8.8.8.8 in some envs
+		Types:    []string{"A"},
+		Timeout:  2,
 	}
 	var buf bytes.Buffer
 	runDns(params, &buf)
@@ -35,8 +36,8 @@ func TestRunDns_Integration(t *testing.T) {
 	if !strings.Contains(output, "A Records") {
 		t.Errorf("Expected output to contain 'A Records', got:\n%s", output)
 	}
-	if !strings.Contains(output, "Server:  OS Default") {
-		t.Errorf("Expected output to indicate OS Default server, got:\n%s", output)
+	if !strings.Contains(output, "Server:  OS") {
+		t.Errorf("Expected output to indicate OS server, got:\n%s", output)
 	}
 }
 
@@ -48,7 +49,8 @@ func TestRunDns_SpecificServer(t *testing.T) {
 	params := &Params{
 		Hostname: "example.com",
 		Server:   "1.1.1.1", // Cloudflare
-		Types:    "A",
+		Types:    []string{"A"},
+		Timeout:  2,
 	}
 	var buf bytes.Buffer
 	runDns(params, &buf)

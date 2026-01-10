@@ -9,6 +9,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/GiGurra/boa/pkg/boa"
@@ -17,11 +18,11 @@ import (
 )
 
 type Params struct {
-	Hostname string `pos:"true" help:"Hostname to lookup"`
-	Server   string `short:"s" help:"DNS server to use (e.g. 8.8.8.8). Defaults to 8.8.8.8:53" default:"8.8.8.8:53"`
-	UseOS    bool   `short:"o" long:"use-os" help:"Use OS resolver instead of direct query (ignores --server)"`
-	Types    string `short:"t" help:"Comma-separated list of record types to query (A,AAAA,CNAME,MX,TXT,NS,PTR). Default: all common types" default:"" alts:"A,AAAA,CNAME,MX,TXT,NS,PTR" strict:"false"`
-	Json     bool   `short:"j" help:"Output in JSON format."`
+	Hostname string   `pos:"true" help:"Hostname to lookup"`
+	Server   string   `short:"s" help:"DNS server to use. Use 'os' for OS resolver, or IP address (e.g. 8.8.8.8)" default:"os" alts:"os,8.8.8.8,1.1.1.1" strict:"false"`
+	Types    []string `short:"t" help:"Record types to query. Use 'all' for all types. Default: A,AAAA,CNAME" default:"A,AAAA,CNAME" alts:"A,AAAA,CNAME,MX,TXT,NS,PTR,all"`
+	Timeout  int      `long:"timeout" help:"Timeout in seconds for DNS queries" default:"2"`
+	Json     bool     `short:"j" help:"Output in JSON format."`
 }
 
 type MXRecord struct {
@@ -60,9 +61,11 @@ func runDns(params *Params, stdout io.Writer) {
 	var resolver *net.Resolver
 	var serverName string
 
-	if params.UseOS {
+	useOS := strings.ToLower(params.Server) == "os"
+
+	if useOS {
 		resolver = net.DefaultResolver
-		serverName = "OS Default"
+		serverName = "OS"
 	} else {
 		// Ensure port is present
 		server := params.Server
@@ -87,81 +90,215 @@ func runDns(params *Params, stdout io.Writer) {
 		Hostname: params.Hostname,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(params.Timeout)*time.Second)
 	defer cancel()
 
 	typesToQuery := parseTypes(params.Types)
 
+	// Track errors for non-JSON output
+	type recordError struct {
+		recordType string
+		err        error
+	}
+	var errors []recordError
+	var errorsMu sync.Mutex
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
 	for _, recordType := range typesToQuery {
 		switch recordType {
 		case "A":
-			ips, err := resolver.LookupIPAddr(ctx, params.Hostname)
-			if err == nil {
-				for _, ip := range ips {
-					if ip.IP.To4() != nil {
-						output.A = append(output.A, ip.String())
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				var ips []net.IP
+				var err error
+				if useOS {
+					ips, err = lookupHostCgo(params.Hostname)
+				} else {
+					var ipAddrs []net.IPAddr
+					ipAddrs, err = resolver.LookupIPAddr(ctx, params.Hostname)
+					for _, ip := range ipAddrs {
+						ips = append(ips, ip.IP)
 					}
 				}
-			} else if !params.Json {
-				printSection(stdout, "A Records", err, func() {})
-			}
+				mu.Lock()
+				if err == nil {
+					for _, ip := range ips {
+						if ip.To4() != nil {
+							output.A = append(output.A, ip.String())
+						}
+					}
+				} else {
+					errorsMu.Lock()
+					errors = append(errors, recordError{"A Records", err})
+					errorsMu.Unlock()
+				}
+				mu.Unlock()
+			}()
 
 		case "AAAA":
-			ips, err := resolver.LookupIPAddr(ctx, params.Hostname)
-			if err == nil {
-				for _, ip := range ips {
-					if ip.IP.To4() == nil {
-						output.AAAA = append(output.AAAA, ip.String())
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				var ips []net.IP
+				var err error
+				if useOS {
+					ips, err = lookupHostCgo(params.Hostname)
+				} else {
+					var ipAddrs []net.IPAddr
+					ipAddrs, err = resolver.LookupIPAddr(ctx, params.Hostname)
+					for _, ip := range ipAddrs {
+						ips = append(ips, ip.IP)
 					}
 				}
-			} else if !params.Json {
-				printSection(stdout, "AAAA Records", err, func() {})
-			}
+				mu.Lock()
+				if err == nil {
+					for _, ip := range ips {
+						if ip.To4() == nil {
+							output.AAAA = append(output.AAAA, ip.String())
+						}
+					}
+				} else {
+					errorsMu.Lock()
+					errors = append(errors, recordError{"AAAA Records", err})
+					errorsMu.Unlock()
+				}
+				mu.Unlock()
+			}()
 
 		case "CNAME":
-			cname, err := resolver.LookupCNAME(ctx, params.Hostname)
-			if err == nil && cname != "" && cname != params.Hostname && cname != params.Hostname+"." {
-				output.CNAME = cname
-			} else if err != nil && !params.Json {
-				printSection(stdout, "CNAME", err, func() {})
-			}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				var cname string
+				var err error
+				if useOS {
+					cname, err = lookupCNAMECgo(params.Hostname)
+				} else {
+					cname, err = resolver.LookupCNAME(ctx, params.Hostname)
+				}
+				mu.Lock()
+				if err == nil && cname != "" && cname != params.Hostname && cname != params.Hostname+"." {
+					output.CNAME = cname
+				} else if err != nil {
+					errorsMu.Lock()
+					errors = append(errors, recordError{"CNAME", err})
+					errorsMu.Unlock()
+				}
+				mu.Unlock()
+			}()
 
 		case "MX":
-			mxs, err := resolver.LookupMX(ctx, params.Hostname)
-			if err == nil {
-				sort.Slice(mxs, func(i, j int) bool { return mxs[i].Pref < mxs[j].Pref })
-				for _, mx := range mxs {
-					output.MX = append(output.MX, MXRecord{Pref: mx.Pref, Host: mx.Host})
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				if useOS {
+					mxs, err := lookupMXCgo(params.Hostname)
+					mu.Lock()
+					if err == nil {
+						sort.Slice(mxs, func(i, j int) bool { return mxs[i].Pref < mxs[j].Pref })
+						for _, mx := range mxs {
+							output.MX = append(output.MX, MXRecord{Pref: mx.Pref, Host: mx.Host})
+						}
+					} else {
+						errorsMu.Lock()
+						errors = append(errors, recordError{"MX Records", err})
+						errorsMu.Unlock()
+					}
+					mu.Unlock()
+				} else {
+					mxs, err := resolver.LookupMX(ctx, params.Hostname)
+					mu.Lock()
+					if err == nil {
+						sort.Slice(mxs, func(i, j int) bool { return mxs[i].Pref < mxs[j].Pref })
+						for _, mx := range mxs {
+							output.MX = append(output.MX, MXRecord{Pref: mx.Pref, Host: mx.Host})
+						}
+					} else {
+						errorsMu.Lock()
+						errors = append(errors, recordError{"MX Records", err})
+						errorsMu.Unlock()
+					}
+					mu.Unlock()
 				}
-			} else if !params.Json {
-				printSection(stdout, "MX Records", err, func() {})
-			}
+			}()
 
 		case "TXT":
-			txts, err := resolver.LookupTXT(ctx, params.Hostname)
-			if err == nil {
-				output.TXT = txts
-			} else if !params.Json {
-				printSection(stdout, "TXT Records", err, func() {})
-			}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				var txts []string
+				var err error
+				if useOS {
+					txts, err = lookupTXTCgo(params.Hostname)
+				} else {
+					txts, err = resolver.LookupTXT(ctx, params.Hostname)
+				}
+				mu.Lock()
+				if err == nil {
+					output.TXT = txts
+				} else {
+					errorsMu.Lock()
+					errors = append(errors, recordError{"TXT Records", err})
+					errorsMu.Unlock()
+				}
+				mu.Unlock()
+			}()
 
 		case "NS":
-			nss, err := resolver.LookupNS(ctx, params.Hostname)
-			if err == nil {
-				for _, ns := range nss {
-					output.NS = append(output.NS, ns.Host)
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				var nss []string
+				var err error
+				if useOS {
+					nss, err = lookupNSCgo(params.Hostname)
+				} else {
+					netNss, netErr := resolver.LookupNS(ctx, params.Hostname)
+					err = netErr
+					if netErr == nil {
+						for _, ns := range netNss {
+							nss = append(nss, ns.Host)
+						}
+					}
 				}
-			} else if !params.Json {
-				printSection(stdout, "NS Records", err, func() {})
-			}
+				mu.Lock()
+				if err == nil {
+					output.NS = nss
+				} else {
+					errorsMu.Lock()
+					errors = append(errors, recordError{"NS Records", err})
+					errorsMu.Unlock()
+				}
+				mu.Unlock()
+			}()
 
 		case "PTR":
-			names, err := resolver.LookupAddr(ctx, params.Hostname)
-			if err == nil {
-				output.PTR = names
-			} else if !params.Json {
-				printSection(stdout, "PTR Records", err, func() {})
-			}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				names, err := resolver.LookupAddr(ctx, params.Hostname)
+				mu.Lock()
+				if err == nil {
+					output.PTR = names
+				} else {
+					errorsMu.Lock()
+					errors = append(errors, recordError{"PTR Records", err})
+					errorsMu.Unlock()
+				}
+				mu.Unlock()
+			}()
+		}
+	}
+
+	wg.Wait()
+
+	// Print errors for non-JSON output
+	if !params.Json {
+		for _, e := range errors {
+			printSection(stdout, e.recordType, e.err, func() {})
 		}
 	}
 
@@ -240,21 +377,23 @@ func outputDnsPlain(stdout io.Writer, params *Params, output DNSOutput) {
 	}
 }
 
-func parseTypes(t string) []string {
-	all := []string{"A", "AAAA", "CNAME", "MX", "TXT", "NS"}
-	if t == "" {
-		return all
+func parseTypes(types []string) []string {
+	all := []string{"A", "AAAA", "CNAME", "MX", "TXT", "NS", "PTR"}
+	if len(types) == 0 {
+		return []string{"A", "AAAA", "CNAME"}
 	}
-	return strings.Split(strings.ToUpper(t), ",")
-}
-
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
+	// Check for "all" option
+	for _, t := range types {
+		if strings.ToUpper(t) == "ALL" {
+			return all
 		}
 	}
-	return false
+	// Normalize to uppercase
+	result := make([]string, len(types))
+	for i, t := range types {
+		result[i] = strings.ToUpper(t)
+	}
+	return result
 }
 
 func printSection(w io.Writer, title string, err error, printContent func()) {
