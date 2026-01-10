@@ -95,10 +95,22 @@ func runDns(params *Params, stdout io.Writer) {
 	for _, recordType := range typesToQuery {
 		switch recordType {
 		case "A":
-			ips, err := resolver.LookupIPAddr(ctx, params.Hostname)
+			var ips []net.IP
+			var err error
+			if params.UseOS {
+				// Use CGO-based getaddrinfo to ensure the lookup goes through libc,
+				// which tools like mirrord can intercept
+				ips, err = lookupHostCgo(params.Hostname)
+			} else {
+				var ipAddrs []net.IPAddr
+				ipAddrs, err = resolver.LookupIPAddr(ctx, params.Hostname)
+				for _, ip := range ipAddrs {
+					ips = append(ips, ip.IP)
+				}
+			}
 			if err == nil {
 				for _, ip := range ips {
-					if ip.IP.To4() != nil {
+					if ip.To4() != nil {
 						output.A = append(output.A, ip.String())
 					}
 				}
@@ -107,10 +119,22 @@ func runDns(params *Params, stdout io.Writer) {
 			}
 
 		case "AAAA":
-			ips, err := resolver.LookupIPAddr(ctx, params.Hostname)
+			var ips []net.IP
+			var err error
+			if params.UseOS {
+				// Use CGO-based getaddrinfo to ensure the lookup goes through libc,
+				// which tools like mirrord can intercept
+				ips, err = lookupHostCgo(params.Hostname)
+			} else {
+				var ipAddrs []net.IPAddr
+				ipAddrs, err = resolver.LookupIPAddr(ctx, params.Hostname)
+				for _, ip := range ipAddrs {
+					ips = append(ips, ip.IP)
+				}
+			}
 			if err == nil {
 				for _, ip := range ips {
-					if ip.IP.To4() == nil {
+					if ip.To4() == nil {
 						output.AAAA = append(output.AAAA, ip.String())
 					}
 				}
@@ -119,7 +143,13 @@ func runDns(params *Params, stdout io.Writer) {
 			}
 
 		case "CNAME":
-			cname, err := resolver.LookupCNAME(ctx, params.Hostname)
+			var cname string
+			var err error
+			if params.UseOS {
+				cname, err = lookupCNAMECgo(params.Hostname)
+			} else {
+				cname, err = resolver.LookupCNAME(ctx, params.Hostname)
+			}
 			if err == nil && cname != "" && cname != params.Hostname && cname != params.Hostname+"." {
 				output.CNAME = cname
 			} else if err != nil && !params.Json {
@@ -127,18 +157,36 @@ func runDns(params *Params, stdout io.Writer) {
 			}
 
 		case "MX":
-			mxs, err := resolver.LookupMX(ctx, params.Hostname)
-			if err == nil {
-				sort.Slice(mxs, func(i, j int) bool { return mxs[i].Pref < mxs[j].Pref })
-				for _, mx := range mxs {
-					output.MX = append(output.MX, MXRecord{Pref: mx.Pref, Host: mx.Host})
+			if params.UseOS {
+				mxs, err := lookupMXCgo(params.Hostname)
+				if err == nil {
+					sort.Slice(mxs, func(i, j int) bool { return mxs[i].Pref < mxs[j].Pref })
+					for _, mx := range mxs {
+						output.MX = append(output.MX, MXRecord{Pref: mx.Pref, Host: mx.Host})
+					}
+				} else if !params.Json {
+					printSection(stdout, "MX Records", err, func() {})
 				}
-			} else if !params.Json {
-				printSection(stdout, "MX Records", err, func() {})
+			} else {
+				mxs, err := resolver.LookupMX(ctx, params.Hostname)
+				if err == nil {
+					sort.Slice(mxs, func(i, j int) bool { return mxs[i].Pref < mxs[j].Pref })
+					for _, mx := range mxs {
+						output.MX = append(output.MX, MXRecord{Pref: mx.Pref, Host: mx.Host})
+					}
+				} else if !params.Json {
+					printSection(stdout, "MX Records", err, func() {})
+				}
 			}
 
 		case "TXT":
-			txts, err := resolver.LookupTXT(ctx, params.Hostname)
+			var txts []string
+			var err error
+			if params.UseOS {
+				txts, err = lookupTXTCgo(params.Hostname)
+			} else {
+				txts, err = resolver.LookupTXT(ctx, params.Hostname)
+			}
 			if err == nil {
 				output.TXT = txts
 			} else if !params.Json {
@@ -146,11 +194,21 @@ func runDns(params *Params, stdout io.Writer) {
 			}
 
 		case "NS":
-			nss, err := resolver.LookupNS(ctx, params.Hostname)
-			if err == nil {
-				for _, ns := range nss {
-					output.NS = append(output.NS, ns.Host)
+			var nss []string
+			var err error
+			if params.UseOS {
+				nss, err = lookupNSCgo(params.Hostname)
+			} else {
+				netNss, netErr := resolver.LookupNS(ctx, params.Hostname)
+				err = netErr
+				if netErr == nil {
+					for _, ns := range netNss {
+						nss = append(nss, ns.Host)
+					}
 				}
+			}
+			if err == nil {
+				output.NS = nss
 			} else if !params.Json {
 				printSection(stdout, "NS Records", err, func() {})
 			}
@@ -246,15 +304,6 @@ func parseTypes(t string) []string {
 		return all
 	}
 	return strings.Split(strings.ToUpper(t), ",")
-}
-
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
 }
 
 func printSection(w io.Writer, title string, err error, printContent func()) {
