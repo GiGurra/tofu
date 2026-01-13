@@ -20,6 +20,7 @@ import (
 	"github.com/gigurra/tofu/cmd/find"
 	"github.com/gigurra/tofu/cmd/free"
 	"github.com/gigurra/tofu/cmd/gh"
+	"github.com/gigurra/tofu/cmd/git"
 	"github.com/gigurra/tofu/cmd/grep"
 	"github.com/gigurra/tofu/cmd/hash"
 	"github.com/gigurra/tofu/cmd/head"
@@ -100,6 +101,7 @@ func main() {
 			bird.Cmd(),
 			k8s.Cmd(),
 			gh.Cmd(),
+			git.Cmd(),
 			du.Cmd(),
 			df.Cmd(),
 			ls.Cmd(),
