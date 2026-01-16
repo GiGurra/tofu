@@ -14,6 +14,8 @@ import (
 type Params struct {
 	Text   []string `pos:"true" optional:"true" help:"Text to encode/decode. If none provided, reads from stdin."`
 	Decode bool     `short:"d" help:"Decode morse code to text." default:"false"`
+	Beep   bool     `short:"b" help:"Play audio beeps while encoding (requires CGO on Linux)." default:"false"`
+	WPM    int      `short:"w" help:"Words per minute for audio playback." default:"15"`
 }
 
 var toMorse = map[rune]string{
@@ -48,7 +50,7 @@ func Cmd() *cobra.Command {
 	return boa.CmdT[Params]{
 		Use:         "morse",
 		Short:       "Encode/decode Morse code",
-		Long:        "Convert text to Morse code or decode Morse code back to text.",
+		Long:        "Convert text to Morse code or decode Morse code back to text. Use -b for audio beeps.",
 		ParamEnrich: common.DefaultParamEnricher(),
 		RunFunc: func(params *Params, cmd *cobra.Command, args []string) {
 			Run(params)
@@ -62,7 +64,11 @@ func Run(params *Params) {
 		if params.Decode {
 			fmt.Println(decode(text))
 		} else {
-			fmt.Println(encode(text))
+			encoded := encode(text)
+			fmt.Println(encoded)
+			if params.Beep {
+				playMorse(encoded, params.WPM)
+			}
 		}
 	} else {
 		scanner := bufio.NewScanner(os.Stdin)
@@ -70,7 +76,11 @@ func Run(params *Params) {
 			if params.Decode {
 				fmt.Println(decode(scanner.Text()))
 			} else {
-				fmt.Println(encode(scanner.Text()))
+				encoded := encode(scanner.Text())
+				fmt.Println(encoded)
+				if params.Beep {
+					playMorse(encoded, params.WPM)
+				}
 			}
 		}
 	}
