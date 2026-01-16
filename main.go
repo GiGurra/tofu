@@ -11,6 +11,7 @@ import (
 	"github.com/gigurra/tofu/cmd/busy"
 	"github.com/gigurra/tofu/cmd/cat"
 	"github.com/gigurra/tofu/cmd/clip"
+	"github.com/gigurra/tofu/cmd/clock"
 	"github.com/gigurra/tofu/cmd/coin"
 	"github.com/gigurra/tofu/cmd/count"
 	"github.com/gigurra/tofu/cmd/cp"
@@ -115,6 +116,7 @@ func main() {
 			screensaver.Cmd(),
 			bird.Cmd(),
 			blame.Cmd(),
+			clock.Cmd(),
 			coin.Cmd(),
 			dice.Cmd(),
 			excuse.Cmd(),
