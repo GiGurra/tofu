@@ -39,8 +39,9 @@ func Run(params *Params) {
 	session := 1
 	totalSessions := params.Sessions
 
-	// Hide cursor
-	fmt.Print("\033[?25l")
+	// Clear screen and hide cursor
+	fmt.Print("\033[2J\033[H") // Clear screen and move cursor to top-left
+	fmt.Print("\033[?25l")     // Hide cursor
 	defer fmt.Print("\033[?25h\n")
 
 	for {

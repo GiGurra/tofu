@@ -81,8 +81,9 @@ func Run(params *Params) {
 	nextReminder := time.Now().Add(interval)
 	reminderCount := 0
 
-	// Hide cursor for cleaner output
-	fmt.Print("\033[?25l")
+	// Clear screen and hide cursor
+	fmt.Print("\033[2J\033[H") // Clear screen and move cursor to top-left
+	fmt.Print("\033[?25l")     // Hide cursor
 	defer fmt.Print("\033[?25h\n")
 
 	for {
