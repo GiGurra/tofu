@@ -90,8 +90,9 @@ func Run(params *Params) {
 	ticker := time.NewTicker(80 * time.Millisecond)
 	defer ticker.Stop()
 
-	// Hide cursor
-	fmt.Print("\033[?25l")
+	// Clear screen and hide cursor
+	fmt.Print("\033[2J\033[H") // Clear screen and move cursor to top-left
+	fmt.Print("\033[?25l")     // Hide cursor
 	defer fmt.Print("\033[?25h\n")
 
 	for {
