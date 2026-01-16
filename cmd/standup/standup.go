@@ -67,6 +67,11 @@ func Run(params *Params) {
 
 	interval := time.Duration(params.Interval) * time.Minute
 
+	// Clear screen and hide cursor
+	fmt.Print("\033[2J\033[H") // Clear screen and move cursor to top-left
+	fmt.Print("\033[?25l")     // Hide cursor
+	defer fmt.Print("\033[?25h\n")
+
 	fmt.Printf("🧍 Standup reminder started! You'll be reminded every %d minutes.\n", params.Interval)
 	fmt.Println("   Press Ctrl+C to stop.")
 	fmt.Println()
@@ -80,11 +85,6 @@ func Run(params *Params) {
 
 	nextReminder := time.Now().Add(interval)
 	reminderCount := 0
-
-	// Clear screen and hide cursor
-	fmt.Print("\033[2J\033[H") // Clear screen and move cursor to top-left
-	fmt.Print("\033[?25l")     // Hide cursor
-	defer fmt.Print("\033[?25h\n")
 
 	for {
 		select {
