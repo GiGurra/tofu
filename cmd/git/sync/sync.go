@@ -47,17 +47,20 @@ type RepoResult struct {
 func Cmd() *cobra.Command {
 	return boa.CmdT[Params]{
 		Use:   "sync [dir]",
-		Short: "Sync all git repos in subdirectories to their default branch",
-		Long: `Iterates through all directories one level below the specified directory,
-and for each git repository:
+		Short: "Sync git repo(s) to their default branch",
+		Long: `If the specified directory is a git repository, syncs that repo.
+Otherwise, iterates through all directories one level below and syncs each git repository.
+
+For each git repository:
   - Checks for uncommitted changes
   - Switches to the default branch
   - Pulls the latest changes
   - Optionally prunes non-default local branches
 
 Examples:
-  tofu git sync                    # Sync all repos in current directory
+  tofu git sync                    # Sync current dir (if git repo) or all repos in subdirs
   tofu git sync ~/projects         # Sync all repos in ~/projects
+  tofu git sync ~/projects/myrepo  # Sync single repo
   tofu git sync --prune            # Also delete non-default branches
   tofu git sync --dry-run          # Preview what would happen
   tofu git sync --parallel 1       # Process repos sequentially
@@ -77,11 +80,34 @@ func run(params *Params) error {
 		return fmt.Errorf("--stash and --drop are mutually exclusive")
 	}
 
-	parentDir, err := filepath.Abs(params.Dir)
+	targetDir, err := filepath.Abs(params.Dir)
 	if err != nil {
 		return fmt.Errorf("failed to resolve directory: %w", err)
 	}
 
+	// Check if target directory itself is a git repo
+	if isGitRepo(targetDir) {
+		return runSingleRepo(targetDir, params)
+	}
+
+	// Otherwise, look for git repos in subdirectories
+	return runMultipleRepos(targetDir, params)
+}
+
+func runSingleRepo(repoPath string, params *Params) error {
+	if params.DryRun {
+		fmt.Println("DRY RUN - no changes will be made")
+		fmt.Println()
+	}
+
+	repoName := filepath.Base(repoPath)
+	result := processRepo(filepath.Dir(repoPath), repoName, params)
+	printProgress(result, params.DryRun)
+	printReport([]RepoResult{result}, params)
+	return nil
+}
+
+func runMultipleRepos(parentDir string, params *Params) error {
 	entries, err := os.ReadDir(parentDir)
 	if err != nil {
 		return fmt.Errorf("failed to read directory: %w", err)
