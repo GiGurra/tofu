@@ -34,3 +34,12 @@
 - [x] `qr` - Generate QR codes as ASCII art in terminal (already implemented)
 - [x] `name` - Generate random project/variable names ("Operation Thundering Gopher")
 
+## Round 2 - More Silly
+
+- [x] `fortune` - Tech fortune cookies and programming wisdom
+- [x] `cowsay` - Classic cowsay with various animals
+- [x] `figlet` - ASCII art text banners
+- [x] `weather` - ASCII weather display (wraps wttr.in)
+- [x] `calendar` - Terminal calendar with today highlighted
+- [x] `stopwatch` - Simple stopwatch with lap times
+- [x] `typing` - Typing speed test

@@ -9,11 +9,13 @@ import (
 	"github.com/gigurra/tofu/cmd/bird"
 	"github.com/gigurra/tofu/cmd/blame"
 	"github.com/gigurra/tofu/cmd/busy"
+	"github.com/gigurra/tofu/cmd/calendar"
 	"github.com/gigurra/tofu/cmd/cat"
 	"github.com/gigurra/tofu/cmd/clip"
 	"github.com/gigurra/tofu/cmd/clock"
 	"github.com/gigurra/tofu/cmd/coin"
 	"github.com/gigurra/tofu/cmd/count"
+	"github.com/gigurra/tofu/cmd/cowsay"
 	"github.com/gigurra/tofu/cmd/cp"
 	"github.com/gigurra/tofu/cmd/cron"
 	"github.com/gigurra/tofu/cmd/df"
@@ -23,8 +25,10 @@ import (
 	"github.com/gigurra/tofu/cmd/du"
 	"github.com/gigurra/tofu/cmd/env"
 	"github.com/gigurra/tofu/cmd/excuse"
+	"github.com/gigurra/tofu/cmd/figlet"
 	"github.com/gigurra/tofu/cmd/find"
 	"github.com/gigurra/tofu/cmd/flip"
+	"github.com/gigurra/tofu/cmd/fortune"
 	"github.com/gigurra/tofu/cmd/free"
 	"github.com/gigurra/tofu/cmd/gh"
 	"github.com/gigurra/tofu/cmd/git"
@@ -59,14 +63,17 @@ import (
 	"github.com/gigurra/tofu/cmd/serve"
 	"github.com/gigurra/tofu/cmd/sponge"
 	"github.com/gigurra/tofu/cmd/standup"
+	"github.com/gigurra/tofu/cmd/stopwatch"
 	"github.com/gigurra/tofu/cmd/tail"
 	"github.com/gigurra/tofu/cmd/tee"
 	"github.com/gigurra/tofu/cmd/time"
 	"github.com/gigurra/tofu/cmd/touch"
 	"github.com/gigurra/tofu/cmd/tree"
+	"github.com/gigurra/tofu/cmd/typing"
 	"github.com/gigurra/tofu/cmd/uuid"
 	"github.com/gigurra/tofu/cmd/uwu"
 	"github.com/gigurra/tofu/cmd/watch"
+	"github.com/gigurra/tofu/cmd/weather"
 	"github.com/gigurra/tofu/cmd/wget"
 	"github.com/gigurra/tofu/cmd/which"
 	"github.com/spf13/cobra"
@@ -131,6 +138,13 @@ func main() {
 			name.Cmd(),
 			pomodoro.Cmd(),
 			standup.Cmd(),
+			fortune.Cmd(),
+			cowsay.Cmd(),
+			figlet.Cmd(),
+			weather.Cmd(),
+			calendar.Cmd(),
+			stopwatch.Cmd(),
+			typing.Cmd(),
 			k8s.Cmd(),
 			gh.Cmd(),
 			git.Cmd(),

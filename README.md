@@ -103,6 +103,13 @@ You get `cat`! You get `grep`! You get `find`! You get `ls`!
 | `clock` | Analog terminal clock | Tick tock! |
 | `bird` | Flappy Tofu game | Procrastinate in style! |
 | `screensaver` | Animated tofu bowl | 🍜 Mesmerizing! |
+| `fortune` | Tech fortune cookies | Programming wisdom! |
+| `cowsay` | ASCII animal speech | Moo! |
+| `figlet` | ASCII art banners | BIG TEXT! |
+| `weather` | ASCII weather | Wraps wttr.in! |
+| `calendar` | Terminal calendar | Today highlighted! |
+| `stopwatch` | Stopwatch with laps | Space for lap! |
+| `typing` | Typing speed test | How fast are you? |
 
 ---
 
