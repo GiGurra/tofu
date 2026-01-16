@@ -7,17 +7,23 @@ import (
 	"github.com/gigurra/tofu/cmd/archive"
 	"github.com/gigurra/tofu/cmd/base64"
 	"github.com/gigurra/tofu/cmd/bird"
+	"github.com/gigurra/tofu/cmd/blame"
+	"github.com/gigurra/tofu/cmd/busy"
 	"github.com/gigurra/tofu/cmd/cat"
 	"github.com/gigurra/tofu/cmd/clip"
+	"github.com/gigurra/tofu/cmd/coin"
 	"github.com/gigurra/tofu/cmd/count"
 	"github.com/gigurra/tofu/cmd/cp"
 	"github.com/gigurra/tofu/cmd/cron"
 	"github.com/gigurra/tofu/cmd/df"
+	"github.com/gigurra/tofu/cmd/dice"
 	"github.com/gigurra/tofu/cmd/diff"
 	"github.com/gigurra/tofu/cmd/dns"
 	"github.com/gigurra/tofu/cmd/du"
 	"github.com/gigurra/tofu/cmd/env"
+	"github.com/gigurra/tofu/cmd/excuse"
 	"github.com/gigurra/tofu/cmd/find"
+	"github.com/gigurra/tofu/cmd/flip"
 	"github.com/gigurra/tofu/cmd/free"
 	"github.com/gigurra/tofu/cmd/gh"
 	"github.com/gigurra/tofu/cmd/git"
@@ -28,11 +34,18 @@ import (
 	"github.com/gigurra/tofu/cmd/ip"
 	"github.com/gigurra/tofu/cmd/jwt"
 	"github.com/gigurra/tofu/cmd/k8s"
+	"github.com/gigurra/tofu/cmd/lolcat"
+	"github.com/gigurra/tofu/cmd/lorem"
 	"github.com/gigurra/tofu/cmd/ls"
+	"github.com/gigurra/tofu/cmd/magic8"
 	"github.com/gigurra/tofu/cmd/mkdir"
+	"github.com/gigurra/tofu/cmd/morse"
 	"github.com/gigurra/tofu/cmd/mv"
+	"github.com/gigurra/tofu/cmd/name"
 	"github.com/gigurra/tofu/cmd/nc"
+	"github.com/gigurra/tofu/cmd/pick"
 	"github.com/gigurra/tofu/cmd/ping"
+	"github.com/gigurra/tofu/cmd/pomodoro"
 	"github.com/gigurra/tofu/cmd/port"
 	"github.com/gigurra/tofu/cmd/ps"
 	"github.com/gigurra/tofu/cmd/qr"
@@ -44,12 +57,14 @@ import (
 	"github.com/gigurra/tofu/cmd/sed2"
 	"github.com/gigurra/tofu/cmd/serve"
 	"github.com/gigurra/tofu/cmd/sponge"
+	"github.com/gigurra/tofu/cmd/standup"
 	"github.com/gigurra/tofu/cmd/tail"
 	"github.com/gigurra/tofu/cmd/tee"
 	"github.com/gigurra/tofu/cmd/time"
 	"github.com/gigurra/tofu/cmd/touch"
 	"github.com/gigurra/tofu/cmd/tree"
 	"github.com/gigurra/tofu/cmd/uuid"
+	"github.com/gigurra/tofu/cmd/uwu"
 	"github.com/gigurra/tofu/cmd/watch"
 	"github.com/gigurra/tofu/cmd/wget"
 	"github.com/gigurra/tofu/cmd/which"
@@ -99,6 +114,21 @@ func main() {
 			wget.Cmd(),
 			screensaver.Cmd(),
 			bird.Cmd(),
+			blame.Cmd(),
+			coin.Cmd(),
+			dice.Cmd(),
+			excuse.Cmd(),
+			magic8.Cmd(),
+			pick.Cmd(),
+			uwu.Cmd(),
+			flip.Cmd(),
+			lolcat.Cmd(),
+			busy.Cmd(),
+			lorem.Cmd(),
+			morse.Cmd(),
+			name.Cmd(),
+			pomodoro.Cmd(),
+			standup.Cmd(),
 			k8s.Cmd(),
 			gh.Cmd(),
 			git.Cmd(),

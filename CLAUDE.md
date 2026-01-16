@@ -61,6 +61,8 @@ func Cmd() *cobra.Command {
 - `github.com/spf13/cobra` - CLI framework
 - `github.com/GiGurra/boa` - Typed params wrapper for cobra
 
-## To be implemented
+## Feature Backlog
 
-- ssh
+See `TODO.md` for the list of planned features.
+
+**Important**: Always read `TODO.md` at the start of a session. When implementing a new feature from the list, mark it as complete (`[x]`) in TODO.md after the implementation is done and tested.

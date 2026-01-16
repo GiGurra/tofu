@@ -19,7 +19,7 @@ go install github.com/gigurra/tofu@latest
 
 Introducing **TOFU** - *Tools Of Fantastic Utility!*
 
-For the LOW LOW PRICE of **absolutely nothing**, you get not one, not two, but **OVER 40 COMMAND LINE TOOLS** that work EVERYWHERE!
+For the LOW LOW PRICE of **absolutely nothing**, you get not one, not two, but **OVER 50 COMMAND LINE TOOLS** that work EVERYWHERE!
 
 ---
 
@@ -74,6 +74,30 @@ You get `cat`! You get `grep`! You get `find`! You get `ls`!
 
 ---
 
+### But wait - there's SILLY MORE!
+
+**BECAUSE PRODUCTIVITY ISN'T EVERYTHING:**
+
+| Tool | What It Does | Usefulness Level |
+|------|--------------|------------------|
+| `excuse` | Generate programmer excuses | "It works on my machine!" |
+| `blame` | Randomly blame something | It's clearly cosmic rays! |
+| `dice` | Roll dice (D&D style) | `2d20+5` = settled debate! |
+| `coin` | Flip a coin | With animation! |
+| `magic8` | Ask the Magic 8-Ball | For architecture decisions! |
+| `pick` | Random selection | `ls \| tofu pick` |
+| `uwu` | UwU-ify text | Pipe your errors through it! |
+| `flip` | Flip text upside down | (╯°□°)╯︵ ┻━┻ |
+| `lolcat` | Rainbow text | Makes everything better! |
+| `morse` | Morse code | ... --- ... |
+| `busy` | Fake progress bar | Look productive! |
+| `lorem` | Lorem ipsum generator | For your placeholder needs! |
+| `name` | Random project names | "Operation Thundering Gopher" |
+| `pomodoro` | Pomodoro timer | 🍅 Get stuff done! |
+| `standup` | Stand up reminders | Your spine will thank you! |
+
+---
+
 ### But wait - there's STILL MORE!
 
 **ORDER NOW** and we'll throw in:
@@ -82,7 +106,7 @@ You get `cat`! You get `grep`! You get `find`! You get `ls`!
 - 📝 Shell completions for bash, zsh, fish, AND PowerShell
 - ⚡ Blazing fast Go performance
 - 🎯 Smart defaults that actually make sense
-- 🤖 Partially written by LLMs *(for that authentic 2024 vibe)*
+- 🤖 Partially written by LLMs *(for that authentic 2020s vibe)*
 
 ---
 
