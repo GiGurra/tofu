@@ -71,6 +71,11 @@ You get `cat`! You get `grep`! You get `find`! You get `ls`!
 | `wget` | File downloader | With progress bars! |
 | `reverse` | Reverse lines | Because why not! |
 | `tee` | Output splitter | To files AND stdout! |
+| `sponge` | Soak up stdin | Release after EOF! |
+| `which` | Locate programs | Find it in PATH! |
+| `gh` | GitHub utilities | PRs, issues, repos! |
+| `git` | Git utilities | Sync, open, and more! |
+| `k8s` | Kubernetes utilities | Tail pod logs! |
 
 ---
 
@@ -95,6 +100,9 @@ You get `cat`! You get `grep`! You get `find`! You get `ls`!
 | `name` | Random project names | "Operation Thundering Gopher" |
 | `pomodoro` | Pomodoro timer | 🍅 Get stuff done! |
 | `standup` | Stand up reminders | Your spine will thank you! |
+| `clock` | Analog terminal clock | Tick tock! |
+| `bird` | Flappy Tofu game | Procrastinate in style! |
+| `screensaver` | Animated tofu bowl | 🍜 Mesmerizing! |
 
 ---
 
