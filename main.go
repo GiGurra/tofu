@@ -79,86 +79,133 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Command group IDs
+const (
+	groupFile         = "file"
+	groupNetwork      = "network"
+	groupEncoding     = "encoding"
+	groupSystem       = "system"
+	groupText         = "text"
+	groupRandom       = "random"
+	groupFun          = "fun"
+	groupProductivity = "productivity"
+	groupDevOps       = "devops"
+)
+
+// withGroup sets the GroupID on a command and returns it
+func withGroup(cmd *cobra.Command, group string) *cobra.Command {
+	cmd.GroupID = group
+	return cmd
+}
+
 func main() {
 	boa.CmdT[boa.NoParams]{
 		Use:     "tofu",
 		Short:   "Tools Of Fantastic Utility",
 		Version: appVersion(),
+		Groups: []*cobra.Group{
+			{ID: groupFile, Title: "File Operations:"},
+			{ID: groupNetwork, Title: "Network:"},
+			{ID: groupEncoding, Title: "Encoding & Crypto:"},
+			{ID: groupSystem, Title: "System:"},
+			{ID: groupText, Title: "Text Processing:"},
+			{ID: groupRandom, Title: "Randomness:"},
+			{ID: groupFun, Title: "Fun & Silly:"},
+			{ID: groupProductivity, Title: "Productivity:"},
+			{ID: groupDevOps, Title: "DevOps:"},
+		},
 		SubCmds: []*cobra.Command{
-			cat.Cmd(),
-			find.Cmd(),
-			grep.Cmd(),
-			sed2.Cmd(),
-			serve.Cmd(),
-			uuid.Cmd(),
-			port.Cmd(),
-			tree.Cmd(),
-			watch.Cmd(),
-			which.Cmd(),
-			clip.Cmd(),
-			ip.Cmd(),
-			dns.Cmd(),
-			http.Cmd(),
-			nc.Cmd(),
-			qr.Cmd(),
-			base64.Cmd(),
-			jwt.Cmd(),
-			hash.Cmd(),
-			free.Cmd(),
-			ps.Cmd(),
-			time.Cmd(),
-			rand.Cmd(),
-			reverse.Cmd(),
-			env.Cmd(),
-			cron.Cmd(),
-			count.Cmd(),
-			diff.Cmd(),
-			tail.Cmd(),
-			tee.Cmd(),
-			sponge.Cmd(),
-			touch.Cmd(),
-			head.Cmd(),
-			archive.Cmd(),
-			wget.Cmd(),
-			screensaver.Cmd(),
-			bird.Cmd(),
-			blame.Cmd(),
-			clock.Cmd(),
-			coin.Cmd(),
-			dice.Cmd(),
-			excuse.Cmd(),
-			magic8.Cmd(),
-			pick.Cmd(),
-			uwu.Cmd(),
-			flip.Cmd(),
-			lolcat.Cmd(),
-			busy.Cmd(),
-			lorem.Cmd(),
-			morse.Cmd(),
-			name.Cmd(),
-			pomodoro.Cmd(),
-			standup.Cmd(),
-			fortune.Cmd(),
-			cowsay.Cmd(),
-			figlet.Cmd(),
-			weather.Cmd(),
-			calendar.Cmd(),
-			stopwatch.Cmd(),
-			typing.Cmd(),
-			k8s.Cmd(),
-			gh.Cmd(),
-			git.Cmd(),
-			du.Cmd(),
-			df.Cmd(),
-			ls.Cmd(),
-			ls.LlCmd(),
-			ls.LaCmd(),
-			mkdir.Cmd(),
-			mv.Cmd(),
-			cp.Cmd(),
-			rm.Cmd(),
-			rmdir.Cmd(),
-			ping.Cmd(),
+			// File Operations
+			withGroup(cat.Cmd(), groupFile),
+			withGroup(find.Cmd(), groupFile),
+			withGroup(grep.Cmd(), groupFile),
+			withGroup(sed2.Cmd(), groupFile),
+			withGroup(tree.Cmd(), groupFile),
+			withGroup(ls.Cmd(), groupFile),
+			withGroup(ls.LlCmd(), groupFile),
+			withGroup(ls.LaCmd(), groupFile),
+			withGroup(mkdir.Cmd(), groupFile),
+			withGroup(mv.Cmd(), groupFile),
+			withGroup(cp.Cmd(), groupFile),
+			withGroup(rm.Cmd(), groupFile),
+			withGroup(rmdir.Cmd(), groupFile),
+			withGroup(touch.Cmd(), groupFile),
+			withGroup(head.Cmd(), groupFile),
+			withGroup(tail.Cmd(), groupFile),
+			withGroup(diff.Cmd(), groupFile),
+			withGroup(du.Cmd(), groupFile),
+			withGroup(df.Cmd(), groupFile),
+
+			// Network
+			withGroup(serve.Cmd(), groupNetwork),
+			withGroup(port.Cmd(), groupNetwork),
+			withGroup(ip.Cmd(), groupNetwork),
+			withGroup(dns.Cmd(), groupNetwork),
+			withGroup(http.Cmd(), groupNetwork),
+			withGroup(nc.Cmd(), groupNetwork),
+			withGroup(ping.Cmd(), groupNetwork),
+			withGroup(wget.Cmd(), groupNetwork),
+			withGroup(weather.Cmd(), groupNetwork),
+
+			// Encoding & Crypto
+			withGroup(base64.Cmd(), groupEncoding),
+			withGroup(jwt.Cmd(), groupEncoding),
+			withGroup(hash.Cmd(), groupEncoding),
+			withGroup(qr.Cmd(), groupEncoding),
+			withGroup(uuid.Cmd(), groupEncoding),
+			withGroup(morse.Cmd(), groupEncoding),
+
+			// System
+			withGroup(free.Cmd(), groupSystem),
+			withGroup(ps.Cmd(), groupSystem),
+			withGroup(time.Cmd(), groupSystem),
+			withGroup(env.Cmd(), groupSystem),
+			withGroup(watch.Cmd(), groupSystem),
+			withGroup(which.Cmd(), groupSystem),
+			withGroup(clip.Cmd(), groupSystem),
+			withGroup(cron.Cmd(), groupSystem),
+			withGroup(archive.Cmd(), groupSystem),
+
+			// Text Processing
+			withGroup(count.Cmd(), groupText),
+			withGroup(reverse.Cmd(), groupText),
+			withGroup(tee.Cmd(), groupText),
+			withGroup(sponge.Cmd(), groupText),
+			withGroup(lolcat.Cmd(), groupText),
+			withGroup(uwu.Cmd(), groupText),
+			withGroup(figlet.Cmd(), groupText),
+
+			// Randomness
+			withGroup(rand.Cmd(), groupRandom),
+			withGroup(coin.Cmd(), groupRandom),
+			withGroup(dice.Cmd(), groupRandom),
+			withGroup(pick.Cmd(), groupRandom),
+			withGroup(name.Cmd(), groupRandom),
+			withGroup(lorem.Cmd(), groupRandom),
+
+			// Fun & Silly
+			withGroup(bird.Cmd(), groupFun),
+			withGroup(blame.Cmd(), groupFun),
+			withGroup(excuse.Cmd(), groupFun),
+			withGroup(magic8.Cmd(), groupFun),
+			withGroup(flip.Cmd(), groupFun),
+			withGroup(busy.Cmd(), groupFun),
+			withGroup(fortune.Cmd(), groupFun),
+			withGroup(cowsay.Cmd(), groupFun),
+			withGroup(screensaver.Cmd(), groupFun),
+			withGroup(typing.Cmd(), groupFun),
+
+			// Productivity
+			withGroup(pomodoro.Cmd(), groupProductivity),
+			withGroup(standup.Cmd(), groupProductivity),
+			withGroup(calendar.Cmd(), groupProductivity),
+			withGroup(clock.Cmd(), groupProductivity),
+			withGroup(stopwatch.Cmd(), groupProductivity),
+
+			// DevOps
+			withGroup(k8s.Cmd(), groupDevOps),
+			withGroup(gh.Cmd(), groupDevOps),
+			withGroup(git.Cmd(), groupDevOps),
 		},
 	}.Run()
 }
