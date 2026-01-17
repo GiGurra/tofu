@@ -3,7 +3,7 @@ module github.com/gigurra/tofu
 go 1.25
 
 require (
-	github.com/GiGurra/boa v0.3.71
+	github.com/GiGurra/boa v0.3.73
 	github.com/GiGurra/cmder v0.0.5
 	github.com/atotto/clipboard v0.1.4
 	github.com/fsnotify/fsnotify v1.9.0
