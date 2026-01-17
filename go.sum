@@ -1,7 +1,5 @@
-github.com/GiGurra/boa v0.3.65 h1:pR2DirnxFHsu4EZzoBvWmAq210y5vdkUAug0RXoPEwM=
-github.com/GiGurra/boa v0.3.65/go.mod h1:5E93DrftuDHO/K8pO2c7aIzFA12CvjQKr6hMsMSBaEA=
-github.com/GiGurra/boa v0.3.66 h1:Wt6mnFjB8MAvfY5PUkwZ1/7ZyO8Pbk/vuODX2iaH6d8=
-github.com/GiGurra/boa v0.3.66/go.mod h1:5E93DrftuDHO/K8pO2c7aIzFA12CvjQKr6hMsMSBaEA=
+github.com/GiGurra/boa v0.3.71 h1:8bNgW8i5aL5Llj20Ies6MTglt/yJdgTv4e/4lId9toI=
+github.com/GiGurra/boa v0.3.71/go.mod h1:5E93DrftuDHO/K8pO2c7aIzFA12CvjQKr6hMsMSBaEA=
 github.com/GiGurra/cmder v0.0.5 h1:czoAgB6lhXDU+bZLmpa5c50OIx6zyy+LkP4KhOLXZus=
 github.com/GiGurra/cmder v0.0.5/go.mod h1:rM1UyXHxD7GV1YqWtqISyUBMSLNle49sMUvaUkMyLDI=
 github.com/STARRY-S/zip v0.2.3 h1:luE4dMvRPDOWQdeDdUxUoZkzUIpTccdKdhHHsQJ1fm4=
