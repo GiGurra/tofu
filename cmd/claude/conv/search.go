@@ -26,6 +26,8 @@ type SearchParams struct {
 	Asc           bool   `long:"asc" help:"Sort ascending (default is descending)"`
 	Limit         int    `short:"n" help:"Limit number of results (0 = no limit)" default:"0"`
 	JSON          bool   `long:"json" help:"Output as JSON"`
+	Since         string `long:"since" optional:"true" help:"Only include conversations modified after this time (e.g., 2024-01-15, 24h, 7d)"`
+	Before        string `long:"before" optional:"true" help:"Only include conversations modified before this time (e.g., 2024-01-15, 24h, 7d)"`
 }
 
 type SearchResult struct {
@@ -109,7 +111,14 @@ func RunSearch(params *SearchParams, stdout, stderr *os.File) int {
 			continue
 		}
 
-		for _, entry := range index.Entries {
+		// Filter by time if specified
+		entries, err := FilterEntriesByTime(index.Entries, params.Since, params.Before)
+		if err != nil {
+			fmt.Fprintf(stderr, "%v\n", err)
+			return 1
+		}
+
+		for _, entry := range entries {
 			matches := searchConversation(entry.FullPath, re, params.Context)
 			if len(matches) > 0 {
 				results = append(results, SearchResult{

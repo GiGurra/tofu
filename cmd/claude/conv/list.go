@@ -24,6 +24,8 @@ type ListParams struct {
 	Long   bool   `short:"l" help:"Show detailed output"`
 	Limit  int    `short:"n" help:"Limit number of results (0 = no limit)" default:"0"`
 	JSON   bool   `long:"json" help:"Output as JSON"`
+	Since  string `long:"since" optional:"true" help:"Only include conversations modified after this time (e.g., 2024-01-15, 24h, 7d)"`
+	Before string `long:"before" optional:"true" help:"Only include conversations modified before this time (e.g., 2024-01-15, 24h, 7d)"`
 }
 
 func ListCmd() *cobra.Command {
@@ -92,6 +94,13 @@ func RunList(params *ListParams, stdout, stderr *os.File) int {
 		}
 
 		allEntries = index.Entries
+	}
+
+	// Filter by time if specified
+	allEntries, err := FilterEntriesByTime(allEntries, params.Since, params.Before)
+	if err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
 	}
 
 	if len(allEntries) == 0 {

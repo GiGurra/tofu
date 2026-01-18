@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/GiGurra/boa/pkg/boa"
 	"github.com/spf13/cobra"
@@ -199,5 +201,86 @@ func ListSessions(projectPath string) ([]SessionEntry, error) {
 		return nil, err
 	}
 	return index.Entries, nil
+}
+
+// ParseTimeParam parses a time parameter string into a time.Time
+// Supports formats: "2024-01-15", "2024-01-15T10:30", "24h", "7d", "2w"
+func ParseTimeParam(s string) (time.Time, error) {
+	if s == "" {
+		return time.Time{}, nil
+	}
+
+	// Try relative duration (e.g., "24h", "7d", "2w")
+	if len(s) >= 2 {
+		unit := s[len(s)-1]
+		numStr := s[:len(s)-1]
+		if num, err := strconv.Atoi(numStr); err == nil {
+			var duration time.Duration
+			switch unit {
+			case 'h':
+				duration = time.Duration(num) * time.Hour
+			case 'd':
+				duration = time.Duration(num) * 24 * time.Hour
+			case 'w':
+				duration = time.Duration(num) * 7 * 24 * time.Hour
+			}
+			if duration > 0 {
+				return time.Now().Add(-duration), nil
+			}
+		}
+	}
+
+	// Try various date/time formats
+	formats := []string{
+		"2006-01-02T15:04:05",
+		"2006-01-02T15:04",
+		"2006-01-02",
+		"2006/01/02",
+		"01-02-2006",
+		"01/02/2006",
+	}
+
+	for _, format := range formats {
+		if t, err := time.Parse(format, s); err == nil {
+			return t, nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("unable to parse time: %s (try formats like 2024-01-15, 24h, 7d)", s)
+}
+
+// FilterEntriesByTime filters session entries by time range
+func FilterEntriesByTime(entries []SessionEntry, since, before string) ([]SessionEntry, error) {
+	sinceTime, err := ParseTimeParam(since)
+	if err != nil {
+		return nil, fmt.Errorf("invalid --since value: %w", err)
+	}
+
+	beforeTime, err := ParseTimeParam(before)
+	if err != nil {
+		return nil, fmt.Errorf("invalid --before value: %w", err)
+	}
+
+	if sinceTime.IsZero() && beforeTime.IsZero() {
+		return entries, nil
+	}
+
+	var filtered []SessionEntry
+	for _, e := range entries {
+		modTime, err := time.Parse(time.RFC3339, e.Modified)
+		if err != nil {
+			continue
+		}
+
+		if !sinceTime.IsZero() && modTime.Before(sinceTime) {
+			continue
+		}
+		if !beforeTime.IsZero() && modTime.After(beforeTime) {
+			continue
+		}
+		filtered = append(filtered, e)
+	}
+
+	return filtered, nil
 }
 
