@@ -18,6 +18,7 @@ type CpParams struct {
 	ConvID   string `pos:"true" help:"Conversation ID to copy"`
 	DestPath string `pos:"true" help:"Destination directory path (real path, not Claude project path)"`
 	Force    bool   `short:"f" help:"Force overwrite without confirmation"`
+	Global   bool   `short:"g" help:"Search for conversation across all projects"`
 }
 
 func CpCmd() *cobra.Command {
@@ -28,7 +29,8 @@ func CpCmd() *cobra.Command {
 		ParamEnrich: common.DefaultParamEnricher(),
 		ValidArgsFunc: func(p *CpParams, cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			if len(args) == 0 {
-				return getConversationCompletions(false), cobra.ShellCompDirectiveKeepOrder | cobra.ShellCompDirectiveNoFileComp
+				global, _ := cmd.Flags().GetBool("global")
+				return getConversationCompletions(global), cobra.ShellCompDirectiveKeepOrder | cobra.ShellCompDirectiveNoFileComp
 			}
 			return nil, cobra.ShellCompDirectiveDefault
 		},
@@ -48,27 +50,57 @@ func RunCp(params *CpParams, stdout, stderr *os.File, stdin *os.File) int {
 		convID = convID[:idx]
 	}
 
-	// Get current working directory as source
-	cwd, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintf(stderr, "Error getting current directory: %v\n", err)
-		return 1
-	}
-
-	srcProjectPath := GetClaudeProjectPath(cwd)
+	var srcEntry *SessionEntry
+	var srcProjectPath string
 	dstProjectPath := GetClaudeProjectPath(params.DestPath)
 
-	// Load source index
-	srcIndex, err := LoadSessionsIndex(srcProjectPath)
-	if err != nil {
-		fmt.Fprintf(stderr, "Error loading source sessions index: %v\n", err)
-		return 1
+	if params.Global {
+		// Search all projects
+		projectsDir := ClaudeProjectsDir()
+		entries, err := os.ReadDir(projectsDir)
+		if err != nil {
+			fmt.Fprintf(stderr, "Error reading projects directory: %v\n", err)
+			return 1
+		}
+
+		for _, dirEntry := range entries {
+			if !dirEntry.IsDir() {
+				continue
+			}
+			projPath := projectsDir + "/" + dirEntry.Name()
+			index, err := LoadSessionsIndex(projPath)
+			if err != nil {
+				continue
+			}
+			if found, _ := FindSessionByID(index, convID); found != nil {
+				srcEntry = found
+				srcProjectPath = projPath
+				break
+			}
+		}
+	} else {
+		// Search current directory
+		cwd, err := os.Getwd()
+		if err != nil {
+			fmt.Fprintf(stderr, "Error getting current directory: %v\n", err)
+			return 1
+		}
+
+		srcProjectPath = GetClaudeProjectPath(cwd)
+		srcIndex, err := LoadSessionsIndex(srcProjectPath)
+		if err != nil {
+			fmt.Fprintf(stderr, "Error loading source sessions index: %v\n", err)
+			return 1
+		}
+
+		srcEntry, _ = FindSessionByID(srcIndex, convID)
 	}
 
-	// Find the conversation
-	srcEntry, _ := FindSessionByID(srcIndex, convID)
 	if srcEntry == nil {
-		fmt.Fprintf(stderr, "Conversation %s not found in %s\n", convID, cwd)
+		fmt.Fprintf(stderr, "Conversation %s not found\n", convID)
+		if !params.Global {
+			fmt.Fprintf(stderr, "Hint: use -g to search all projects\n")
+		}
 		return 1
 	}
 

@@ -15,6 +15,7 @@ import (
 type DeleteParams struct {
 	ConvID string `pos:"true" help:"Conversation ID to delete"`
 	Yes    bool   `short:"y" help:"Skip confirmation prompt"`
+	Global bool   `short:"g" help:"Search for conversation across all projects"`
 }
 
 func DeleteCmd() *cobra.Command {
@@ -26,7 +27,8 @@ func DeleteCmd() *cobra.Command {
 		ParamEnrich: common.DefaultParamEnricher(),
 		ValidArgsFunc: func(p *DeleteParams, cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			if len(args) == 0 {
-				return getConversationCompletions(false), cobra.ShellCompDirectiveKeepOrder | cobra.ShellCompDirectiveNoFileComp
+				global, _ := cmd.Flags().GetBool("global")
+				return getConversationCompletions(global), cobra.ShellCompDirectiveKeepOrder | cobra.ShellCompDirectiveNoFileComp
 			}
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		},
@@ -46,26 +48,59 @@ func RunDelete(params *DeleteParams, stdout, stderr *os.File, stdin *os.File) in
 		convID = convID[:idx]
 	}
 
-	// Get current working directory
-	cwd, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintf(stderr, "Error getting current directory: %v\n", err)
-		return 1
+	var entry *SessionEntry
+	var projectPath string
+	var index *SessionsIndex
+
+	if params.Global {
+		// Search all projects
+		projectsDir := ClaudeProjectsDir()
+		entries, err := os.ReadDir(projectsDir)
+		if err != nil {
+			fmt.Fprintf(stderr, "Error reading projects directory: %v\n", err)
+			return 1
+		}
+
+		for _, dirEntry := range entries {
+			if !dirEntry.IsDir() {
+				continue
+			}
+			projPath := projectsDir + "/" + dirEntry.Name()
+			idx, err := LoadSessionsIndex(projPath)
+			if err != nil {
+				continue
+			}
+			if found, _ := FindSessionByID(idx, convID); found != nil {
+				entry = found
+				projectPath = projPath
+				index = idx
+				break
+			}
+		}
+	} else {
+		// Search current directory
+		cwd, err := os.Getwd()
+		if err != nil {
+			fmt.Fprintf(stderr, "Error getting current directory: %v\n", err)
+			return 1
+		}
+
+		projectPath = GetClaudeProjectPath(cwd)
+		var err2 error
+		index, err2 = LoadSessionsIndex(projectPath)
+		if err2 != nil {
+			fmt.Fprintf(stderr, "Error loading sessions index: %v\n", err2)
+			return 1
+		}
+
+		entry, _ = FindSessionByID(index, convID)
 	}
 
-	projectPath := GetClaudeProjectPath(cwd)
-
-	// Load index
-	index, err := LoadSessionsIndex(projectPath)
-	if err != nil {
-		fmt.Fprintf(stderr, "Error loading sessions index: %v\n", err)
-		return 1
-	}
-
-	// Find the conversation
-	entry, _ := FindSessionByID(index, convID)
 	if entry == nil {
-		fmt.Fprintf(stderr, "Conversation %s not found in %s\n", convID, cwd)
+		fmt.Fprintf(stderr, "Conversation %s not found\n", convID)
+		if !params.Global {
+			fmt.Fprintf(stderr, "Hint: use -g to search all projects\n")
+		}
 		return 1
 	}
 
