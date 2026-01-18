@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 
 	"github.com/GiGurra/boa/pkg/boa"
@@ -40,16 +41,16 @@ func ResumeCmd() *cobra.Command {
 }
 
 func getConversationCompletions(global bool) []string {
-	var results []string
+	var entries []SessionEntry
 
 	if global {
 		projectsDir := ClaudeProjectsDir()
-		entries, err := os.ReadDir(projectsDir)
+		dirEntries, err := os.ReadDir(projectsDir)
 		if err != nil {
 			return nil
 		}
 
-		for _, dirEntry := range entries {
+		for _, dirEntry := range dirEntries {
 			if !dirEntry.IsDir() {
 				continue
 			}
@@ -58,9 +59,7 @@ func getConversationCompletions(global bool) []string {
 			if err != nil {
 				continue
 			}
-			for _, e := range index.Entries {
-				results = append(results, formatCompletion(e))
-			}
+			entries = append(entries, index.Entries...)
 		}
 	} else {
 		cwd, err := os.Getwd()
@@ -74,9 +73,18 @@ func getConversationCompletions(global bool) []string {
 			return nil
 		}
 
-		for _, e := range index.Entries {
-			results = append(results, formatCompletion(e))
-		}
+		entries = index.Entries
+	}
+
+	// Sort by modified date descending (most recent first)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Modified > entries[j].Modified
+	})
+
+	// Format completions
+	results := make([]string, len(entries))
+	for i, e := range entries {
+		results[i] = formatCompletion(e)
 	}
 
 	return results
