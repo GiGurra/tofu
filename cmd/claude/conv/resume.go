@@ -29,7 +29,7 @@ func ResumeCmd() *cobra.Command {
 			}
 			// Check if -g flag is set (p.Global may not be populated during completion)
 			global, _ := cmd.Flags().GetBool("global")
-			return getConversationCompletions(global), cobra.ShellCompDirectiveNoFileComp
+			return getConversationCompletions(global), cobra.ShellCompDirectiveKeepOrder | cobra.ShellCompDirectiveNoFileComp
 		},
 		RunFunc: func(params *ResumeParams, cmd *cobra.Command, args []string) {
 			exitCode := RunResume(params, os.Stdout, os.Stderr)
