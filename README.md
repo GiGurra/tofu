@@ -11,7 +11,7 @@
 
 **DO YOU LIE AWAKE AT NIGHT** wondering why `grep` works differently in PowerShell?
 
-## WELL LOOK NO FURTHER, FRIEND!
+## WELL LOOK NO FURTHER!
 
 ```shell
 go install github.com/gigurra/tofu@latest
