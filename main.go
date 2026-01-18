@@ -11,6 +11,7 @@ import (
 	"github.com/gigurra/tofu/cmd/busy"
 	"github.com/gigurra/tofu/cmd/calendar"
 	"github.com/gigurra/tofu/cmd/cat"
+	"github.com/gigurra/tofu/cmd/claude"
 	"github.com/gigurra/tofu/cmd/clip"
 	"github.com/gigurra/tofu/cmd/clock"
 	"github.com/gigurra/tofu/cmd/coin"
@@ -206,6 +207,7 @@ func main() {
 			withGroup(k8s.Cmd(), groupDevOps),
 			withGroup(gh.Cmd(), groupDevOps),
 			withGroup(git.Cmd(), groupDevOps),
+			withGroup(claude.Cmd(), groupDevOps),
 		},
 	}.Run()
 }
