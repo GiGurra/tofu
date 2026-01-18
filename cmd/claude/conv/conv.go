@@ -204,21 +204,24 @@ func ListSessions(projectPath string) ([]SessionEntry, error) {
 }
 
 // ParseTimeParam parses a time parameter string into a time.Time
-// Supports formats: "2024-01-15", "2024-01-15T10:30", "24h", "7d", "2w"
+// Supports formats: "2024-01-15", "2024-01-15T10:30", "24h", "7d", "2w", or any time.Duration
 func ParseTimeParam(s string) (time.Time, error) {
 	if s == "" {
 		return time.Time{}, nil
 	}
 
-	// Try relative duration (e.g., "24h", "7d", "2w")
+	// Try standard time.Duration first (e.g., "1h30m", "2h45m30s")
+	if d, err := time.ParseDuration(s); err == nil {
+		return time.Now().Add(-d), nil
+	}
+
+	// Try extended duration with days/weeks (e.g., "7d", "2w")
 	if len(s) >= 2 {
 		unit := s[len(s)-1]
 		numStr := s[:len(s)-1]
 		if num, err := strconv.Atoi(numStr); err == nil {
 			var duration time.Duration
 			switch unit {
-			case 'h':
-				duration = time.Duration(num) * time.Hour
 			case 'd':
 				duration = time.Duration(num) * 24 * time.Hour
 			case 'w':
@@ -246,7 +249,7 @@ func ParseTimeParam(s string) (time.Time, error) {
 		}
 	}
 
-	return time.Time{}, fmt.Errorf("unable to parse time: %s (try formats like 2024-01-15, 24h, 7d)", s)
+	return time.Time{}, fmt.Errorf("unable to parse time: %s (try formats like 2024-01-15, 1h30m, 7d)", s)
 }
 
 // FilterEntriesByTime filters session entries by time range

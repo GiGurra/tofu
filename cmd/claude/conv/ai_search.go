@@ -20,8 +20,8 @@ type AISearchParams struct {
 	Global bool   `short:"g" help:"Search across all projects"`
 	Long   bool   `short:"l" help:"Show detailed output"`
 	Limit  int    `short:"n" help:"Limit number of results (0 = no limit)" default:"5"`
-	Since  string `long:"since" optional:"true" help:"Only include conversations modified after this time (e.g., 2024-01-15, 24h, 7d)"`
-	Before string `long:"before" optional:"true" help:"Only include conversations modified before this time (e.g., 2024-01-15, 24h, 7d)"`
+	Since  string `long:"since" optional:"true" help:"Only include conversations modified after this time (e.g., 2024-01-15, 1h30m, 7d)"`
+	Before string `long:"before" optional:"true" help:"Only include conversations modified before this time (e.g., 2024-01-15, 1h30m, 7d)"`
 }
 
 func AISearchCmd() *cobra.Command {

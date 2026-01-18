@@ -26,8 +26,8 @@ type SearchParams struct {
 	Asc           bool   `long:"asc" help:"Sort ascending (default is descending)"`
 	Limit         int    `short:"n" help:"Limit number of results (0 = no limit)" default:"0"`
 	JSON          bool   `long:"json" help:"Output as JSON"`
-	Since         string `long:"since" optional:"true" help:"Only include conversations modified after this time (e.g., 2024-01-15, 24h, 7d)"`
-	Before        string `long:"before" optional:"true" help:"Only include conversations modified before this time (e.g., 2024-01-15, 24h, 7d)"`
+	Since         string `long:"since" optional:"true" help:"Only include conversations modified after this time (e.g., 2024-01-15, 1h30m, 7d)"`
+	Before        string `long:"before" optional:"true" help:"Only include conversations modified before this time (e.g., 2024-01-15, 1h30m, 7d)"`
 }
 
 type SearchResult struct {
