@@ -2,6 +2,7 @@ package conv
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,6 +25,7 @@ type SearchParams struct {
 	SortBy        string `long:"sort-by" help:"Sort by: created, modified, messages, prompt, project, matches" default:"modified"`
 	Asc           bool   `long:"asc" help:"Sort ascending (default is descending)"`
 	Limit         int    `short:"n" help:"Limit number of results (0 = no limit)" default:"0"`
+	JSON          bool   `long:"json" help:"Output as JSON"`
 }
 
 type SearchResult struct {
@@ -137,6 +139,30 @@ func RunSearch(params *SearchParams, stdout, stderr *os.File) int {
 	for i, r := range results {
 		entries[i] = r.Entry
 		matchCounts[i] = len(r.Matches)
+	}
+
+	// JSON output
+	if params.JSON {
+		type JSONResult struct {
+			SessionEntry
+			MatchCount int         `json:"matchCount"`
+			Matches    []MatchLine `json:"matches,omitempty"`
+		}
+		jsonResults := make([]JSONResult, len(results))
+		for i, r := range results {
+			jsonResults[i] = JSONResult{
+				SessionEntry: r.Entry,
+				MatchCount:   len(r.Matches),
+				Matches:      r.Matches,
+			}
+		}
+		data, err := json.MarshalIndent(jsonResults, "", "  ")
+		if err != nil {
+			fmt.Fprintf(stderr, "Error marshaling JSON: %v\n", err)
+			return 1
+		}
+		fmt.Fprintln(stdout, string(data))
+		return 0
 	}
 
 	// Display results using shared table renderer

@@ -26,6 +26,14 @@ func CpCmd() *cobra.Command {
 		Short:       "Copy a Claude conversation to another project directory",
 		Long:        "Copy a Claude Code conversation from the current directory to another project directory.\nThe destination path should be a real filesystem path (e.g., /home/user/myproject).\nThe copied conversation gets a new UUID.",
 		ParamEnrich: common.DefaultParamEnricher(),
+		InitFuncCtx: func(ctx *boa.HookContext, p *CpParams, cmd *cobra.Command) error {
+			ctx.GetParam(&p.ConvID).SetAlternativesFunc(
+				func(cmd *cobra.Command, args []string, toComplete string) []string {
+					return getConversationCompletions(false)
+				},
+			)
+			return nil
+		},
 		RunFunc: func(params *CpParams, cmd *cobra.Command, args []string) {
 			exitCode := RunCp(params, os.Stdout, os.Stderr, os.Stdin)
 			if exitCode != 0 {
@@ -36,6 +44,12 @@ func CpCmd() *cobra.Command {
 }
 
 func RunCp(params *CpParams, stdout, stderr *os.File, stdin *os.File) int {
+	// Extract just the ID from autocomplete format (e.g., "0459cd73_[tofu_claude]_prompt..." -> "0459cd73")
+	convID := params.ConvID
+	if idx := strings.Index(convID, "_"); idx > 0 {
+		convID = convID[:idx]
+	}
+
 	// Get current working directory as source
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -54,9 +68,9 @@ func RunCp(params *CpParams, stdout, stderr *os.File, stdin *os.File) int {
 	}
 
 	// Find the conversation
-	srcEntry, _ := FindSessionByID(srcIndex, params.ConvID)
+	srcEntry, _ := FindSessionByID(srcIndex, convID)
 	if srcEntry == nil {
-		fmt.Fprintf(stderr, "Conversation %s not found in %s\n", params.ConvID, cwd)
+		fmt.Fprintf(stderr, "Conversation %s not found in %s\n", convID, cwd)
 		return 1
 	}
 

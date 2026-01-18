@@ -1,6 +1,7 @@
 package conv
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -22,6 +23,7 @@ type ListParams struct {
 	Asc    bool   `long:"asc" help:"Sort ascending (default is descending)"`
 	Long   bool   `short:"l" help:"Show detailed output"`
 	Limit  int    `short:"n" help:"Limit number of results (0 = no limit)" default:"0"`
+	JSON   bool   `long:"json" help:"Output as JSON"`
 }
 
 func ListCmd() *cobra.Command {
@@ -103,6 +105,17 @@ func RunList(params *ListParams, stdout, stderr *os.File) int {
 	// Apply limit
 	if params.Limit > 0 && params.Limit < len(allEntries) {
 		allEntries = allEntries[:params.Limit]
+	}
+
+	// JSON output
+	if params.JSON {
+		data, err := json.MarshalIndent(allEntries, "", "  ")
+		if err != nil {
+			fmt.Fprintf(stderr, "Error marshaling JSON: %v\n", err)
+			return 1
+		}
+		fmt.Fprintln(stdout, string(data))
+		return 0
 	}
 
 	// Display using table
