@@ -43,6 +43,7 @@ func Cmd() *cobra.Command {
 			ResumeCmd(),
 			CpCmd(),
 			MvCmd(),
+			DeleteCmd(),
 		},
 	}.ToCobra()
 }
