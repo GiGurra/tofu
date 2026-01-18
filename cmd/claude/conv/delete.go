@@ -113,8 +113,9 @@ func RunDelete(params *DeleteParams, stdout, stderr *os.File, stdin *os.File) in
 		displayName = truncatePrompt(entry.FirstPrompt, 50)
 	}
 	fmt.Fprintf(stdout, "Conversation: %s\n", fullID[:8])
+	fmt.Fprintf(stdout, "Project:      %s\n", entry.ProjectPath)
 	fmt.Fprintf(stdout, "Title/Prompt: %s\n", displayName)
-	fmt.Fprintf(stdout, "Messages: %d\n", entry.MessageCount)
+	fmt.Fprintf(stdout, "Messages:     %d\n", entry.MessageCount)
 
 	// Confirm deletion
 	if !params.Yes {
