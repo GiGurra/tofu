@@ -26,13 +26,11 @@ func CpCmd() *cobra.Command {
 		Short:       "Copy a Claude conversation to another project directory",
 		Long:        "Copy a Claude Code conversation from the current directory to another project directory.\nThe destination path should be a real filesystem path (e.g., /home/user/myproject).\nThe copied conversation gets a new UUID.",
 		ParamEnrich: common.DefaultParamEnricher(),
-		InitFuncCtx: func(ctx *boa.HookContext, p *CpParams, cmd *cobra.Command) error {
-			ctx.GetParam(&p.ConvID).SetAlternativesFunc(
-				func(cmd *cobra.Command, args []string, toComplete string) []string {
-					return getConversationCompletions(false)
-				},
-			)
-			return nil
+		ValidArgsFunc: func(p *CpParams, cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) == 0 {
+				return getConversationCompletions(false), cobra.ShellCompDirectiveKeepOrder | cobra.ShellCompDirectiveNoFileComp
+			}
+			return nil, cobra.ShellCompDirectiveDefault
 		},
 		RunFunc: func(params *CpParams, cmd *cobra.Command, args []string) {
 			exitCode := RunCp(params, os.Stdout, os.Stderr, os.Stdin)

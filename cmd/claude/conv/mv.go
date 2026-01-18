@@ -24,13 +24,11 @@ func MvCmd() *cobra.Command {
 		Short:       "Move a Claude conversation to another project directory",
 		Long:        "Move a Claude Code conversation from the current directory to another project directory.\nThe destination path should be a real filesystem path (e.g., /home/user/myproject).",
 		ParamEnrich: common.DefaultParamEnricher(),
-		InitFuncCtx: func(ctx *boa.HookContext, p *MvParams, cmd *cobra.Command) error {
-			ctx.GetParam(&p.ConvID).SetAlternativesFunc(
-				func(cmd *cobra.Command, args []string, toComplete string) []string {
-					return getConversationCompletions(false)
-				},
-			)
-			return nil
+		ValidArgsFunc: func(p *MvParams, cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) == 0 {
+				return getConversationCompletions(false), cobra.ShellCompDirectiveKeepOrder | cobra.ShellCompDirectiveNoFileComp
+			}
+			return nil, cobra.ShellCompDirectiveDefault
 		},
 		RunFunc: func(params *MvParams, cmd *cobra.Command, args []string) {
 			exitCode := RunMv(params, os.Stdout, os.Stderr, os.Stdin)
