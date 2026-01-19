@@ -68,6 +68,7 @@ nav:
     - weather: commands/weather.md
   - Encoding & Crypto:
     - base64: commands/base64.md
+    - crypt: commands/crypt.md
     - jwt: commands/jwt.md
     - hash: commands/hash.md
     - qr: commands/qr.md
