@@ -94,20 +94,41 @@ Examples:
 			return nil
 		},
 		RunFunc: func(params *CreateParams, cmd *cobra.Command, args []string) {
-			if params.Output == "" {
-				fmt.Fprintln(os.Stderr, "archive: output file required (-o)")
-				os.Exit(1)
-			}
-			if len(params.Files) == 0 {
-				fmt.Fprintln(os.Stderr, "archive: no files specified")
-				os.Exit(1)
-			}
-			if err := runArchiveCreate(params); err != nil {
+			encryptionExplicit := cmd.Flags().Changed("encryption")
+			if err := validateAndRunCreate(params, encryptionExplicit); err != nil {
 				fmt.Fprintf(os.Stderr, "archive: %v\n", err)
 				os.Exit(1)
 			}
 		},
 	}.ToCobra()
+}
+
+func validateAndRunCreate(params *CreateParams, encryptionExplicit bool) error {
+	if params.Output == "" {
+		return fmt.Errorf("output file required (-o)")
+	}
+	if len(params.Files) == 0 {
+		return fmt.Errorf("no files specified")
+	}
+
+	// Validate encryption options
+	if encryptionExplicit {
+		// Check if password was provided
+		if params.Password == "" {
+			return fmt.Errorf("encryption method specified but no password provided (-p)")
+		}
+
+		// Check if format supports encryption
+		format, err := getArchiveFormat(params.Output, params.Format)
+		if err != nil {
+			return err
+		}
+		if _, isZip := format.(archives.Zip); !isZip {
+			return fmt.Errorf("encryption is only supported for ZIP format")
+		}
+	}
+
+	return runArchiveCreate(params)
 }
 
 func extractCmd() *cobra.Command {

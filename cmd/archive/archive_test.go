@@ -662,6 +662,113 @@ func TestNonEncryptedZip_StillWorks(t *testing.T) {
 	}
 }
 
+func TestEncryptionValidation_NoPasswordWithEncryptionFlag(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create test file
+	srcFile := filepath.Join(dir, "test.txt")
+	os.WriteFile(srcFile, []byte("test content"), 0644)
+
+	archivePath := filepath.Join(dir, "test.zip")
+
+	params := &CreateParams{
+		Output:     archivePath,
+		Files:      []string{srcFile},
+		Encryption: "aes256",
+		Password:   "", // No password
+	}
+
+	// encryptionExplicit=true simulates -e flag being provided
+	err := validateAndRunCreate(params, true)
+	if err == nil {
+		t.Error("expected error when encryption specified without password")
+	}
+	if err != nil && err.Error() != "encryption method specified but no password provided (-p)" {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+func TestEncryptionValidation_NonZipFormatWithEncryption(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create test file
+	srcFile := filepath.Join(dir, "test.txt")
+	os.WriteFile(srcFile, []byte("test content"), 0644)
+
+	archivePath := filepath.Join(dir, "test.tar.gz")
+
+	params := &CreateParams{
+		Output:     archivePath,
+		Files:      []string{srcFile},
+		Encryption: "aes256",
+		Password:   "password",
+	}
+
+	// encryptionExplicit=true simulates -e flag being provided
+	err := validateAndRunCreate(params, true)
+	if err == nil {
+		t.Error("expected error when encryption specified for non-zip format")
+	}
+	if err != nil && err.Error() != "encryption is only supported for ZIP format" {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+func TestEncryptionValidation_ZipFormatWithEncryption(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create test file
+	srcFile := filepath.Join(dir, "test.txt")
+	os.WriteFile(srcFile, []byte("test content"), 0644)
+
+	archivePath := filepath.Join(dir, "test.zip")
+
+	params := &CreateParams{
+		Output:     archivePath,
+		Files:      []string{srcFile},
+		Encryption: "aes256",
+		Password:   "password",
+	}
+
+	// encryptionExplicit=true simulates -e flag being provided
+	err := validateAndRunCreate(params, true)
+	if err != nil {
+		t.Errorf("unexpected error for valid encryption on zip: %v", err)
+	}
+
+	// Verify archive was created
+	if _, err := os.Stat(archivePath); os.IsNotExist(err) {
+		t.Error("archive was not created")
+	}
+}
+
+func TestEncryptionValidation_NoEncryptionFlagOnNonZip(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create test file
+	srcFile := filepath.Join(dir, "test.txt")
+	os.WriteFile(srcFile, []byte("test content"), 0644)
+
+	archivePath := filepath.Join(dir, "test.tar.gz")
+
+	params := &CreateParams{
+		Output:     archivePath,
+		Files:      []string{srcFile},
+		Encryption: "aes256", // Default value, but not explicitly set
+	}
+
+	// encryptionExplicit=false simulates -e flag NOT being provided
+	err := validateAndRunCreate(params, false)
+	if err != nil {
+		t.Errorf("unexpected error for non-encrypted tar.gz: %v", err)
+	}
+
+	// Verify archive was created
+	if _, err := os.Stat(archivePath); os.IsNotExist(err) {
+		t.Error("archive was not created")
+	}
+}
+
 func testArchiveSymlinkPreservation(t *testing.T, format string) {
 	dir := t.TempDir()
 
