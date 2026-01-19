@@ -4,6 +4,8 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/GiGurra/tofu)](https://goreportcard.com/report/github.com/GiGurra/tofu)
 [![Docs](https://img.shields.io/badge/docs-gigurra.github.io%2Ftofu-blue)](https://gigurra.github.io/tofu/)
 
+**[Read the serious documentation](https://gigurra.github.io/tofu/)**
+
 ---
 
 **ARE YOU TIRED** of your command line tools not working the same way on Windows, Mac, and Linux?
