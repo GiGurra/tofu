@@ -17,7 +17,7 @@ Locate the executable file associated with the given program name by searching t
 Find a single program:
 
 ```bash
-tofu which go
+tofu which tofu
 ```
 
 Find multiple programs:
@@ -29,8 +29,8 @@ tofu which python node java
 ## Sample Output
 
 ```
-$ tofu which go
-/usr/local/go/bin/go
+$ tofu which tofu
+/usr/local/bin/tofu
 
 $ tofu which python node
 /usr/bin/python
