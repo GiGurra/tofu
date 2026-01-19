@@ -19,6 +19,7 @@ import (
 	"github.com/gigurra/tofu/cmd/cowsay"
 	"github.com/gigurra/tofu/cmd/cp"
 	"github.com/gigurra/tofu/cmd/cron"
+	"github.com/gigurra/tofu/cmd/crypt"
 	"github.com/gigurra/tofu/cmd/df"
 	"github.com/gigurra/tofu/cmd/dice"
 	"github.com/gigurra/tofu/cmd/diff"
@@ -150,6 +151,7 @@ func main() {
 
 			// Encoding & Crypto
 			withGroup(base64.Cmd(), groupEncoding),
+			withGroup(crypt.Cmd(), groupEncoding),
 			withGroup(jwt.Cmd(), groupEncoding),
 			withGroup(hash.Cmd(), groupEncoding),
 			withGroup(qr.Cmd(), groupEncoding),

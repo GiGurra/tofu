@@ -18,12 +18,15 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/yeka/zip v0.0.0-20231116150916-03d6312748a9
 	go.1password.io/spg v0.1.0
+	golang.org/x/crypto v0.47.0
 	golang.org/x/net v0.49.0
 	golang.org/x/sys v0.40.0
 	golang.org/x/term v0.39.0
 )
 
 require (
+	filippo.io/age v1.3.1 // indirect
+	filippo.io/hpke v0.4.0 // indirect
 	github.com/STARRY-S/zip v0.2.3 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/bodgit/plumbing v1.3.0 // indirect
@@ -58,6 +61,5 @@ require (
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go4.org v0.0.0-20260112195520-a5071408f32f // indirect
-	golang.org/x/crypto v0.47.0 // indirect
 	golang.org/x/text v0.33.0 // indirect
 )
