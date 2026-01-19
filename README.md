@@ -2,6 +2,7 @@
 
 [![CI Status](https://github.com/GiGurra/tofu/actions/workflows/ci.yml/badge.svg)](https://github.com/GiGurra/tofu/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/GiGurra/tofu)](https://goreportcard.com/report/github.com/GiGurra/tofu)
+[![Docs](https://img.shields.io/badge/docs-gigurra.github.io%2Ftofu-blue)](https://gigurra.github.io/tofu/)
 
 ---
 
@@ -137,7 +138,7 @@ That's it. That's the whole thing. **NO ASSEMBLY REQUIRED!**
 
 ## Documentation
 
-*For the fine print and actual documentation, see the [man/](man/) directory.*
+*For the fine print and actual documentation, see the [official docs](https://gigurra.github.io/tofu/).*
 
 *We have to put the real docs somewhere, and lawyers said we can't just yell at people forever.*
 

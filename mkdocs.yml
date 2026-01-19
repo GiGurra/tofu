@@ -1,0 +1,122 @@
+site_name: TOFU
+site_url: https://gigurra.github.io/tofu/
+site_description: Tools Of Fantastic Utility - Cross-platform CLI tools in Go
+repo_url: https://github.com/GiGurra/tofu
+repo_name: GiGurra/tofu
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: deep orange
+      accent: orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: deep orange
+      accent: orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.sections
+    - content.code.copy
+    - search.highlight
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - File Operations:
+    - cat: commands/cat.md
+    - find: commands/find.md
+    - grep: commands/grep.md
+    - sed2: commands/sed2.md
+    - tree: commands/tree.md
+    - ls / ll / la: commands/ls.md
+    - mkdir: commands/mkdir.md
+    - mv: commands/mv.md
+    - cp: commands/cp.md
+    - rm: commands/rm.md
+    - rmdir: commands/rmdir.md
+    - touch: commands/touch.md
+    - head: commands/head.md
+    - tail: commands/tail.md
+    - diff: commands/diff.md
+    - du: commands/du.md
+    - df: commands/df.md
+  - Network:
+    - serve: commands/serve.md
+    - port: commands/port.md
+    - ip: commands/ip.md
+    - dns: commands/dns.md
+    - http: commands/http.md
+    - nc: commands/nc.md
+    - ping: commands/ping.md
+    - wget: commands/wget.md
+    - weather: commands/weather.md
+  - Encoding & Crypto:
+    - base64: commands/base64.md
+    - jwt: commands/jwt.md
+    - hash: commands/hash.md
+    - qr: commands/qr.md
+    - uuid: commands/uuid.md
+    - morse: commands/morse.md
+  - System:
+    - free: commands/free.md
+    - ps: commands/ps.md
+    - time: commands/time.md
+    - env: commands/env.md
+    - watch: commands/watch.md
+    - which: commands/which.md
+    - clip: commands/clip.md
+    - cron: commands/cron.md
+    - archive: commands/archive.md
+  - Text Processing:
+    - count: commands/count.md
+    - reverse: commands/reverse.md
+    - tee: commands/tee.md
+    - sponge: commands/sponge.md
+    - lolcat: commands/lolcat.md
+    - uwu: commands/uwu.md
+    - figlet: commands/figlet.md
+  - Randomness:
+    - rand: commands/rand.md
+    - coin: commands/coin.md
+    - dice: commands/dice.md
+    - pick: commands/pick.md
+    - name: commands/name.md
+    - lorem: commands/lorem.md
+  - Fun & Silly:
+    - bird: commands/bird.md
+    - blame: commands/blame.md
+    - excuse: commands/excuse.md
+    - magic8: commands/magic8.md
+    - flip: commands/flip.md
+    - busy: commands/busy.md
+    - fortune: commands/fortune.md
+    - cowsay: commands/cowsay.md
+    - screensaver: commands/screensaver.md
+    - typing: commands/typing.md
+  - Productivity:
+    - pomodoro: commands/pomodoro.md
+    - standup: commands/standup.md
+    - calendar: commands/calendar.md
+    - clock: commands/clock.md
+    - stopwatch: commands/stopwatch.md
+  - DevOps:
+    - k8s: commands/k8s.md
+    - gh: commands/gh.md
+    - git: commands/git.md
+    - claude: commands/claude.md
