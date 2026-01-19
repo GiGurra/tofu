@@ -13,7 +13,7 @@ import (
 
 type Params struct {
 	Message []string `pos:"true" optional:"true" help:"Message to say. If none provided, reads from stdin."`
-	Animal  string   `short:"a" help:"Animal: cow, tux, tofu, gopher, cat, ghost." default:"cow"`
+	Animal  string   `short:"a" help:"Animal: cow, tux, tofu, gopher, cat, ghost." default:"cow" alts:"cow,tux,tofu,gopher,cat,ghost"`
 	Think   bool     `short:"t" help:"Think instead of say (use thought bubble)." default:"false"`
 }
 
