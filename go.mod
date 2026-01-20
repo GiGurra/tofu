@@ -3,7 +3,8 @@ module github.com/gigurra/tofu
 go 1.25
 
 require (
-	github.com/GiGurra/boa v0.3.75
+	filippo.io/age v1.3.1
+	github.com/GiGurra/boa v0.3.81
 	github.com/GiGurra/cmder v0.0.5
 	github.com/atotto/clipboard v0.1.4
 	github.com/fsnotify/fsnotify v1.9.0
@@ -25,7 +26,6 @@ require (
 )
 
 require (
-	filippo.io/age v1.3.1 // indirect
 	filippo.io/hpke v0.4.0 // indirect
 	github.com/STARRY-S/zip v0.2.3 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
