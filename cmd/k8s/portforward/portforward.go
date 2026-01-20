@@ -18,13 +18,13 @@ import (
 )
 
 type Params struct {
-	FromDeploy boa.Required[string] `short:"d" optional:"true" help:"Deployment name to port-forward to"`
-	FromSts    boa.Required[string] `optional:"true" help:"StatefulSet name to port-forward to"`
-	FromDs     boa.Required[string] `optional:"true" help:"DaemonSet name to port-forward to"`
-	FromSvc    boa.Required[string] `optional:"true" help:"Service name to port-forward to"`
-	Ports      []string             `pos:"true" help:"Ports to forward (format: [local:]remote, e.g., 8080:80 or just 80)"`
-	Namespace  boa.Required[string] `short:"n" optional:"true" help:"Kubernetes namespace (default: current context)" default:""`
-	Keepalive  bool                 `short:"k" help:"Keep trying to reconnect when connection is lost" default:"true"`
+	FromDeploy string   `short:"d" optional:"true" help:"Deployment name to port-forward to"`
+	FromSts    string   `optional:"true" help:"StatefulSet name to port-forward to"`
+	FromDs     string   `optional:"true" help:"DaemonSet name to port-forward to"`
+	FromSvc    string   `optional:"true" help:"Service name to port-forward to"`
+	Ports      []string `pos:"true" optional:"true" help:"Ports to forward (format: [local:]remote, e.g., 8080:80 or just 80)"`
+	Namespace  string   `short:"n" optional:"true" help:"Kubernetes namespace (default: current context)"`
+	Keepalive  bool     `short:"k" help:"Keep trying to reconnect when connection is lost" default:"true"`
 }
 
 // Config holds the resolved configuration for port-forwarding (used internally and for testing)
@@ -42,37 +42,37 @@ func Cmd() *cobra.Command {
 		Short:       "Port-forward to a pod from a workload with auto-reconnect",
 		Long:        "Port-forward to a running pod from a deployment, statefulset, daemonset, or service. Automatically reconnects when the connection is lost or the pod terminates.",
 		ParamEnrich: common.DefaultParamEnricher(),
-		InitFunc: func(params *Params, cmd *cobra.Command) error {
+		InitFuncCtx: func(ctx *boa.HookContext, params *Params, cmd *cobra.Command) error {
 			// Deployment completions
-			params.FromDeploy.AlternativesFunc = func(cmd *cobra.Command, args []string, toComplete string) []string {
-				return lo.Filter(findDeployments(context.Background(), params.Namespace.Value()), func(item string, _ int) bool {
+			ctx.GetParam(&params.FromDeploy).SetAlternativesFunc(func(cmd *cobra.Command, args []string, toComplete string) []string {
+				return lo.Filter(findDeployments(context.Background(), params.Namespace), func(item string, _ int) bool {
 					return strings.HasPrefix(item, toComplete)
 				})
-			}
+			})
 
 			// StatefulSet completions
-			params.FromSts.AlternativesFunc = func(cmd *cobra.Command, args []string, toComplete string) []string {
-				return lo.Filter(findStatefulSets(context.Background(), params.Namespace.Value()), func(item string, _ int) bool {
+			ctx.GetParam(&params.FromSts).SetAlternativesFunc(func(cmd *cobra.Command, args []string, toComplete string) []string {
+				return lo.Filter(findStatefulSets(context.Background(), params.Namespace), func(item string, _ int) bool {
 					return strings.HasPrefix(item, toComplete)
 				})
-			}
+			})
 
 			// DaemonSet completions
-			params.FromDs.AlternativesFunc = func(cmd *cobra.Command, args []string, toComplete string) []string {
-				return lo.Filter(findDaemonSets(context.Background(), params.Namespace.Value()), func(item string, _ int) bool {
+			ctx.GetParam(&params.FromDs).SetAlternativesFunc(func(cmd *cobra.Command, args []string, toComplete string) []string {
+				return lo.Filter(findDaemonSets(context.Background(), params.Namespace), func(item string, _ int) bool {
 					return strings.HasPrefix(item, toComplete)
 				})
-			}
+			})
 
 			// Service completions
-			params.FromSvc.AlternativesFunc = func(cmd *cobra.Command, args []string, toComplete string) []string {
-				return lo.Filter(findServices(context.Background(), params.Namespace.Value()), func(item string, _ int) bool {
+			ctx.GetParam(&params.FromSvc).SetAlternativesFunc(func(cmd *cobra.Command, args []string, toComplete string) []string {
+				return lo.Filter(findServices(context.Background(), params.Namespace), func(item string, _ int) bool {
 					return strings.HasPrefix(item, toComplete)
 				})
-			}
+			})
 
 			// Namespace completions
-			params.Namespace.AlternativesFunc = func(cmd *cobra.Command, args []string, toComplete string) []string {
+			ctx.GetParam(&params.Namespace).SetAlternativesFunc(func(cmd *cobra.Command, args []string, toComplete string) []string {
 				res := cmder.New("kubectl", "get", "namespaces", "-o", "name").
 					WithAttemptTimeout(5 * time.Second).
 					Run(context.Background())
@@ -92,7 +92,7 @@ func Cmd() *cobra.Command {
 					}
 				}
 				return namespaces
-			}
+			})
 
 			return nil
 		},
@@ -114,7 +114,7 @@ func (p *Params) toConfig() (Config, error) {
 	return Config{
 		Source:    source,
 		Ports:     p.Ports,
-		Namespace: p.Namespace.Value(),
+		Namespace: p.Namespace,
 		Keepalive: p.Keepalive,
 	}, nil
 }
@@ -122,17 +122,17 @@ func (p *Params) toConfig() (Config, error) {
 func (p *Params) getSource() (Source, error) {
 	var sources []Source
 
-	if p.FromDeploy.Value() != "" {
-		sources = append(sources, Source{Kind: SourceDeployment, Name: p.FromDeploy.Value()})
+	if p.FromDeploy != "" {
+		sources = append(sources, Source{Kind: SourceDeployment, Name: p.FromDeploy})
 	}
-	if p.FromSts.Value() != "" {
-		sources = append(sources, Source{Kind: SourceStatefulSet, Name: p.FromSts.Value()})
+	if p.FromSts != "" {
+		sources = append(sources, Source{Kind: SourceStatefulSet, Name: p.FromSts})
 	}
-	if p.FromDs.Value() != "" {
-		sources = append(sources, Source{Kind: SourceDaemonSet, Name: p.FromDs.Value()})
+	if p.FromDs != "" {
+		sources = append(sources, Source{Kind: SourceDaemonSet, Name: p.FromDs})
 	}
-	if p.FromSvc.Value() != "" {
-		sources = append(sources, Source{Kind: SourceService, Name: p.FromSvc.Value()})
+	if p.FromSvc != "" {
+		sources = append(sources, Source{Kind: SourceService, Name: p.FromSvc})
 	}
 
 	if len(sources) == 0 {
