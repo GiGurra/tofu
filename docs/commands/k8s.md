@@ -10,7 +10,117 @@ tofu k8s <subcommand> [flags]
 
 ## Subcommands
 
+- [`port-forward`](#port-forward) - Port-forward to pods with auto-reconnect
 - [`tail pods`](#tail-pods) - Tail logs from Kubernetes pods
+
+---
+
+## port-forward
+
+Port-forward to a running pod from a deployment, statefulset, daemonset, or service. Automatically reconnects when the connection is lost or the pod terminates.
+
+### Synopsis
+
+```bash
+tofu k8s port-forward [flags] <ports...>
+```
+
+### Flags
+
+| Flag | Short | Description | Default |
+|------|-------|-------------|---------|
+| `--from-deploy` | `-d` | Deployment name to port-forward to | |
+| `--from-sts` | | StatefulSet name to port-forward to | |
+| `--from-ds` | | DaemonSet name to port-forward to | |
+| `--from-svc` | | Service name to port-forward to | |
+| `--namespace` | `-n` | Kubernetes namespace | current context |
+| `--keepalive` | `-k` | Keep trying to reconnect when connection is lost | `true` |
+
+!!! note
+    Exactly one of `--from-deploy`, `--from-sts`, `--from-ds`, or `--from-svc` must be specified.
+
+### Port Format
+
+Ports can be specified as:
+
+- `local:remote` - Forward local port to remote port (e.g., `8080:80`)
+- `remote` - Use same port for local and remote (e.g., `80`)
+
+Multiple ports can be forwarded simultaneously.
+
+### Examples
+
+Port-forward from a deployment:
+
+```bash
+tofu k8s port-forward -d nginx 8080:80
+```
+
+Port-forward from a StatefulSet:
+
+```bash
+tofu k8s port-forward --from-sts redis 6379
+```
+
+Port-forward from a DaemonSet:
+
+```bash
+tofu k8s port-forward --from-ds fluentd 24224:24224
+```
+
+Port-forward from a Service:
+
+```bash
+tofu k8s port-forward --from-svc my-service 8080:80
+```
+
+Multiple ports:
+
+```bash
+tofu k8s port-forward -d my-app 8080:80 9090:9090 5432:5432
+```
+
+Specific namespace:
+
+```bash
+tofu k8s port-forward -d api-server -n production 8080:80
+```
+
+Disable auto-reconnect:
+
+```bash
+tofu k8s port-forward -d nginx --keepalive=false 8080:80
+```
+
+### Features
+
+- **Auto-reconnect**: Automatically finds a new pod and reconnects when:
+    - The current pod is deleted or crashes
+    - A deployment/statefulset rolls out new pods
+    - The connection is lost for any reason
+
+- **Proactive monitoring**: Checks pod status every 2 seconds and reconnects before the connection fails (no need to wait for traffic to discover dead connections)
+
+- **Quick reconnect backoff**: If connection is lost within 5 seconds, waits 1 second before reconnecting to avoid rapid reconnection loops
+
+- **Shell completion**: Tab completion for resource names and namespaces
+
+### Output
+
+```
+Port-forwarding to pod nginx-abc123-xyz (ports: 8080:80)
+Forwarding from 127.0.0.1:8080 -> 80
+Pod nginx-abc123-xyz is no longer running, triggering reconnect...
+Connection lost quickly, waiting 1s before reconnecting...
+Port-forwarding to pod nginx-def456-uvw (ports: 8080:80)
+Forwarding from 127.0.0.1:8080 -> 80
+```
+
+### Notes
+
+- Requires `kubectl` to be installed and configured
+- Press Ctrl+C to stop port-forwarding
+- Works with any workload type that creates pods with selector labels
 
 ---
 
