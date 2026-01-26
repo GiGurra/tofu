@@ -102,9 +102,10 @@ func formatCompletion(e SessionEntry) string {
 
 	id := e.SessionID[:8]
 
+	// Use HasTitle/DisplayTitle for backwards compatible title display
 	var namePart string
-	if e.CustomTitle != "" {
-		namePart = "[" + sanitize(e.CustomTitle) + "]_"
+	if e.HasTitle() {
+		namePart = "[" + sanitize(e.DisplayTitle()) + "]_"
 	}
 
 	prompt := sanitize(e.FirstPrompt)
@@ -190,9 +191,9 @@ func RunResume(params *ResumeParams, stdout, stderr *os.File) int {
 	}
 
 	// Show what we're doing
-	displayName := entry.CustomTitle
-	if displayName == "" {
-		displayName = truncatePrompt(entry.FirstPrompt, 50)
+	displayName := entry.DisplayTitle()
+	if len(displayName) > 50 {
+		displayName = displayName[:47] + "..."
 	}
 	fmt.Fprintf(stdout, "Resuming [%s] in %s\n\n", displayName, projectPath)
 

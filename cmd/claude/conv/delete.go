@@ -108,9 +108,9 @@ func RunDelete(params *DeleteParams, stdout, stderr *os.File, stdin *os.File) in
 	fullID := entry.SessionID
 
 	// Show what we're about to delete
-	displayName := entry.CustomTitle
-	if displayName == "" {
-		displayName = truncatePrompt(entry.FirstPrompt, 50)
+	displayName := entry.DisplayTitle()
+	if len(displayName) > 50 {
+		displayName = displayName[:47] + "..."
 	}
 	fmt.Fprintf(stdout, "Conversation: %s\n", fullID[:8])
 	fmt.Fprintf(stdout, "Project:      %s\n", entry.ProjectPath)

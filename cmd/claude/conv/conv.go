@@ -25,13 +25,31 @@ type SessionEntry struct {
 	FullPath     string `json:"fullPath"`
 	FileMtime    int64  `json:"fileMtime"`
 	FirstPrompt  string `json:"firstPrompt"`
-	CustomTitle  string `json:"customTitle,omitempty"`
+	Summary      string `json:"summary,omitempty"`      // New field in recent Claude versions
+	CustomTitle  string `json:"customTitle,omitempty"` // Legacy field, kept for backwards compatibility
 	MessageCount int    `json:"messageCount"`
 	Created      string `json:"created"`
 	Modified     string `json:"modified"`
 	GitBranch    string `json:"gitBranch"`
 	ProjectPath  string `json:"projectPath"`
 	IsSidechain  bool   `json:"isSidechain"`
+}
+
+// DisplayTitle returns the best available title for display
+// Priority: CustomTitle (legacy) -> Summary (new) -> FirstPrompt
+func (e *SessionEntry) DisplayTitle() string {
+	if e.CustomTitle != "" {
+		return e.CustomTitle
+	}
+	if e.Summary != "" {
+		return e.Summary
+	}
+	return e.FirstPrompt
+}
+
+// HasTitle returns true if the entry has a custom title or summary
+func (e *SessionEntry) HasTitle() bool {
+	return e.CustomTitle != "" || e.Summary != ""
 }
 
 func Cmd() *cobra.Command {

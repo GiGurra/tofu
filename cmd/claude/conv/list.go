@@ -213,14 +213,15 @@ func RenderTable(stdout *os.File, entries []SessionEntry, showProject, long bool
 
 	// Add rows
 	for i, e := range entries {
-		// Format: [custom_name]: prompt, or just prompt if no custom name
+		// Format: [title]: prompt, or just prompt if no title/summary
 		var displayText string
-		if e.CustomTitle != "" {
-			prefix := "[" + e.CustomTitle + "]: "
+		if e.HasTitle() {
+			title := e.DisplayTitle()
+			prefix := "[" + title + "]: "
 			remaining := promptWidth - len(prefix)
 			if remaining < 10 {
 				// Not enough room for prompt, just show title
-				displayText = truncatePrompt(e.CustomTitle, promptWidth)
+				displayText = truncatePrompt(title, promptWidth)
 			} else {
 				displayText = prefix + truncatePrompt(e.FirstPrompt, remaining)
 			}

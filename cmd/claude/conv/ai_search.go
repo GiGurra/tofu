@@ -125,9 +125,14 @@ func RunAISearch(params *AISearchParams, stdout, stderr *os.File) int {
 		if parts := strings.Split(project, string(filepath.Separator)); len(parts) > 0 {
 			project = parts[len(parts)-1]
 		}
+		// Use DisplayTitle() which falls back: CustomTitle -> Summary -> FirstPrompt
+		title := ""
+		if e.HasTitle() {
+			title = e.DisplayTitle()
+		}
 		compactEntries[i] = CompactEntry{
 			ID:      e.SessionID[:8],
-			Title:   e.CustomTitle,
+			Title:   title,
 			Prompt:  prompt,
 			Project: project,
 			Msgs:    e.MessageCount,
