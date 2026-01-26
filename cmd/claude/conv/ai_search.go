@@ -107,10 +107,12 @@ func RunAISearch(params *AISearchParams, stdout, stderr *os.File) int {
 	})
 
 	// Build a compact JSON representation for Claude
+	// Include all searchable fields so Claude can match against any of them
 	type CompactEntry struct {
 		ID      string `json:"id"`
-		Title   string `json:"title,omitempty"`
-		Prompt  string `json:"prompt"`
+		Title   string `json:"title,omitempty"`   // Legacy custom title
+		Summary string `json:"summary,omitempty"` // AI-generated summary
+		Prompt  string `json:"prompt"`            // First user prompt
 		Project string `json:"project"`
 		Msgs    int    `json:"msgs"`
 	}
@@ -125,14 +127,10 @@ func RunAISearch(params *AISearchParams, stdout, stderr *os.File) int {
 		if parts := strings.Split(project, string(filepath.Separator)); len(parts) > 0 {
 			project = parts[len(parts)-1]
 		}
-		// Use DisplayTitle() which falls back: CustomTitle -> Summary -> FirstPrompt
-		title := ""
-		if e.HasTitle() {
-			title = e.DisplayTitle()
-		}
 		compactEntries[i] = CompactEntry{
 			ID:      e.SessionID[:8],
-			Title:   title,
+			Title:   e.CustomTitle,
+			Summary: e.Summary,
 			Prompt:  prompt,
 			Project: project,
 			Msgs:    e.MessageCount,

@@ -119,11 +119,16 @@ func RunSearch(params *SearchParams, stdout, stderr *os.File) int {
 		}
 
 		for _, entry := range entries {
-			matches := searchConversation(entry.FullPath, re, params.Context)
-			if len(matches) > 0 {
+			// Search metadata fields (CustomTitle, Summary, FirstPrompt)
+			metadataMatches := searchMetadata(entry, re)
+			// Search conversation content
+			contentMatches := searchConversation(entry.FullPath, re, params.Context)
+
+			allMatches := append(metadataMatches, contentMatches...)
+			if len(allMatches) > 0 {
 				results = append(results, SearchResult{
 					Entry:   entry,
-					Matches: matches,
+					Matches: allMatches,
 				})
 			}
 		}
@@ -195,6 +200,36 @@ func RunSearch(params *SearchParams, stdout, stderr *os.File) int {
 
 	fmt.Fprintf(stdout, "\n%d conversation(s) with matches\n", len(results))
 	return 0
+}
+
+func searchMetadata(entry SessionEntry, re *regexp.Regexp) []MatchLine {
+	var matches []MatchLine
+
+	// Search CustomTitle
+	if entry.CustomTitle != "" && re.MatchString(entry.CustomTitle) {
+		matches = append(matches, MatchLine{
+			LineNum: 0,
+			Content: "[title] " + truncatePrompt(entry.CustomTitle, 70),
+		})
+	}
+
+	// Search Summary
+	if entry.Summary != "" && re.MatchString(entry.Summary) {
+		matches = append(matches, MatchLine{
+			LineNum: 0,
+			Content: "[summary] " + truncatePrompt(entry.Summary, 70),
+		})
+	}
+
+	// Search FirstPrompt
+	if entry.FirstPrompt != "" && re.MatchString(entry.FirstPrompt) {
+		matches = append(matches, MatchLine{
+			LineNum: 0,
+			Content: "[prompt] " + truncatePrompt(entry.FirstPrompt, 70),
+		})
+	}
+
+	return matches
 }
 
 func searchConversation(filePath string, re *regexp.Regexp, contextLines int) []MatchLine {
