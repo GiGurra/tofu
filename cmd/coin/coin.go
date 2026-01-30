@@ -61,5 +61,5 @@ func animate() {
 		fmt.Printf("\r%s Flipping...  ", frames[i%len(frames)])
 		time.Sleep(100 * time.Millisecond)
 	}
-	fmt.Print("\r")
+	fmt.Print("\r\033[K") // Clear line before printing result
 }
