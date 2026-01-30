@@ -41,6 +41,7 @@ import (
 	"github.com/gigurra/tofu/cmd/ip"
 	"github.com/gigurra/tofu/cmd/jwt"
 	"github.com/gigurra/tofu/cmd/k8s"
+	"github.com/gigurra/tofu/cmd/leet"
 	"github.com/gigurra/tofu/cmd/lolcat"
 	"github.com/gigurra/tofu/cmd/lorem"
 	"github.com/gigurra/tofu/cmd/ls"
@@ -176,6 +177,7 @@ func main() {
 			withGroup(reverse.Cmd(), groupText),
 			withGroup(tee.Cmd(), groupText),
 			withGroup(sponge.Cmd(), groupText),
+			withGroup(leet.Cmd(), groupText),
 			withGroup(lolcat.Cmd(), groupText),
 			withGroup(uwu.Cmd(), groupText),
 			withGroup(figlet.Cmd(), groupText),
