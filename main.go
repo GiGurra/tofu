@@ -55,6 +55,7 @@ import (
 	"github.com/gigurra/tofu/cmd/pomodoro"
 	"github.com/gigurra/tofu/cmd/port"
 	"github.com/gigurra/tofu/cmd/ps"
+	"github.com/gigurra/tofu/cmd/pwd"
 	"github.com/gigurra/tofu/cmd/qr"
 	"github.com/gigurra/tofu/cmd/rand"
 	"github.com/gigurra/tofu/cmd/reverse"
@@ -161,6 +162,7 @@ func main() {
 			// System
 			withGroup(free.Cmd(), groupSystem),
 			withGroup(ps.Cmd(), groupSystem),
+			withGroup(pwd.Cmd(), groupSystem),
 			withGroup(time.Cmd(), groupSystem),
 			withGroup(env.Cmd(), groupSystem),
 			withGroup(watch.Cmd(), groupSystem),
