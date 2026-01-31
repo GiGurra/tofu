@@ -53,6 +53,15 @@ func runAttach(params *AttachParams) error {
 	return attachToSession(state.TmuxSession)
 }
 
+// AttachToTmuxSession attaches to a tmux session, replacing the current process
+// Returns exit code (0 = success) for use by other packages
+func AttachToTmuxSession(tmuxSession string) int {
+	if err := attachToSession(tmuxSession); err != nil {
+		return 1
+	}
+	return 0
+}
+
 // attachToSession attaches to a tmux session, replacing the current process
 func attachToSession(tmuxSession string) error {
 	tmuxPath, err := exec.LookPath("tmux")

@@ -6,15 +6,19 @@ import (
 	"os/exec"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/GiGurra/boa/pkg/boa"
+	"github.com/gigurra/tofu/cmd/claude/session"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
 )
 
 type ResumeParams struct {
-	ConvID string `pos:"true" help:"Conversation ID to resume (can be short prefix)"`
-	Global bool   `short:"g" help:"Search for conversation across all projects"`
+	ConvID   string `pos:"true" help:"Conversation ID to resume (can be short prefix)"`
+	Global   bool   `short:"g" help:"Search for conversation across all projects"`
+	Detached bool   `short:"d" long:"detached" help:"Start detached (don't attach to session)"`
+	NoTmux   bool   `long:"no-tmux" help:"Run without tmux session management (old behavior)"`
 }
 
 func ResumeCmd() *cobra.Command {
@@ -195,6 +199,12 @@ func RunResume(params *ResumeParams, stdout, stderr *os.File) int {
 	if len(displayName) > 50 {
 		displayName = displayName[:47] + "..."
 	}
+
+	// Use session management by default (unless --no-tmux)
+	if !params.NoTmux {
+		return runResumeWithSession(entry, projectPath, displayName, !params.Detached, stdout, stderr)
+	}
+
 	fmt.Fprintf(stdout, "Resuming [%s] in %s\n\n", displayName, projectPath)
 
 	// Run claude --resume as a subprocess with connected I/O
@@ -212,5 +222,72 @@ func RunResume(params *ResumeParams, stdout, stderr *os.File) int {
 		return 1
 	}
 
+	return 0
+}
+
+func runResumeWithSession(entry *SessionEntry, projectPath, displayName string, attach bool, stdout, stderr *os.File) int {
+	// Check tmux is installed
+	if err := session.CheckTmuxInstalled(); err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+
+	// Use conv ID prefix as session ID
+	sessionID := entry.SessionID
+	if len(sessionID) > 8 {
+		sessionID = sessionID[:8]
+	}
+
+	// Check if session already exists
+	existing, _ := session.LoadSessionState(sessionID)
+	if existing != nil && session.IsTmuxSessionAlive(existing.TmuxSession) {
+		fmt.Fprintf(stderr, "Session %s already exists for this conversation\n", sessionID)
+		fmt.Fprintf(stderr, "Attach with: tofu claude session attach %s\n", sessionID)
+		return 1
+	}
+
+	tmuxSession := "tofu-claude-" + sessionID
+
+	// Create tmux session
+	tmuxArgs := []string{
+		"new-session",
+		"-d",
+		"-s", tmuxSession,
+		"-c", projectPath,
+		"claude", "--resume", entry.SessionID,
+	}
+
+	tmuxCmd := exec.Command("tmux", tmuxArgs...)
+	if err := tmuxCmd.Run(); err != nil {
+		fmt.Fprintf(stderr, "Failed to create tmux session: %v\n", err)
+		return 1
+	}
+
+	// Get PID and save state
+	pid := session.ParsePIDFromTmux(tmuxSession)
+	state := &session.SessionState{
+		ID:          sessionID,
+		TmuxSession: tmuxSession,
+		PID:         pid,
+		Cwd:         projectPath,
+		ConvID:      entry.SessionID,
+		Status:      session.StatusRunning,
+		Created:     time.Now(),
+	}
+
+	if err := session.SaveSessionState(state); err != nil {
+		fmt.Fprintf(stderr, "Failed to save session state: %v\n", err)
+		return 1
+	}
+
+	fmt.Fprintf(stdout, "Resuming [%s] in session %s\n", displayName, sessionID)
+	fmt.Fprintf(stdout, "  Directory: %s\n", projectPath)
+
+	if attach {
+		fmt.Fprintf(stdout, "\nAttaching... (Ctrl+B D to detach)\n")
+		return session.AttachToTmuxSession(tmuxSession)
+	}
+
+	fmt.Fprintf(stdout, "\nAttach with: tofu claude session attach %s\n", sessionID)
 	return 0
 }
