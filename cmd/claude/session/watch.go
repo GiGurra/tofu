@@ -32,6 +32,20 @@ const (
 	confirmKill
 )
 
+// Filter options for the checkbox menu
+var filterOptions = []struct {
+	key    string
+	label  string
+	status string // internal status constant (empty for "all")
+}{
+	{"all", "All (no filter)", ""},
+	{StatusIdle, "Idle", StatusIdle},
+	{StatusWorking, "Working", StatusWorking},
+	{StatusAwaitingPermission, "Awaiting permission", StatusAwaitingPermission},
+	{StatusAwaitingInput, "Awaiting input", StatusAwaitingInput},
+	{StatusExited, "Exited", StatusExited},
+}
+
 type model struct {
 	sessions     []*SessionState
 	cursor       int
@@ -44,6 +58,8 @@ type model struct {
 	hideFilter   []string    // which statuses to hide
 	confirmMode  confirmMode // current confirmation dialog
 	filterMenu   bool        // showing filter menu
+	filterCursor int         // cursor position in filter menu
+	filterChecked map[string]bool // checked items in filter menu
 	helpView     bool        // showing help view
 }
 
@@ -171,35 +187,49 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle filter menu
 		if m.filterMenu {
 			switch msg.String() {
-			case "esc", "f", "q":
+			case "esc", "q":
 				m.filterMenu = false
-			case "a":
-				m.statusFilter = nil // all
-				m.filterMenu = false
-				m = m.refreshSessions()
-			case "i":
-				m.statusFilter = []string{StatusIdle}
-				m.filterMenu = false
-				m = m.refreshSessions()
-			case "w":
-				m.statusFilter = []string{StatusWorking}
-				m.filterMenu = false
-				m = m.refreshSessions()
-			case "p":
-				m.statusFilter = []string{StatusAwaitingPermission}
-				m.filterMenu = false
-				m = m.refreshSessions()
-			case "n":
-				m.statusFilter = []string{StatusAwaitingInput}
-				m.filterMenu = false
-				m = m.refreshSessions()
-			case "t":
-				m.statusFilter = []string{StatusAwaitingPermission, StatusAwaitingInput}
-				m.filterMenu = false
-				m = m.refreshSessions()
-			case "e":
-				m.statusFilter = []string{StatusExited}
-				m.includeAll = true
+			case "up", "k":
+				if m.filterCursor > 0 {
+					m.filterCursor--
+				}
+			case "down", "j":
+				if m.filterCursor < len(filterOptions)-1 {
+					m.filterCursor++
+				}
+			case " ", "x":
+				// Toggle checkbox
+				key := filterOptions[m.filterCursor].key
+				if key == "all" {
+					// "All" clears all other selections
+					m.filterChecked = make(map[string]bool)
+					m.filterChecked["all"] = true
+				} else {
+					// Toggle this option, clear "all" if set
+					delete(m.filterChecked, "all")
+					m.filterChecked[key] = !m.filterChecked[key]
+					if !m.filterChecked[key] {
+						delete(m.filterChecked, key)
+					}
+					// If nothing selected, select "all"
+					if len(m.filterChecked) == 0 {
+						m.filterChecked["all"] = true
+					}
+				}
+			case "enter", "f":
+				// Apply filter and close
+				m.statusFilter = nil
+				if !m.filterChecked["all"] {
+					for key, checked := range m.filterChecked {
+						if checked && key != "all" {
+							m.statusFilter = append(m.statusFilter, key)
+						}
+					}
+				}
+				// Enable includeAll if exited is selected
+				if m.filterChecked[StatusExited] {
+					m.includeAll = true
+				}
 				m.filterMenu = false
 				m = m.refreshSessions()
 			}
@@ -228,6 +258,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.confirmMode = confirmKill
 			}
 		case "f":
+			// Initialize filter checkboxes from current filter state
+			m.filterChecked = make(map[string]bool)
+			if len(m.statusFilter) == 0 {
+				m.filterChecked["all"] = true
+			} else {
+				for _, f := range m.statusFilter {
+					m.filterChecked[f] = true
+				}
+			}
+			m.filterCursor = 0
 			m.filterMenu = true
 		case "h", "?":
 			m.helpView = true
@@ -354,15 +394,33 @@ func (m model) renderFilterMenu() string {
 	b.WriteString("\n")
 	b.WriteString(menuStyle.Render("  Filter by status:"))
 	b.WriteString("\n\n")
-	b.WriteString("  [a] All (no filter)\n")
-	b.WriteString("  [i] Idle\n")
-	b.WriteString("  [w] Working\n")
-	b.WriteString("  [p] Awaiting permission\n")
-	b.WriteString("  [n] Awaiting input\n")
-	b.WriteString("  [t] Needs attention (permission + input)\n")
-	b.WriteString("  [e] Exited\n")
+
+	for i, opt := range filterOptions {
+		// Cursor indicator
+		if i == m.filterCursor {
+			b.WriteString(selectedStyle.Render(" >"))
+		} else {
+			b.WriteString("  ")
+		}
+
+		// Checkbox
+		if m.filterChecked[opt.key] {
+			b.WriteString(" [x] ")
+		} else {
+			b.WriteString(" [ ] ")
+		}
+
+		// Label
+		if i == m.filterCursor {
+			b.WriteString(selectedStyle.Render(opt.label))
+		} else {
+			b.WriteString(opt.label)
+		}
+		b.WriteString("\n")
+	}
+
 	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("  Press key to select, esc to cancel"))
+	b.WriteString(helpStyle.Render("  ↑/↓ navigate • space toggle • enter apply • esc cancel"))
 	b.WriteString("\n")
 	return b.String()
 }
