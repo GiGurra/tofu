@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/GiGurra/boa/pkg/boa"
+	clcommon "github.com/gigurra/tofu/cmd/claude/common"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -30,7 +31,7 @@ func CpCmd() *cobra.Command {
 		ValidArgsFunc: func(p *CpParams, cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			if len(args) == 0 {
 				global, _ := cmd.Flags().GetBool("global")
-				return getConversationCompletions(global), cobra.ShellCompDirectiveKeepOrder | cobra.ShellCompDirectiveNoFileComp
+				return clcommon.GetConversationCompletions(global), cobra.ShellCompDirectiveKeepOrder | cobra.ShellCompDirectiveNoFileComp
 			}
 			return nil, cobra.ShellCompDirectiveDefault
 		},
@@ -45,10 +46,7 @@ func CpCmd() *cobra.Command {
 
 func RunCp(params *CpParams, stdout, stderr *os.File, stdin *os.File) int {
 	// Extract just the ID from autocomplete format (e.g., "0459cd73_[tofu_claude]_prompt..." -> "0459cd73")
-	convID := params.ConvID
-	if idx := strings.Index(convID, "_"); idx > 0 {
-		convID = convID[:idx]
-	}
+	convID := clcommon.ExtractIDFromCompletion(params.ConvID)
 
 	var srcEntry *SessionEntry
 	var srcProjectPath string

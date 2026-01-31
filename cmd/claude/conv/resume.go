@@ -4,17 +4,20 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"sort"
-	"strings"
+	"time"
 
 	"github.com/GiGurra/boa/pkg/boa"
+	clcommon "github.com/gigurra/tofu/cmd/claude/common"
+	"github.com/gigurra/tofu/cmd/claude/session"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
 )
 
 type ResumeParams struct {
-	ConvID string `pos:"true" help:"Conversation ID to resume (can be short prefix)"`
-	Global bool   `short:"g" help:"Search for conversation across all projects"`
+	ConvID   string `pos:"true" help:"Conversation ID to resume (can be short prefix)"`
+	Global   bool   `short:"g" help:"Search for conversation across all projects"`
+	Detached bool   `short:"d" long:"detached" help:"Start detached (don't attach to session)"`
+	NoTmux   bool   `long:"no-tmux" help:"Run without tmux session management (old behavior)"`
 }
 
 func ResumeCmd() *cobra.Command {
@@ -29,7 +32,7 @@ func ResumeCmd() *cobra.Command {
 			}
 			// Check if -g flag is set (p.Global may not be populated during completion)
 			global, _ := cmd.Flags().GetBool("global")
-			return getConversationCompletions(global), cobra.ShellCompDirectiveKeepOrder | cobra.ShellCompDirectiveNoFileComp
+			return clcommon.GetConversationCompletions(global), cobra.ShellCompDirectiveKeepOrder | cobra.ShellCompDirectiveNoFileComp
 		},
 		RunFunc: func(params *ResumeParams, cmd *cobra.Command, args []string) {
 			exitCode := RunResume(params, os.Stdout, os.Stderr)
@@ -40,149 +43,20 @@ func ResumeCmd() *cobra.Command {
 	}.ToCobra()
 }
 
-func getConversationCompletions(global bool) []string {
-	var entries []SessionEntry
-
-	if global {
-		projectsDir := ClaudeProjectsDir()
-		dirEntries, err := os.ReadDir(projectsDir)
-		if err != nil {
-			return nil
-		}
-
-		for _, dirEntry := range dirEntries {
-			if !dirEntry.IsDir() {
-				continue
-			}
-			projPath := projectsDir + "/" + dirEntry.Name()
-			index, err := LoadSessionsIndex(projPath)
-			if err != nil {
-				continue
-			}
-			entries = append(entries, index.Entries...)
-		}
-	} else {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return nil
-		}
-
-		claudeProjectPath := GetClaudeProjectPath(cwd)
-		index, err := LoadSessionsIndex(claudeProjectPath)
-		if err != nil {
-			return nil
-		}
-
-		entries = index.Entries
-	}
-
-	// Sort by modified date descending (most recent first)
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].Modified > entries[j].Modified
-	})
-
-	// Format completions
-	results := make([]string, len(entries))
-	for i, e := range entries {
-		results[i] = formatCompletion(e)
-	}
-
-	return results
-}
-
-func formatCompletion(e SessionEntry) string {
-	// Format: <ID>_[name_]prompt__cr_datetime__u_datetime
-	sanitize := func(s string) string {
-		s = strings.ReplaceAll(s, "\t", "__")
-		s = strings.ReplaceAll(s, " ", "_")
-		s = strings.ReplaceAll(s, "\n", "_")
-		s = strings.ReplaceAll(s, "\r", "")
-		return s
-	}
-
-	id := e.SessionID[:8]
-
-	// Use HasTitle/DisplayTitle for backwards compatible title display
-	var namePart string
-	if e.HasTitle() {
-		namePart = "[" + sanitize(e.DisplayTitle()) + "]_"
-	}
-
-	prompt := sanitize(e.FirstPrompt)
-	if len(prompt) > 40 {
-		prompt = prompt[:37] + "..."
-	}
-
-	created := formatDateShort(e.Created)
-	modified := formatDateShort(e.Modified)
-
-	return fmt.Sprintf("%s_%s%s__cr_%s__u_%s", id, namePart, prompt, created, modified)
-}
-
-func formatDateShort(isoDate string) string {
-	if len(isoDate) < 16 {
-		return isoDate
-	}
-	// Extract YYYY-MM-DD_HH:MM from ISO format
-	return strings.ReplaceAll(isoDate[:16], "T", "_")
-}
-
 func RunResume(params *ResumeParams, stdout, stderr *os.File) int {
-	var entry *SessionEntry
-	var projectPath string
-
 	// Extract just the ID from autocomplete format (e.g., "0459cd73_[tofu_claude]_prompt..." -> "0459cd73")
-	convID := params.ConvID
-	if idx := strings.Index(convID, "_"); idx > 0 {
-		convID = convID[:idx]
+	convID := clcommon.ExtractIDFromCompletion(params.ConvID)
+
+	// Get current directory for local search
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(stderr, "Error getting current directory: %v\n", err)
+		return 1
 	}
 
-	if params.Global {
-		// Search all projects
-		projectsDir := ClaudeProjectsDir()
-		entries, err := os.ReadDir(projectsDir)
-		if err != nil {
-			fmt.Fprintf(stderr, "Error reading projects directory: %v\n", err)
-			return 1
-		}
-
-		for _, dirEntry := range entries {
-			if !dirEntry.IsDir() {
-				continue
-			}
-			projPath := projectsDir + "/" + dirEntry.Name()
-			index, err := LoadSessionsIndex(projPath)
-			if err != nil {
-				continue
-			}
-			if found, _ := FindSessionByID(index, convID); found != nil {
-				entry = found
-				projectPath = found.ProjectPath
-				break
-			}
-		}
-	} else {
-		// Search current directory
-		cwd, err := os.Getwd()
-		if err != nil {
-			fmt.Fprintf(stderr, "Error getting current directory: %v\n", err)
-			return 1
-		}
-
-		claudeProjectPath := GetClaudeProjectPath(cwd)
-		index, err := LoadSessionsIndex(claudeProjectPath)
-		if err != nil {
-			fmt.Fprintf(stderr, "Error loading sessions index: %v\n", err)
-			return 1
-		}
-
-		entry, _ = FindSessionByID(index, convID)
-		if entry != nil {
-			projectPath = entry.ProjectPath
-		}
-	}
-
-	if entry == nil {
+	// Resolve conversation ID to full info
+	convInfo := clcommon.ResolveConvID(convID, params.Global, cwd)
+	if convInfo == nil {
 		fmt.Fprintf(stderr, "Conversation %s not found\n", convID)
 		if !params.Global {
 			fmt.Fprintf(stderr, "Hint: use -g to search all projects\n")
@@ -190,15 +64,26 @@ func RunResume(params *ResumeParams, stdout, stderr *os.File) int {
 		return 1
 	}
 
+	projectPath := convInfo.ProjectPath
+
 	// Show what we're doing
-	displayName := entry.DisplayTitle()
+	displayName := convInfo.DisplayTitle
+	if displayName == "" {
+		displayName = convInfo.FirstPrompt
+	}
 	if len(displayName) > 50 {
 		displayName = displayName[:47] + "..."
 	}
+
+	// Use session management by default (unless --no-tmux)
+	if !params.NoTmux {
+		return runResumeWithSession(convInfo, projectPath, displayName, !params.Detached, stdout, stderr)
+	}
+
 	fmt.Fprintf(stdout, "Resuming [%s] in %s\n\n", displayName, projectPath)
 
 	// Run claude --resume as a subprocess with connected I/O
-	cmd := exec.Command("claude", "--resume", entry.SessionID)
+	cmd := exec.Command("claude", "--resume", convInfo.SessionID)
 	cmd.Dir = projectPath
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -212,5 +97,78 @@ func RunResume(params *ResumeParams, stdout, stderr *os.File) int {
 		return 1
 	}
 
+	return 0
+}
+
+func runResumeWithSession(convInfo *clcommon.ConvInfo, projectPath, displayName string, attach bool, stdout, stderr *os.File) int {
+	// Check tmux is installed
+	if err := session.CheckTmuxInstalled(); err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+
+	// Check if hooks are installed (warn if not)
+	session.EnsureHooksInstalled(false, stdout, stderr)
+
+	// Use conv ID prefix as session ID
+	sessionID := convInfo.SessionID
+	if len(sessionID) > 8 {
+		sessionID = sessionID[:8]
+	}
+
+	// Check if session already exists
+	existing, _ := session.LoadSessionState(sessionID)
+	if existing != nil && session.IsTmuxSessionAlive(existing.TmuxSession) {
+		fmt.Fprintf(stderr, "Session %s already exists for this conversation\n", sessionID)
+		fmt.Fprintf(stderr, "Attach with: tofu claude session attach %s\n", sessionID)
+		return 1
+	}
+
+	tmuxSession := "tofu-claude-" + sessionID
+
+	// Build claude command with TOFU_SESSION_ID env var
+	claudeCmd := fmt.Sprintf("TOFU_SESSION_ID=%s claude --resume %s", sessionID, convInfo.SessionID)
+
+	// Create tmux session
+	tmuxArgs := []string{
+		"new-session",
+		"-d",
+		"-s", tmuxSession,
+		"-c", projectPath,
+		"sh", "-c", claudeCmd,
+	}
+
+	tmuxCmd := exec.Command("tmux", tmuxArgs...)
+	if err := tmuxCmd.Run(); err != nil {
+		fmt.Fprintf(stderr, "Failed to create tmux session: %v\n", err)
+		return 1
+	}
+
+	// Get PID and save state (starts as idle, waiting for user input)
+	pid := session.ParsePIDFromTmux(tmuxSession)
+	state := &session.SessionState{
+		ID:          sessionID,
+		TmuxSession: tmuxSession,
+		PID:         pid,
+		Cwd:         projectPath,
+		ConvID:      convInfo.SessionID,
+		Status:      session.StatusIdle,
+		Created:     time.Now(),
+	}
+
+	if err := session.SaveSessionState(state); err != nil {
+		fmt.Fprintf(stderr, "Failed to save session state: %v\n", err)
+		return 1
+	}
+
+	fmt.Fprintf(stdout, "Resuming [%s] in session %s\n", displayName, sessionID)
+	fmt.Fprintf(stdout, "  Directory: %s\n", projectPath)
+
+	if attach {
+		fmt.Fprintf(stdout, "\nAttaching... (Ctrl+B D to detach)\n")
+		return session.AttachToTmuxSession(tmuxSession)
+	}
+
+	fmt.Fprintf(stdout, "\nAttach with: tofu claude session attach %s\n", sessionID)
 	return 0
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/GiGurra/boa/pkg/boa"
+	clcommon "github.com/gigurra/tofu/cmd/claude/common"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
 )
@@ -28,7 +29,7 @@ func DeleteCmd() *cobra.Command {
 		ValidArgsFunc: func(p *DeleteParams, cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			if len(args) == 0 {
 				global, _ := cmd.Flags().GetBool("global")
-				return getConversationCompletions(global), cobra.ShellCompDirectiveKeepOrder | cobra.ShellCompDirectiveNoFileComp
+				return clcommon.GetConversationCompletions(global), cobra.ShellCompDirectiveKeepOrder | cobra.ShellCompDirectiveNoFileComp
 			}
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		},
@@ -43,10 +44,7 @@ func DeleteCmd() *cobra.Command {
 
 func RunDelete(params *DeleteParams, stdout, stderr *os.File, stdin *os.File) int {
 	// Extract just the ID from autocomplete format (e.g., "0459cd73_[tofu_claude]_prompt..." -> "0459cd73")
-	convID := params.ConvID
-	if idx := strings.Index(convID, "_"); idx > 0 {
-		convID = convID[:idx]
-	}
+	convID := clcommon.ExtractIDFromCompletion(params.ConvID)
 
 	var entry *SessionEntry
 	var projectPath string

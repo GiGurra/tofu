@@ -3,6 +3,7 @@ package claude
 import (
 	"github.com/GiGurra/boa/pkg/boa"
 	"github.com/gigurra/tofu/cmd/claude/conv"
+	"github.com/gigurra/tofu/cmd/claude/session"
 	"github.com/spf13/cobra"
 )
 
@@ -12,6 +13,7 @@ func Cmd() *cobra.Command {
 		Short: "Claude Code utilities",
 		SubCmds: []*cobra.Command{
 			conv.Cmd(),
+			session.Cmd(),
 		},
 	}.ToCobra()
 }
