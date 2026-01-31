@@ -29,7 +29,9 @@ type watchConfirmMode int
 
 const (
 	watchConfirmNone watchConfirmMode = iota
-	watchConfirmAttachForce // Session already attached, confirm force attach
+	watchConfirmAttachForce      // Session already attached, confirm force attach
+	watchConfirmDelete           // Delete conversation (no active session)
+	watchConfirmDeleteWithSession // Delete conversation that has an active session
 )
 
 type watchModel struct {
@@ -63,6 +65,9 @@ type watchModel struct {
 	selectedConv *SessionEntry
 	shouldCreate bool  // true = create new session, false = attach to existing
 	forceAttach  bool
+
+	// Status message (shown briefly after actions)
+	statusMsg string
 }
 
 func initialWatchModel(global bool, since, before string) watchModel {
@@ -193,6 +198,64 @@ func (m watchModel) ensureCursorVisible() watchModel {
 	return m
 }
 
+// deleteConversation deletes a conversation's files and removes it from the index
+func (m watchModel) deleteConversation(conv *SessionEntry) error {
+	// Determine project path
+	var projectPath string
+	if m.global {
+		// For global mode, derive project path from the conversation's ProjectPath
+		projectPath = GetClaudeProjectPath(conv.ProjectPath)
+	} else {
+		projectPath = GetClaudeProjectPath(m.projectPath)
+	}
+
+	// Load index
+	index, err := LoadSessionsIndex(projectPath)
+	if err != nil {
+		return fmt.Errorf("failed to load index: %w", err)
+	}
+
+	// Delete conversation file
+	convFile := projectPath + "/" + conv.SessionID + ".jsonl"
+	if err := os.Remove(convFile); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to delete file: %w", err)
+	}
+
+	// Delete conversation directory if it exists
+	convDir := projectPath + "/" + conv.SessionID
+	if info, err := os.Stat(convDir); err == nil && info.IsDir() {
+		if err := os.RemoveAll(convDir); err != nil {
+			return fmt.Errorf("failed to delete directory: %w", err)
+		}
+	}
+
+	// Remove from index and save
+	RemoveSessionByID(index, conv.SessionID)
+	if err := SaveSessionsIndex(projectPath, index); err != nil {
+		return fmt.Errorf("failed to save index: %w", err)
+	}
+
+	return nil
+}
+
+// stopSession stops a session's tmux session and removes its state file
+func (m watchModel) stopSession(state *session.SessionState) error {
+	// Kill tmux session if alive
+	if session.IsTmuxSessionAlive(state.TmuxSession) {
+		cmd := exec.Command("tmux", "kill-session", "-t", state.TmuxSession)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to kill tmux session: %w", err)
+		}
+	}
+
+	// Remove state file
+	if err := session.DeleteSessionState(state.ID); err != nil {
+		return fmt.Errorf("failed to delete session state: %w", err)
+	}
+
+	return nil
+}
+
 func (m watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -200,14 +263,55 @@ func (m watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.confirmMode != watchConfirmNone {
 			switch msg.String() {
 			case "y", "Y":
-				if m.confirmMode == watchConfirmAttachForce && m.cursor < len(m.filtered) {
-					m.selectedConv = &m.filtered[m.cursor]
-					m.shouldCreate = false
-					m.forceAttach = true
-					m.confirmMode = watchConfirmNone
-					return m, tea.Quit
+				if m.cursor < len(m.filtered) {
+					conv := m.filtered[m.cursor]
+					switch m.confirmMode {
+					case watchConfirmAttachForce:
+						m.selectedConv = &conv
+						m.shouldCreate = false
+						m.forceAttach = true
+						m.confirmMode = watchConfirmNone
+						return m, tea.Quit
+					case watchConfirmDelete:
+						// Delete conversation (no session)
+						if err := m.deleteConversation(&conv); err != nil {
+							m.statusMsg = "Error: " + err.Error()
+						} else {
+							m.statusMsg = "Deleted conversation " + conv.SessionID[:8]
+						}
+						m.confirmMode = watchConfirmNone
+						m = m.loadConversations()
+					case watchConfirmDeleteWithSession:
+						// Stop session AND delete conversation
+						if state, ok := m.activeSessions[conv.SessionID]; ok {
+							if err := m.stopSession(state); err != nil {
+								m.statusMsg = "Error stopping session: " + err.Error()
+							}
+						}
+						if err := m.deleteConversation(&conv); err != nil {
+							m.statusMsg = "Error: " + err.Error()
+						} else {
+							m.statusMsg = "Stopped session and deleted conversation " + conv.SessionID[:8]
+						}
+						m.confirmMode = watchConfirmNone
+						m = m.loadConversations()
+					}
 				}
-			case "n", "N", "esc", "q":
+			case "s", "S":
+				// Stop session only (when there's an active session)
+				if m.confirmMode == watchConfirmDeleteWithSession && m.cursor < len(m.filtered) {
+					conv := m.filtered[m.cursor]
+					if state, ok := m.activeSessions[conv.SessionID]; ok {
+						if err := m.stopSession(state); err != nil {
+							m.statusMsg = "Error: " + err.Error()
+						} else {
+							m.statusMsg = "Stopped session " + state.ID
+						}
+					}
+					m.confirmMode = watchConfirmNone
+					m = m.refreshActiveSessions()
+				}
+			case "n", "N", "esc":
 				m.confirmMode = watchConfirmNone
 			}
 			return m, nil
@@ -314,8 +418,20 @@ func (m watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "r":
 			// Force refresh conversations
 			m = m.loadConversations()
+			m.statusMsg = ""
 		case "h", "?":
 			m.helpView = true
+		case "delete", "backspace", "x":
+			// Delete conversation (with confirmation)
+			if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
+				conv := m.filtered[m.cursor]
+				if _, hasSession := m.activeSessions[conv.SessionID]; hasSession {
+					m.confirmMode = watchConfirmDeleteWithSession
+				} else {
+					m.confirmMode = watchConfirmDelete
+				}
+				m.statusMsg = ""
+			}
 		}
 
 	case tea.WindowSizeMsg:
@@ -444,12 +560,21 @@ func (m watchModel) View() string {
 		b.WriteString("\n")
 	}
 
-	// Footer / confirmation dialog
+	// Footer / confirmation dialog / status message
 	b.WriteString("\n")
-	if m.confirmMode == watchConfirmAttachForce && m.cursor < len(m.filtered) {
+	switch m.confirmMode {
+	case watchConfirmAttachForce:
 		b.WriteString(wConfirmStyle.Render("  Session already attached. Detach others? [y/n]"))
-	} else {
-		b.WriteString(wHelpStyle.Render("  h help • ↑/↓ navigate • enter create/attach • r refresh • q quit"))
+	case watchConfirmDelete:
+		b.WriteString(wConfirmStyle.Render("  Delete conversation? [y/n]"))
+	case watchConfirmDeleteWithSession:
+		b.WriteString(wConfirmStyle.Render("  Has active session. Delete+stop (y), stop only (s), cancel (n)?"))
+	default:
+		if m.statusMsg != "" {
+			b.WriteString(wSearchStyle.Render("  " + m.statusMsg))
+		} else {
+			b.WriteString(wHelpStyle.Render("  h help • ↑/↓ navigate • enter attach • del delete • q quit"))
+		}
 	}
 	b.WriteString("\n")
 
@@ -483,6 +608,8 @@ func (m watchModel) renderHelpView() string {
 
 	b.WriteString(wHeaderStyle.Render("  Actions"))
 	b.WriteString("\n")
+	b.WriteString("    del/x     Delete conversation (with confirmation)\n")
+	b.WriteString("              If has session: y=delete+stop, s=stop only, n=cancel\n")
 	b.WriteString("    r         Refresh conversation list\n")
 	b.WriteString("\n")
 
