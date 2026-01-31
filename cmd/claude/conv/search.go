@@ -19,6 +19,7 @@ type SearchParams struct {
 	Pattern       string `pos:"true" help:"Search pattern (regex supported)"`
 	Dir           string `pos:"true" optional:"true" help:"Directory to search in (defaults to current directory)"`
 	Global        bool   `short:"g" help:"Search across all projects"`
+	Content       bool   `short:"-" long:"content" help:"Search full conversation content (slow, default searches only titles/prompts)"`
 	Long          bool   `short:"l" help:"Show detailed output"`
 	Context       int    `short:"C" help:"Lines of context around matches" default:"0"`
 	CaseSensitive bool   `short:"s" help:"Case sensitive search (default is insensitive)"`
@@ -122,8 +123,12 @@ func RunSearch(params *SearchParams, stdout, stderr *os.File) int {
 		for _, entry := range entries {
 			// Search metadata fields (CustomTitle, Summary, FirstPrompt)
 			metadataMatches := searchMetadata(entry, re)
-			// Search conversation content
-			contentMatches := searchConversation(entry.FullPath, re, params.Context)
+
+			var contentMatches []MatchLine
+			if params.Content {
+				// Search full conversation content (slow)
+				contentMatches = searchConversation(entry.FullPath, re)
+			}
 
 			allMatches := append(metadataMatches, contentMatches...)
 			if len(allMatches) > 0 {
@@ -239,7 +244,7 @@ func searchMetadata(entry SessionEntry, re *regexp.Regexp) []MatchLine {
 	return matches
 }
 
-func searchConversation(filePath string, re *regexp.Regexp, contextLines int) []MatchLine {
+func searchConversation(filePath string, re *regexp.Regexp) []MatchLine {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil
