@@ -213,7 +213,9 @@ func contains(slice []string, item string) bool {
 	return false
 }
 
-// LocalizePath converts a canonical path to the local machine's equivalent path
+// LocalizePath converts a path to the local machine's equivalent path
+// It first canonicalizes the path (in case it's from another machine),
+// then converts to local form if not on the canonical machine
 func (c *SyncConfig) LocalizePath(path, localHome string) string {
 	if c == nil || len(c.Homes) == 0 {
 		return path
@@ -221,6 +223,10 @@ func (c *SyncConfig) LocalizePath(path, localHome string) string {
 
 	canonical := c.Homes[0]
 
+	// First, canonicalize the path (handles case where path is from another machine)
+	path = c.canonicalizePath(path)
+
+	// Find which home prefix applies to this machine
 	var localPrefix string
 	for _, home := range c.Homes {
 		if home == localHome || strings.HasPrefix(localHome, home) {
@@ -229,10 +235,13 @@ func (c *SyncConfig) LocalizePath(path, localHome string) string {
 		}
 	}
 
+	// If we're on the canonical machine, path is already correct
 	if localPrefix == "" || localPrefix == canonical {
-		return path
+		// Still need to canonicalize embedded project dirs
+		return c.canonicalizeEmbeddedProjectDir(path)
 	}
 
+	// Convert from canonical to local
 	// Check dirs mappings first (more specific)
 	for _, group := range c.Dirs {
 		if len(group) < 2 {
@@ -257,6 +266,63 @@ func (c *SyncConfig) LocalizePath(path, localHome string) string {
 	// Also localize embedded project directory names
 	path = c.localizeEmbeddedProjectDir(path, localHome)
 
+	return path
+}
+
+// canonicalizePath converts any path to canonical form
+func (c *SyncConfig) canonicalizePath(path string) string {
+	// Apply dirs mappings first
+	for _, group := range c.Dirs {
+		if len(group) < 2 {
+			continue
+		}
+		canonical := group[0]
+		for _, dir := range group[1:] {
+			if strings.HasPrefix(path, dir) {
+				path = canonical + path[len(dir):]
+				break
+			}
+		}
+	}
+
+	// Apply homes mappings
+	if len(c.Homes) >= 2 {
+		canonical := c.Homes[0]
+		for _, home := range c.Homes[1:] {
+			if strings.HasPrefix(path, home) {
+				path = canonical + path[len(home):]
+				break
+			}
+		}
+	}
+
+	return path
+}
+
+// canonicalizeEmbeddedProjectDir canonicalizes project dir names embedded in paths
+func (c *SyncConfig) canonicalizeEmbeddedProjectDir(path string) string {
+	projectsMarker := ".claude/projects/"
+	idx := strings.Index(path, projectsMarker)
+	if idx == -1 {
+		return path
+	}
+
+	start := idx + len(projectsMarker)
+	end := strings.Index(path[start:], "/")
+	if end == -1 {
+		projectDir := path[start:]
+		canonicalDir := c.CanonicalizeProjectDir(projectDir)
+		if projectDir != canonicalDir {
+			return path[:start] + canonicalDir
+		}
+		return path
+	}
+
+	projectDir := path[start : start+end]
+	canonicalDir := c.CanonicalizeProjectDir(projectDir)
+	if projectDir != canonicalDir {
+		return path[:start] + canonicalDir + path[start+end:]
+	}
 	return path
 }
 

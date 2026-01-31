@@ -284,7 +284,7 @@ func TestLocalizePath_ToLocal(t *testing.T) {
 }
 
 func TestLocalizePath_ToCanonical(t *testing.T) {
-	// When localHome matches canonical, paths should stay canonical
+	// When localHome matches canonical, non-local paths should be converted to canonical (local)
 	config := &SyncConfig{
 		Homes: []string{canonicalHome, localHome},
 		Dirs:  [][]string{{canonicalGit, localGit}},
@@ -303,10 +303,16 @@ func TestLocalizePath_ToCanonical(t *testing.T) {
 			expected:  "/home/canonical/git/myproject",
 		},
 		{
-			name:      "local path stays unchanged on canonical machine (no reverse needed)",
+			name:      "other machine path gets converted to local (canonical) on canonical machine",
 			path:      "/home/local/projects/myproject",
 			localHome: canonicalHome,
-			expected:  "/home/local/projects/myproject",
+			expected:  "/home/canonical/git/myproject", // dirs mapping converts local→canonical
+		},
+		{
+			name:      "other machine home path gets converted to local (canonical)",
+			path:      "/home/local/Documents/notes",
+			localHome: canonicalHome,
+			expected:  "/home/canonical/Documents/notes", // homes mapping converts local→canonical
 		},
 	}
 
