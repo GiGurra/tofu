@@ -645,29 +645,55 @@ type WatchResult struct {
 	ForceAttach  bool  // Detach other clients when attaching
 }
 
+// ConvWatchState holds state that persists between attach cycles
+type ConvWatchState struct {
+	SearchInput    string
+	Cursor         int
+	ViewportOffset int
+}
+
 // RunConvWatch runs the interactive watch mode and returns the result
-func RunConvWatch(global bool, since, before string) (WatchResult, error) {
+func RunConvWatch(global bool, since, before string, state ConvWatchState) (WatchResult, ConvWatchState, error) {
 	m := initialWatchModel(global, since, before)
+
+	// Restore previous state
+	m.searchInput = state.SearchInput
+	m.cursor = state.Cursor
+	m.viewportOffset = state.ViewportOffset
+
 	m = m.loadConversations()
+
+	// Ensure cursor is still valid after loading (list may have changed)
+	if m.cursor >= len(m.filtered) {
+		m.cursor = max(0, len(m.filtered)-1)
+	}
+	m = m.ensureCursorVisible()
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	finalModel, err := p.Run()
 	if err != nil {
-		return WatchResult{}, err
+		return WatchResult{}, state, err
 	}
 
 	fm := finalModel.(watchModel)
+	newState := ConvWatchState{
+		SearchInput:    fm.searchInput,
+		Cursor:         fm.cursor,
+		ViewportOffset: fm.viewportOffset,
+	}
 	return WatchResult{
 		Conv:         fm.selectedConv,
 		ShouldCreate: fm.shouldCreate,
 		ForceAttach:  fm.forceAttach,
-	}, nil
+	}, newState, nil
 }
 
 // RunConvWatchMode runs the interactive watch mode with create/attach loop
 func RunConvWatchMode(global bool, since, before string) error {
+	var watchState ConvWatchState
 	for {
-		result, err := RunConvWatch(global, since, before)
+		result, newState, err := RunConvWatch(global, since, before, watchState)
+		watchState = newState // Preserve state between cycles
 		if err != nil {
 			return err
 		}
@@ -686,8 +712,8 @@ func RunConvWatchMode(global bool, since, before string) error {
 			}
 		} else {
 			// Attach to existing session
-			state := findSessionForConv(result.Conv.SessionID)
-			if state == nil {
+			sessState := findSessionForConv(result.Conv.SessionID)
+			if sessState == nil {
 				fmt.Fprintf(os.Stderr, "Session not found, creating new...\n")
 				if err := createSessionForConv(result.Conv); err != nil {
 					fmt.Fprintf(os.Stderr, "Error creating session: %v\n", err)
@@ -695,12 +721,12 @@ func RunConvWatchMode(global bool, since, before string) error {
 				}
 			} else {
 				if result.ForceAttach {
-					fmt.Printf("Attaching to %s (detaching others)... (Ctrl+B D to detach)\n", state.ID)
+					fmt.Printf("Attaching to %s (detaching others)... (Ctrl+B D to detach)\n", sessState.ID)
 				} else {
-					fmt.Printf("Attaching to %s... (Ctrl+B D to detach)\n", state.ID)
+					fmt.Printf("Attaching to %s... (Ctrl+B D to detach)\n", sessState.ID)
 				}
 
-				if err := attachToTmuxSession(state.TmuxSession, result.ForceAttach); err != nil {
+				if err := attachToTmuxSession(sessState.TmuxSession, result.ForceAttach); err != nil {
 					// Session may have exited, continue to watch mode
 					continue
 				}
