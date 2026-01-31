@@ -610,9 +610,24 @@ func handleConversationConflict(srcPath, dstPath, filename string, params *SyncP
 	localLines := countLines(srcPath)
 	remoteLines := countLines(dstPath)
 
+	// Auto-resolve based on message count
+	// Conversations only grow (messages are appended), so:
+	// - More local messages = local was updated, remote wasn't
+	// - More remote messages = remote was updated, local wasn't
+	// - Same count but different content = true conflict (rare)
+	if localLines > remoteLines {
+		fmt.Printf("    Auto-resolved %s: local has more messages (%d > %d)\n", filename, localLines, remoteLines)
+		return conv.CopyFile(srcPath, dstPath)
+	}
+	if remoteLines > localLines {
+		fmt.Printf("    Auto-resolved %s: remote has more messages (%d > %d)\n", filename, remoteLines, localLines)
+		return nil // dst already has remote state
+	}
+
+	// Same message count but different content - ask user
 	fmt.Printf("\n    Conflict: %s\n", filename)
 	fmt.Printf("      Local:  %d messages\n", localLines)
-	fmt.Printf("      Remote: %d messages\n", remoteLines)
+	fmt.Printf("      Remote: %d messages (same count, different content)\n", remoteLines)
 	fmt.Printf("    Keep which version? [l]ocal / [r]emote / [s]kip: ")
 
 	reader := bufio.NewReader(os.Stdin)
