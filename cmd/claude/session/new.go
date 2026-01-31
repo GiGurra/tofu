@@ -12,17 +12,17 @@ import (
 )
 
 type NewParams struct {
-	Dir    string `pos:"true" optional:"true" help:"Directory to start session in (defaults to current directory)"`
-	Resume string `long:"resume" short:"r" optional:"true" help:"Resume an existing conversation by ID"`
-	Label  string `long:"label" short:"l" optional:"true" help:"Custom label for the session"`
-	Attach bool   `long:"attach" short:"a" help:"Attach to the session immediately after creation"`
+	Dir      string `pos:"true" optional:"true" help:"Directory to start session in (defaults to current directory)"`
+	Resume   string `long:"resume" short:"r" optional:"true" help:"Resume an existing conversation by ID"`
+	Label    string `long:"label" optional:"true" help:"Custom label for the session"`
+	Detached bool   `long:"detached" short:"d" help:"Start detached (don't attach to session)"`
 }
 
 func NewCmd() *cobra.Command {
 	return boa.CmdT[NewParams]{
 		Use:         "new [dir]",
 		Short:       "Start a new Claude Code session",
-		Long:        "Start a new Claude Code session in a detached tmux session.",
+		Long:        "Start a new Claude Code session in a tmux session. Attaches by default (Ctrl+B D to detach).",
 		ParamEnrich: common.DefaultParamEnricher(),
 		RunFunc: func(params *NewParams, cmd *cobra.Command, args []string) {
 			if err := runNew(params); err != nil {
@@ -116,13 +116,12 @@ func runNew(params *NewParams) error {
 
 	fmt.Printf("Created session %s\n", sessionID)
 	fmt.Printf("  Directory: %s\n", cwd)
-	fmt.Printf("  Tmux: %s\n", tmuxSession)
 
-	if params.Attach {
-		fmt.Println("\nAttaching... (Ctrl+B D to detach)")
-		return attachToSession(tmuxSession)
+	if params.Detached {
+		fmt.Printf("\nAttach with: tofu claude session attach %s\n", sessionID)
+		return nil
 	}
 
-	fmt.Printf("\nAttach with: tofu claude session attach %s\n", sessionID)
-	return nil
+	fmt.Println("\nAttaching... (Ctrl+B D to detach)")
+	return attachToSession(tmuxSession)
 }
