@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/GiGurra/boa/pkg/boa"
 	"github.com/gigurra/tofu/cmd/common"
@@ -136,6 +137,45 @@ func runInit(params *InitParams) error {
 		fmt.Printf("Run 'tofu claude git sync' to sync your conversations.\n")
 	}
 
+	// Create symlink for sync_config.json if it exists in sync dir
+	setupConfigSymlink(syncDir)
+
 	_ = cloneOutput // Suppress unused warning
 	return nil
+}
+
+// setupConfigSymlink creates a symlink from ~/.claude/sync_config.json to the sync dir
+func setupConfigSymlink(syncDir string) {
+	syncConfig := filepath.Join(syncDir, "sync_config.json")
+	if _, err := os.Stat(syncConfig); os.IsNotExist(err) {
+		return // No config in sync dir
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+
+	localConfig := filepath.Join(home, ".claude", "sync_config.json")
+
+	// Check if local config already exists
+	if info, err := os.Lstat(localConfig); err == nil {
+		// If it's already a symlink pointing to the right place, we're done
+		if info.Mode()&os.ModeSymlink != 0 {
+			target, _ := os.Readlink(localConfig)
+			if target == syncConfig {
+				return
+			}
+		}
+		// Remove existing file/symlink to replace it
+		os.Remove(localConfig)
+	}
+
+	// Create symlink
+	if err := os.Symlink(syncConfig, localConfig); err != nil {
+		fmt.Printf("Note: Could not create config symlink: %v\n", err)
+		return
+	}
+
+	fmt.Printf("Created symlink: %s -> %s\n", localConfig, syncConfig)
 }
