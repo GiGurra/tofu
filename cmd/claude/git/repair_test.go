@@ -960,6 +960,152 @@ func TestFixProjectPathInconsistencies_MultipleEntries(t *testing.T) {
 	}
 }
 
+func TestUpdateIndexFile_IncludesUnindexedSessions(t *testing.T) {
+	tempDir := t.TempDir()
+	projectDir := filepath.Join(tempDir, "-home-canonical-git-myproject")
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create sessions-index.json with ONE session
+	index := conv.SessionsIndex{
+		Version: 1,
+		Entries: []conv.SessionEntry{
+			{
+				SessionID:   "indexed-session",
+				ProjectPath: "/home/canonical/git/myproject",
+			},
+		},
+	}
+	indexData, _ := json.MarshalIndent(index, "", "  ")
+	indexPath := filepath.Join(projectDir, "sessions-index.json")
+	if err := os.WriteFile(indexPath, indexData, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create the indexed session file
+	if err := os.WriteFile(filepath.Join(projectDir, "indexed-session.jsonl"), []byte(`{"type":"user","message":{"role":"user","content":"indexed prompt"}}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create an UNINDEXED session file (valid UUID, not in index)
+	unindexedID := "12345678-1234-1234-1234-123456789abc"
+	unindexedContent := `{"type":"user","timestamp":"2026-01-01T10:00:00Z","message":{"role":"user","content":"unindexed prompt"}}`
+	if err := os.WriteFile(filepath.Join(projectDir, unindexedID+".jsonl"), []byte(unindexedContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run updateIndexFile - should pick up the unindexed session
+	config := testConfig()
+	modified, err := updateIndexFile(indexPath, config, "")
+	if err != nil {
+		t.Fatalf("updateIndexFile failed: %v", err)
+	}
+
+	if !modified {
+		t.Error("expected index to be modified (unindexed session added)")
+	}
+
+	// Load result and verify unindexed session was added
+	data, _ := os.ReadFile(indexPath)
+	var result conv.SessionsIndex
+	json.Unmarshal(data, &result)
+
+	if len(result.Entries) != 2 {
+		t.Errorf("expected 2 entries after including unindexed, got %d", len(result.Entries))
+	}
+
+	// Verify both sessions are present
+	foundIndexed := false
+	foundUnindexed := false
+	for _, entry := range result.Entries {
+		if entry.SessionID == "indexed-session" {
+			foundIndexed = true
+		}
+		if entry.SessionID == unindexedID {
+			foundUnindexed = true
+			// Verify the unindexed session has display data
+			if entry.FirstPrompt == "" {
+				t.Error("unindexed session should have FirstPrompt populated")
+			}
+		}
+	}
+
+	if !foundIndexed {
+		t.Error("indexed session should still be present")
+	}
+	if !foundUnindexed {
+		t.Error("unindexed session should be added to index")
+	}
+}
+
+func TestRepairDirectory_IncludesUnindexedSessions(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create a project directory
+	projectDir := filepath.Join(tempDir, "-home-canonical-git-myproject")
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create sessions-index.json with ONE session
+	index := conv.SessionsIndex{
+		Version: 1,
+		Entries: []conv.SessionEntry{
+			{
+				SessionID:   "indexed-session",
+				ProjectPath: "/home/canonical/git/myproject",
+			},
+		},
+	}
+	indexData, _ := json.MarshalIndent(index, "", "  ")
+	if err := os.WriteFile(filepath.Join(projectDir, "sessions-index.json"), indexData, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create the indexed session file
+	if err := os.WriteFile(filepath.Join(projectDir, "indexed-session.jsonl"), []byte(`{"type":"user","message":{"role":"user","content":"indexed"}}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create an UNINDEXED session file
+	unindexedID := "12345678-1234-1234-1234-123456789abc"
+	unindexedContent := `{"type":"user","timestamp":"2026-01-01T10:00:00Z","message":{"role":"user","content":"unindexed prompt"}}`
+	if err := os.WriteFile(filepath.Join(projectDir, unindexedID+".jsonl"), []byte(unindexedContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run repairDirectory - should include unindexed sessions
+	config := testConfig()
+	_, err := repairDirectory(tempDir, config, false, "")
+	if err != nil {
+		t.Fatalf("repairDirectory failed: %v", err)
+	}
+
+	// Load result and verify both sessions are present
+	indexPath := filepath.Join(projectDir, "sessions-index.json")
+	data, _ := os.ReadFile(indexPath)
+	var result conv.SessionsIndex
+	json.Unmarshal(data, &result)
+
+	if len(result.Entries) != 2 {
+		t.Errorf("expected 2 entries (indexed + unindexed), got %d", len(result.Entries))
+	}
+
+	// Verify the unindexed session was included
+	foundUnindexed := false
+	for _, entry := range result.Entries {
+		if entry.SessionID == unindexedID {
+			foundUnindexed = true
+			break
+		}
+	}
+
+	if !foundUnindexed {
+		t.Error("unindexed session should be included after repair")
+	}
+}
+
 func TestUpdateIndexFile_FiltersTombstonedSessions(t *testing.T) {
 	tempDir := t.TempDir()
 	cleanup := setTestHome(t, tempDir)

@@ -101,10 +101,27 @@ func GetClaudeProjectPath(realPath string) string {
 	return filepath.Join(ClaudeProjectsDir(), PathToProjectDir(realPath))
 }
 
+// DebugLog controls whether LoadSessionsIndex prints debug timing information
+var DebugLog = false
+
+// LoadSessionsIndexOptions configures LoadSessionsIndex behavior
+type LoadSessionsIndexOptions struct {
+	// SkipUnindexedScan skips scanning for unindexed .jsonl files (faster)
+	SkipUnindexedScan bool
+	// SkipMissingDataRescan skips re-scanning entries with missing display data (faster)
+	SkipMissingDataRescan bool
+}
+
 // LoadSessionsIndex loads the sessions index from a Claude project directory
 // It also scans for unindexed .jsonl files and merges them, deduplicating by sessionId
 // Additionally, it re-scans entries with missing display data (no prompt, summary, or title)
 func LoadSessionsIndex(projectPath string) (*SessionsIndex, error) {
+	return LoadSessionsIndexWithOptions(projectPath, LoadSessionsIndexOptions{})
+}
+
+// LoadSessionsIndexWithOptions loads the sessions index with configurable behavior
+func LoadSessionsIndexWithOptions(projectPath string, opts LoadSessionsIndexOptions) (*SessionsIndex, error) {
+	start := time.Now()
 	indexPath := filepath.Join(projectPath, "sessions-index.json")
 	data, err := os.ReadFile(indexPath)
 
@@ -120,42 +137,64 @@ func LoadSessionsIndex(projectPath string) (*SessionsIndex, error) {
 			return nil, fmt.Errorf("failed to parse sessions index: %w", err)
 		}
 	}
+	readDur := time.Since(start)
 
 	// Re-scan entries with missing display data
-	for i := range index.Entries {
-		if index.Entries[i].DisplayTitle() == "" {
-			// Try to get data from the file
-			filePath := filepath.Join(projectPath, index.Entries[i].SessionID+".jsonl")
-			if scanned := parseJSONLSession(filePath, index.Entries[i].SessionID); scanned != nil {
-				// Update missing fields from scanned data
-				if scanned.Summary != "" && index.Entries[i].Summary == "" {
-					index.Entries[i].Summary = scanned.Summary
-				}
-				if scanned.FirstPrompt != "" && index.Entries[i].FirstPrompt == "" {
-					index.Entries[i].FirstPrompt = scanned.FirstPrompt
-				}
-				if scanned.ProjectPath != "" && index.Entries[i].ProjectPath == "" {
-					index.Entries[i].ProjectPath = scanned.ProjectPath
-				}
-				if scanned.GitBranch != "" && index.Entries[i].GitBranch == "" {
-					index.Entries[i].GitBranch = scanned.GitBranch
+	rescanStart := time.Now()
+	rescanCount := 0
+	if !opts.SkipMissingDataRescan {
+		for i := range index.Entries {
+			if index.Entries[i].DisplayTitle() == "" {
+				rescanCount++
+				// Try to get data from the file
+				filePath := filepath.Join(projectPath, index.Entries[i].SessionID+".jsonl")
+				if scanned := parseJSONLSession(filePath, index.Entries[i].SessionID); scanned != nil {
+					// Update missing fields from scanned data
+					if scanned.Summary != "" && index.Entries[i].Summary == "" {
+						index.Entries[i].Summary = scanned.Summary
+					}
+					if scanned.FirstPrompt != "" && index.Entries[i].FirstPrompt == "" {
+						index.Entries[i].FirstPrompt = scanned.FirstPrompt
+					}
+					if scanned.ProjectPath != "" && index.Entries[i].ProjectPath == "" {
+						index.Entries[i].ProjectPath = scanned.ProjectPath
+					}
+					if scanned.GitBranch != "" && index.Entries[i].GitBranch == "" {
+						index.Entries[i].GitBranch = scanned.GitBranch
+					}
 				}
 			}
 		}
 	}
+	rescanDur := time.Since(rescanStart)
 
 	// Scan for unindexed .jsonl files and merge them
-	unindexed := scanUnindexedSessions(projectPath)
-	if len(unindexed) > 0 {
-		index.Entries = mergeSessionEntries(index.Entries, unindexed)
+	scanStart := time.Now()
+	var unindexed []SessionEntry
+	if !opts.SkipUnindexedScan {
+		// Build set of already indexed session IDs to avoid redundant parsing
+		indexedIDs := make(map[string]bool)
+		for _, e := range index.Entries {
+			indexedIDs[e.SessionID] = true
+		}
+		unindexed = scanUnindexedSessionsExcluding(projectPath, indexedIDs)
+		if len(unindexed) > 0 {
+			index.Entries = append(index.Entries, unindexed...)
+		}
+	}
+	scanDur := time.Since(scanStart)
+
+	if DebugLog {
+		fmt.Fprintf(os.Stderr, "[DEBUG] LoadSessionsIndex %s: read=%v rescan=%d/%d(%v) unindexed=%d(%v)\n",
+			filepath.Base(projectPath), readDur, rescanCount, len(index.Entries), rescanDur, len(unindexed), scanDur)
 	}
 
 	return &index, nil
 }
 
-// scanUnindexedSessions scans for .jsonl files directly in the project directory
-// These are conversations that haven't been indexed yet by Claude Code
-func scanUnindexedSessions(projectPath string) []SessionEntry {
+// scanUnindexedSessionsExcluding scans for .jsonl files, skipping those in the exclude set
+// This avoids expensive parsing of already-indexed sessions
+func scanUnindexedSessionsExcluding(projectPath string, exclude map[string]bool) []SessionEntry {
 	var entries []SessionEntry
 
 	files, err := os.ReadDir(projectPath)
@@ -174,6 +213,11 @@ func scanUnindexedSessions(projectPath string) []SessionEntry {
 		// Extract session ID from filename (e.g., "0789725a-bc71-47dd-9ca5-1b4fe7aead9b.jsonl")
 		sessionID := strings.TrimSuffix(file.Name(), ".jsonl")
 		if len(sessionID) != 36 { // UUID length
+			continue
+		}
+
+		// Skip if already indexed
+		if exclude != nil && exclude[sessionID] {
 			continue
 		}
 
@@ -202,7 +246,8 @@ type jsonlMessage struct {
 }
 
 // parseJSONLSession parses a .jsonl file and extracts session metadata
-// Only reads the first few lines to find the first user message for the prompt
+// Stops early once it finds display data (firstPrompt or summary)
+// to avoid reading entire large conversation files into memory
 func parseJSONLSession(filePath, sessionID string) *SessionEntry {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -225,10 +270,8 @@ func parseJSONLSession(filePath, sessionID string) *SessionEntry {
 
 	var firstTimestamp string
 
-	// Scan the entire file looking for:
-	// 1. Summary messages (keep the last one as it's most up-to-date)
-	// 2. First user message with actual text content
-	// Stop early once we have both a summary/title AND a firstPrompt
+	// Scan file looking for display data (firstPrompt or summary)
+	// Stop as soon as we have something to show - don't read the whole file
 	for scanner.Scan() {
 		line := scanner.Text()
 		if line == "" {
@@ -245,22 +288,10 @@ func parseJSONLSession(filePath, sessionID string) *SessionEntry {
 			firstTimestamp = msg.Timestamp
 		}
 
-		// Capture summaries (keep the last one as it's most up-to-date)
+		// Capture summaries if we see one (and stop - we have display data)
 		if msg.Type == "summary" && msg.Summary != "" {
 			entry.Summary = msg.Summary
-			// If we already have a firstPrompt, we're done
-			if entry.FirstPrompt != "" {
-				break
-			}
-			continue
-		}
-
-		// Get project path and git branch from first message with cwd
-		if entry.ProjectPath == "" && msg.Cwd != "" {
-			entry.ProjectPath = msg.Cwd
-		}
-		if entry.GitBranch == "" && msg.GitBranch != "" {
-			entry.GitBranch = msg.GitBranch
+			break
 		}
 
 		// Capture first user message with actual text content as the prompt
@@ -273,10 +304,7 @@ func parseJSONLSession(filePath, sessionID string) *SessionEntry {
 				if msg.Timestamp != "" {
 					firstTimestamp = msg.Timestamp
 				}
-				// If we already have a summary, we're done
-				if entry.Summary != "" {
-					break
-				}
+				break // We have display data, stop reading
 			}
 		}
 	}
@@ -311,25 +339,6 @@ func extractMessageContent(content any) string {
 		}
 	}
 	return ""
-}
-
-// mergeSessionEntries merges indexed and unindexed entries, deduplicating by sessionId
-func mergeSessionEntries(indexed, unindexed []SessionEntry) []SessionEntry {
-	// Build a set of indexed session IDs
-	indexedIDs := make(map[string]bool)
-	for _, e := range indexed {
-		indexedIDs[e.SessionID] = true
-	}
-
-	// Add unindexed entries that aren't already in the index
-	result := indexed
-	for _, e := range unindexed {
-		if !indexedIDs[e.SessionID] {
-			result = append(result, e)
-		}
-	}
-
-	return result
 }
 
 // SaveSessionsIndex saves the sessions index to a Claude project directory

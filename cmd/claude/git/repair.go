@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/GiGurra/boa/pkg/boa"
 	"github.com/gigurra/tofu/cmd/claude/conv"
@@ -16,6 +17,7 @@ import (
 
 type RepairParams struct {
 	DryRun bool `long:"dry-run" help:"Show what would be repaired without making changes"`
+	Debug  bool `long:"debug" help:"Print debug timing information"`
 }
 
 func RepairCmd() *cobra.Command {
@@ -44,6 +46,10 @@ This command:
 }
 
 func runRepair(params *RepairParams) error {
+	if params.Debug {
+		conv.DebugLog = true
+	}
+
 	syncDir := SyncDir()
 	projectsDir := ProjectsDir()
 
@@ -66,18 +72,26 @@ func runRepair(params *RepairParams) error {
 
 	// Repair local projects directory (localize paths to this machine)
 	fmt.Printf("=== Repairing local projects (%s) ===\n\n", projectsDir)
+	step1Start := time.Now()
 	localCount, err := repairDirectory(projectsDir, config, params.DryRun, localHome)
 	if err != nil {
 		fmt.Printf("Warning: local repair failed: %v\n", err)
+	}
+	if params.Debug {
+		fmt.Printf("[DEBUG] Local repair took %v\n", time.Since(step1Start))
 	}
 
 	// Repair sync directory (canonicalize paths)
 	syncCount := 0
 	if IsInitialized() {
 		fmt.Printf("\n=== Repairing sync directory (%s) ===\n\n", syncDir)
+		step2Start := time.Now()
 		syncCount, err = repairDirectory(syncDir, config, params.DryRun, "")
 		if err != nil {
 			fmt.Printf("Warning: sync repair failed: %v\n", err)
+		}
+		if params.Debug {
+			fmt.Printf("[DEBUG] Sync repair took %v\n", time.Since(step2Start))
 		}
 	}
 
@@ -85,16 +99,24 @@ func runRepair(params *RepairParams) error {
 
 	// Step 3: Fix projectPath inconsistencies (sessions stored in wrong project dir)
 	fmt.Printf("\n=== Fixing projectPath inconsistencies ===\n\n")
+	step3Start := time.Now()
 	localFixed, err := fixProjectPathInconsistencies(projectsDir, config, params.DryRun, localHome)
 	if err != nil {
 		fmt.Printf("Warning: projectPath fix failed for local: %v\n", err)
 	}
+	if params.Debug {
+		fmt.Printf("[DEBUG] Local projectPath fix took %v\n", time.Since(step3Start))
+	}
 
 	syncFixed := 0
 	if IsInitialized() {
+		step4Start := time.Now()
 		syncFixed, err = fixProjectPathInconsistencies(syncDir, config, params.DryRun, "")
 		if err != nil {
 			fmt.Printf("Warning: projectPath fix failed for sync: %v\n", err)
+		}
+		if params.Debug {
+			fmt.Printf("[DEBUG] Sync projectPath fix took %v\n", time.Since(step4Start))
 		}
 	}
 
@@ -481,8 +503,11 @@ func fixProjectPathInconsistencies(dir string, config *SyncConfig, dryRun bool, 
 func fixProjectPathInIndex(indexPath, projectDirName string, config *SyncConfig, dryRun bool, localHome string) (int, error) {
 	projectDir := filepath.Dir(indexPath)
 
-	// Load index using conv package
-	index, err := conv.LoadSessionsIndex(projectDir)
+	// Load index using conv package - skip unindexed scanning since updateIndexFile already ran
+	index, err := conv.LoadSessionsIndexWithOptions(projectDir, conv.LoadSessionsIndexOptions{
+		SkipUnindexedScan:     true,
+		SkipMissingDataRescan: true,
+	})
 	if err != nil {
 		return 0, err
 	}
