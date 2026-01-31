@@ -692,3 +692,270 @@ func TestRepairDirectory_MergeEquivalentDirs(t *testing.T) {
 		t.Error("session2.jsonl should exist in merged dir")
 	}
 }
+
+func TestFixProjectPathInconsistencies_WrongPath(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create a project dir "-home-canonical-git-forge" but with a session that has
+	// projectPath "/home/canonical/git" (missing /forge suffix) - this is the bug we're fixing
+	projectDir := filepath.Join(tempDir, "-home-canonical-git-forge")
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Session with WRONG projectPath (doesn't include /forge)
+	index := conv.SessionsIndex{
+		Entries: []conv.SessionEntry{
+			{
+				SessionID:   "abc123",
+				ProjectPath: "/home/canonical/git", // Wrong! Should be /home/canonical/git/forge
+				FullPath:    "/home/canonical/.claude/projects/-home-canonical-git-forge/abc123.jsonl",
+			},
+		},
+	}
+	indexData, _ := json.MarshalIndent(index, "", "  ")
+	indexPath := filepath.Join(projectDir, "sessions-index.json")
+	if err := os.WriteFile(indexPath, indexData, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create dummy session file
+	if err := os.WriteFile(filepath.Join(projectDir, "abc123.jsonl"), []byte(`{}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Fix inconsistencies (canonicalize mode - empty localHome)
+	fixed, err := fixProjectPathInconsistencies(tempDir, testConfig(), false, "")
+	if err != nil {
+		t.Fatalf("fixProjectPathInconsistencies failed: %v", err)
+	}
+
+	if fixed != 1 {
+		t.Errorf("expected 1 entry fixed, got %d", fixed)
+	}
+
+	// Read and verify
+	data, err := os.ReadFile(indexPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var result conv.SessionsIndex
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatal(err)
+	}
+
+	// Should be corrected to match the directory
+	if result.Entries[0].ProjectPath != "/home/canonical/git/forge" {
+		t.Errorf("ProjectPath not corrected: got %q, want %q",
+			result.Entries[0].ProjectPath, "/home/canonical/git/forge")
+	}
+}
+
+func TestFixProjectPathInconsistencies_CorrectPath(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create a project dir with correct projectPath - should not be modified
+	projectDir := filepath.Join(tempDir, "-home-canonical-git-myproject")
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Session with CORRECT projectPath
+	index := conv.SessionsIndex{
+		Entries: []conv.SessionEntry{
+			{
+				SessionID:   "abc123",
+				ProjectPath: "/home/canonical/git/myproject", // Correct!
+				FullPath:    "/home/canonical/.claude/projects/-home-canonical-git-myproject/abc123.jsonl",
+			},
+		},
+	}
+	indexData, _ := json.MarshalIndent(index, "", "  ")
+	indexPath := filepath.Join(projectDir, "sessions-index.json")
+	if err := os.WriteFile(indexPath, indexData, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create dummy session file
+	if err := os.WriteFile(filepath.Join(projectDir, "abc123.jsonl"), []byte(`{}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Fix inconsistencies
+	fixed, err := fixProjectPathInconsistencies(tempDir, testConfig(), false, "")
+	if err != nil {
+		t.Fatalf("fixProjectPathInconsistencies failed: %v", err)
+	}
+
+	if fixed != 0 {
+		t.Errorf("expected 0 entries fixed (already correct), got %d", fixed)
+	}
+}
+
+func TestFixProjectPathInconsistencies_LocalizesAfterFix(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create a project dir with local naming but wrong projectPath
+	projectDir := filepath.Join(tempDir, "-home-local-projects-forge")
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Session with wrong projectPath (missing /forge)
+	index := conv.SessionsIndex{
+		Entries: []conv.SessionEntry{
+			{
+				SessionID:   "abc123",
+				ProjectPath: "/home/local/projects", // Wrong! Should be /home/local/projects/forge
+			},
+		},
+	}
+	indexData, _ := json.MarshalIndent(index, "", "  ")
+	indexPath := filepath.Join(projectDir, "sessions-index.json")
+	if err := os.WriteFile(indexPath, indexData, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create dummy session file
+	if err := os.WriteFile(filepath.Join(projectDir, "abc123.jsonl"), []byte(`{}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Fix with localHome (localize mode)
+	fixed, err := fixProjectPathInconsistencies(tempDir, testConfig(), false, testLocalHome)
+	if err != nil {
+		t.Fatalf("fixProjectPathInconsistencies failed: %v", err)
+	}
+
+	if fixed != 1 {
+		t.Errorf("expected 1 entry fixed, got %d", fixed)
+	}
+
+	// Read and verify
+	data, err := os.ReadFile(indexPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var result conv.SessionsIndex
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatal(err)
+	}
+
+	// Should be corrected to match the directory AND localized
+	if result.Entries[0].ProjectPath != "/home/local/projects/forge" {
+		t.Errorf("ProjectPath not corrected/localized: got %q, want %q",
+			result.Entries[0].ProjectPath, "/home/local/projects/forge")
+	}
+}
+
+func TestFixProjectPathInconsistencies_DryRun(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create a project dir with wrong projectPath
+	projectDir := filepath.Join(tempDir, "-home-canonical-git-forge")
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	index := conv.SessionsIndex{
+		Entries: []conv.SessionEntry{
+			{
+				SessionID:   "abc123",
+				ProjectPath: "/home/canonical/git", // Wrong!
+			},
+		},
+	}
+	indexData, _ := json.MarshalIndent(index, "", "  ")
+	indexPath := filepath.Join(projectDir, "sessions-index.json")
+	if err := os.WriteFile(indexPath, indexData, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(projectDir, "abc123.jsonl"), []byte(`{}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Dry run
+	fixed, err := fixProjectPathInconsistencies(tempDir, testConfig(), true, "")
+	if err != nil {
+		t.Fatalf("fixProjectPathInconsistencies dry-run failed: %v", err)
+	}
+
+	if fixed != 1 {
+		t.Errorf("expected 1 entry reported, got %d", fixed)
+	}
+
+	// Read and verify - should NOT be modified
+	data, err := os.ReadFile(indexPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var result conv.SessionsIndex
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatal(err)
+	}
+
+	// Should still have the wrong path (dry run didn't change it)
+	if result.Entries[0].ProjectPath != "/home/canonical/git" {
+		t.Errorf("ProjectPath was modified in dry-run: got %q, want %q",
+			result.Entries[0].ProjectPath, "/home/canonical/git")
+	}
+}
+
+func TestFixProjectPathInconsistencies_MultipleEntries(t *testing.T) {
+	tempDir := t.TempDir()
+
+	projectDir := filepath.Join(tempDir, "-home-canonical-git-forge")
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// One wrong, one correct
+	index := conv.SessionsIndex{
+		Entries: []conv.SessionEntry{
+			{
+				SessionID:   "wrong123",
+				ProjectPath: "/home/canonical/git", // Wrong!
+			},
+			{
+				SessionID:   "correct456",
+				ProjectPath: "/home/canonical/git/forge", // Correct
+			},
+		},
+	}
+	indexData, _ := json.MarshalIndent(index, "", "  ")
+	indexPath := filepath.Join(projectDir, "sessions-index.json")
+	if err := os.WriteFile(indexPath, indexData, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(projectDir, "wrong123.jsonl"), []byte(`{}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(projectDir, "correct456.jsonl"), []byte(`{}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	fixed, err := fixProjectPathInconsistencies(tempDir, testConfig(), false, "")
+	if err != nil {
+		t.Fatalf("fixProjectPathInconsistencies failed: %v", err)
+	}
+
+	if fixed != 1 {
+		t.Errorf("expected 1 entry fixed (only wrong one), got %d", fixed)
+	}
+
+	// Verify both are now correct
+	data, _ := os.ReadFile(indexPath)
+	var result conv.SessionsIndex
+	json.Unmarshal(data, &result)
+
+	for _, entry := range result.Entries {
+		if entry.ProjectPath != "/home/canonical/git/forge" {
+			t.Errorf("entry %s has wrong path: %q", entry.SessionID, entry.ProjectPath)
+		}
+	}
+}

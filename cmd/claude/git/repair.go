@@ -81,12 +81,39 @@ func runRepair(params *RepairParams) error {
 	}
 
 	totalCount := localCount + syncCount
-	if totalCount == 0 {
+
+	// Step 3: Fix projectPath inconsistencies (sessions stored in wrong project dir)
+	fmt.Printf("\n=== Fixing projectPath inconsistencies ===\n\n")
+	localFixed, err := fixProjectPathInconsistencies(projectsDir, config, params.DryRun, localHome)
+	if err != nil {
+		fmt.Printf("Warning: projectPath fix failed for local: %v\n", err)
+	}
+
+	syncFixed := 0
+	if IsInitialized() {
+		syncFixed, err = fixProjectPathInconsistencies(syncDir, config, params.DryRun, "")
+		if err != nil {
+			fmt.Printf("Warning: projectPath fix failed for sync: %v\n", err)
+		}
+	}
+
+	totalFixed := localFixed + syncFixed
+	if totalFixed > 0 {
+		if params.DryRun {
+			fmt.Printf("Would fix projectPath in %d session entries.\n", totalFixed)
+		} else {
+			fmt.Printf("Fixed projectPath in %d session entries.\n", totalFixed)
+		}
+	} else {
+		fmt.Printf("No projectPath inconsistencies found.\n")
+	}
+
+	if totalCount == 0 && totalFixed == 0 {
 		fmt.Printf("\nNo projects need repair.\n")
 	} else if params.DryRun {
-		fmt.Printf("\nWould repair %d project groups total. Run without --dry-run to apply.\n", totalCount)
+		fmt.Printf("\nWould repair %d project groups and fix %d paths. Run without --dry-run to apply.\n", totalCount, totalFixed)
 	} else {
-		fmt.Printf("\nRepaired %d project groups total.\n", totalCount)
+		fmt.Printf("\nRepaired %d project groups, fixed %d paths.\n", totalCount, totalFixed)
 		if IsInitialized() {
 			fmt.Printf("Run 'tofu claude git sync' to commit and push the repairs.\n")
 		}
@@ -398,4 +425,100 @@ func mergeSessionsIndexFiles(srcPath, dstPath string) error {
 	srcDir := filepath.Dir(srcPath)
 	dstDir := filepath.Dir(dstPath)
 	return mergeSessionsIndex(srcDir, dstDir)
+}
+
+// fixProjectPathInconsistencies scans all sessions-index.json files and fixes entries
+// where the projectPath doesn't match the project directory where the file is stored.
+// This can happen when conversations are moved or synced incorrectly.
+// Returns the number of entries fixed.
+func fixProjectPathInconsistencies(dir string, config *SyncConfig, dryRun bool, localHome string) (int, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil
+		}
+		return 0, err
+	}
+
+	totalFixed := 0
+	for _, entry := range entries {
+		if !entry.IsDir() || entry.Name() == ".git" {
+			continue
+		}
+
+		projectDirPath := filepath.Join(dir, entry.Name())
+		indexPath := filepath.Join(projectDirPath, "sessions-index.json")
+
+		fixed, err := fixProjectPathInIndex(indexPath, entry.Name(), config, dryRun, localHome)
+		if err != nil {
+			// Just warn, don't fail the whole operation
+			continue
+		}
+		totalFixed += fixed
+	}
+
+	return totalFixed, nil
+}
+
+// fixProjectPathInIndex fixes projectPath inconsistencies in a single sessions-index.json
+// projectDirName is the name of the project directory (e.g., "-home-gigur-git-forge")
+func fixProjectPathInIndex(indexPath, projectDirName string, config *SyncConfig, dryRun bool, localHome string) (int, error) {
+	projectDir := filepath.Dir(indexPath)
+
+	// Load index using conv package
+	index, err := conv.LoadSessionsIndex(projectDir)
+	if err != nil {
+		return 0, err
+	}
+
+	// The expected project path derived from the directory name
+	// e.g., "-home-gigur-git-forge" -> "/home/gigur/git/forge"
+	expectedProjectPath := ProjectDirToPath(projectDirName)
+	expectedCanonical := config.CanonicalizeProjectDir(projectDirName)
+
+	fixed := 0
+	for i := range index.Entries {
+		origPath := index.Entries[i].ProjectPath
+		if origPath == "" {
+			continue
+		}
+
+		// Check if the projectPath's canonical form matches the directory's canonical form
+		entryProjectDir := PathToProjectDir(origPath)
+		entryCanonical := config.CanonicalizeProjectDir(entryProjectDir)
+
+		if entryCanonical != expectedCanonical {
+			// The projectPath is wrong - it doesn't match the directory where the file lives
+			fixed++
+			if dryRun {
+				sessionIDPrefix := index.Entries[i].SessionID
+				if len(sessionIDPrefix) > 8 {
+					sessionIDPrefix = sessionIDPrefix[:8]
+				}
+				fmt.Printf("  Would fix: %s\n", sessionIDPrefix)
+				fmt.Printf("    projectPath: %s -> %s\n", origPath, expectedProjectPath)
+			} else {
+				// Apply the correct path (localized or canonical as appropriate)
+				if localHome != "" {
+					index.Entries[i].ProjectPath = config.LocalizePath(expectedProjectPath, localHome)
+				} else {
+					index.Entries[i].ProjectPath = canonicalizePath(expectedProjectPath, config)
+				}
+			}
+		}
+	}
+
+	if fixed > 0 && !dryRun {
+		// Write the updated index
+		newData, err := json.MarshalIndent(index, "", "  ")
+		if err != nil {
+			return fixed, err
+		}
+		if err := os.WriteFile(indexPath, newData, 0644); err != nil {
+			return fixed, err
+		}
+		fmt.Printf("  Fixed %d entries in %s\n", fixed, projectDirName)
+	}
+
+	return fixed, nil
 }
