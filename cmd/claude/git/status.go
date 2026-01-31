@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/GiGurra/boa/pkg/boa"
 	"github.com/gigurra/tofu/cmd/common"
@@ -29,6 +30,7 @@ func StatusCmd() *cobra.Command {
 
 func runStatus(_ *StatusParams) error {
 	syncDir := SyncDir()
+	projectsDir := ProjectsDir()
 
 	if !IsInitialized() {
 		fmt.Printf("Git sync not initialized.\n")
@@ -47,19 +49,55 @@ func runStatus(_ *StatusParams) error {
 
 	fmt.Println()
 
-	// Show git status
+	// Copy local changes to sync dir so we can see pending changes
+	if err := copyProjectsToSync(projectsDir, syncDir, false); err != nil {
+		return fmt.Errorf("failed to copy local changes: %w", err)
+	}
+
+	// Show pending changes
 	statusCmd := exec.Command("git", "status", "--short")
 	statusCmd.Dir = syncDir
-	statusCmd.Stdout = os.Stdout
-	statusCmd.Stderr = os.Stderr
-	statusCmd.Run()
+	output, err := statusCmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to get git status: %w", err)
+	}
+
+	if len(output) == 0 {
+		fmt.Printf("No pending changes to sync.\n")
+	} else {
+		// Parse and summarize the changes
+		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+		conversations := []string{}
+		for _, line := range lines {
+			if strings.HasSuffix(line, ".jsonl") {
+				// Extract conversation path
+				parts := strings.Fields(line)
+				if len(parts) >= 2 {
+					conversations = append(conversations, parts[len(parts)-1])
+				}
+			}
+		}
+
+		if len(conversations) > 0 {
+			fmt.Printf("Conversations with new messages (%d):\n", len(conversations))
+			for _, c := range conversations {
+				fmt.Printf("  %s\n", c)
+			}
+		}
+
+		// Show full status
+		otherChanges := len(lines) - len(conversations)
+		if otherChanges > 0 {
+			fmt.Printf("\nOther changes: %d files\n", otherChanges)
+		}
+	}
 
 	// Show last sync time (last commit)
 	logCmd := exec.Command("git", "log", "-1", "--format=%cr (%ci)", "--date=local")
 	logCmd.Dir = syncDir
-	output, err := logCmd.Output()
-	if err == nil && len(output) > 0 {
-		fmt.Printf("\nLast sync: %s", output)
+	logOutput, err := logCmd.Output()
+	if err == nil && len(logOutput) > 0 {
+		fmt.Printf("\nLast sync: %s", logOutput)
 	}
 
 	return nil
