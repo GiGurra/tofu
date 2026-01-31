@@ -11,6 +11,28 @@ Cross-platform CLI tools written in Go. Over 50 Unix-like commands that work con
 go install github.com/gigurra/tofu@latest
 ```
 
+---
+
+## Featured: Claude Code Integration
+
+![Claude Demo](claude/demo.gif)
+
+Powerful session and conversation management for Claude Code:
+
+- **Session Management** - Run Claude in tmux sessions with status tracking
+- **Interactive Watch Modes** - Browse with search, filtering, and sorting
+- **Session Indicators** - See which conversations have active sessions
+
+```bash
+tofu claude session new          # Start Claude in tmux
+tofu claude session ls -w        # Interactive session browser
+tofu claude conv ls -w           # Interactive conversation browser
+```
+
+**[Full Claude documentation →](claude/index.md)**
+
+---
+
 ## Commands Overview
 
 ### File Operations
@@ -129,7 +151,7 @@ go install github.com/gigurra/tofu@latest
 | [k8s](commands/k8s.md) | Kubernetes utilities |
 | [gh](commands/gh.md) | GitHub utilities |
 | [git](commands/git.md) | Git utilities |
-| [claude](commands/claude.md) | Claude AI integration |
+| [claude](claude/index.md) | Claude Code session & conversation management |
 
 ## Features
 

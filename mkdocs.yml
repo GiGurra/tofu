@@ -37,6 +37,10 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Installation: installation.md
+  - Claude Code:
+    - Overview: claude/index.md
+    - Session Management: claude/sessions.md
+    - Conversation Management: claude/conversations.md
   - File Operations:
     - cat: commands/cat.md
     - find: commands/find.md
@@ -119,4 +123,3 @@ nav:
     - k8s: commands/k8s.md
     - gh: commands/gh.md
     - git: commands/git.md
-    - claude: commands/claude.md

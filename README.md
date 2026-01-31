@@ -26,6 +26,35 @@ For the LOW LOW PRICE of **absolutely nothing**, you get not one, not two, but *
 
 ---
 
+## 🤖 Featured: Claude Code Session Management
+
+**Manage your Claude Code sessions like a pro!**
+
+![Claude Session Demo](docs/claude/demo.gif)
+
+- **Interactive watch modes** - Browse sessions and conversations with search, filtering, and sorting
+- **Tmux integration** - Run Claude in persistent sessions, attach/detach anytime
+- **Status tracking** - See when Claude is working, idle, or waiting for input
+- **Session indicators** - Know which conversations have active sessions (⚡/○)
+
+```bash
+# Start Claude in a tmux session
+tofu claude session new
+
+# Interactive session browser (with search!)
+tofu claude session ls -w
+
+# Interactive conversation browser
+tofu claude conv ls -w
+
+# Global search across all projects
+tofu claude conv ls -g -w
+```
+
+**[Full Claude documentation →](docs/claude/README.md)**
+
+---
+
 ### But wait - there's MORE!
 
 You get `cat`! You get `grep`! You get `find`! You get `ls`!
