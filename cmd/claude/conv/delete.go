@@ -9,6 +9,7 @@ import (
 
 	"github.com/GiGurra/boa/pkg/boa"
 	clcommon "github.com/gigurra/tofu/cmd/claude/common"
+	"github.com/gigurra/tofu/cmd/claude/syncutil"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
 )
@@ -152,6 +153,40 @@ func RunDelete(params *DeleteParams, stdout, stderr *os.File, stdin *os.File) in
 		return 1
 	}
 
+	// Add tombstone if sync is initialized
+	if syncutil.IsInitialized() {
+		if err := AddTombstoneForProject(projectPath, fullID); err != nil {
+			fmt.Fprintf(stderr, "Warning: failed to add tombstone: %v\n", err)
+			// Don't fail the deletion - tombstone is best-effort
+		}
+	}
+
 	fmt.Fprintf(stdout, "Deleted conversation %s\n", fullID[:8])
 	return 0
+}
+
+// AddTombstoneForProject adds a tombstone for a deleted session
+// projectPath is the local project dir (e.g., ~/.claude/projects/-Users-johkjo-git-tofu)
+func AddTombstoneForProject(projectPath, sessionID string) error {
+	// Get the local project dir name (last component of path)
+	localDirName := filepath.Base(projectPath)
+
+	// Load config for path canonicalization
+	config, err := syncutil.LoadConfig()
+	if err != nil {
+		return err
+	}
+
+	// Canonicalize the project dir name for sync
+	canonicalDirName := config.CanonicalizeProjectDir(localDirName)
+
+	// Add tombstone to the sync project dir
+	syncProjectDir := filepath.Join(syncutil.SyncDir(), canonicalDirName)
+
+	// Ensure sync project dir exists
+	if err := os.MkdirAll(syncProjectDir, 0755); err != nil {
+		return err
+	}
+
+	return syncutil.AddTombstone(syncProjectDir, sessionID)
 }

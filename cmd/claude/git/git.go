@@ -1,10 +1,8 @@
 package git
 
 import (
-	"os"
-	"path/filepath"
-
 	"github.com/GiGurra/boa/pkg/boa"
+	"github.com/gigurra/tofu/cmd/claude/syncutil"
 	"github.com/spf13/cobra"
 )
 
@@ -32,25 +30,15 @@ Usage:
 
 // SyncDir returns the path to the sync directory (~/.claude/projects_sync)
 func SyncDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(home, ".claude", "projects_sync")
+	return syncutil.SyncDir()
 }
 
 // ProjectsDir returns the path to the actual projects directory (~/.claude/projects)
 func ProjectsDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(home, ".claude", "projects")
+	return syncutil.ProjectsDir()
 }
 
 // IsInitialized checks if the sync directory is a git repository
 func IsInitialized() bool {
-	gitDir := filepath.Join(SyncDir(), ".git")
-	info, err := os.Stat(gitDir)
-	return err == nil && info.IsDir()
+	return syncutil.IsInitialized()
 }

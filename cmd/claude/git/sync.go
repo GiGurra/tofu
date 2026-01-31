@@ -12,6 +12,7 @@ import (
 
 	"github.com/GiGurra/boa/pkg/boa"
 	"github.com/gigurra/tofu/cmd/claude/conv"
+	"github.com/gigurra/tofu/cmd/claude/syncutil"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
 )
@@ -76,6 +77,11 @@ func runSync(params *SyncParams) error {
 	fmt.Printf("\nStep 2: Merging local conversations...\n")
 	if err := mergeLocalToSync(projectsDir, syncDir, params); err != nil {
 		return fmt.Errorf("failed to merge local changes: %w", err)
+	}
+
+	// Clean up old tombstones (>30 days)
+	if !params.DryRun {
+		cleanupOldTombstonesInSync(syncDir)
 	}
 
 	// Step 3: Commit changes
@@ -256,6 +262,7 @@ func copyProjectsToSync(projectsDir, syncDir string, dryRun bool) error {
 // copySyncToProjects copies merged results back to projects directory
 // Uses sync_config.json to map canonical paths to local equivalents
 // Also localizes paths inside sessions-index.json to use local machine paths
+// Deletes local files for tombstoned sessions
 func copySyncToProjects(syncDir, projectsDir string) error {
 	// Load config for path mapping
 	config, err := LoadConfig()
@@ -293,6 +300,15 @@ func copySyncToProjects(syncDir, projectsDir string) error {
 		localName := findLocalEquivalent(entry.Name(), localDirs, config)
 		dstProject := filepath.Join(projectsDir, localName)
 
+		// Load tombstones for this project
+		tombstones, _ := syncutil.LoadTombstones(srcProject)
+		tombstonedIDs := tombstones.TombstonedSessionIDs()
+
+		// Delete local files for tombstoned sessions
+		if len(tombstonedIDs) > 0 {
+			deleteTombstonedFiles(dstProject, tombstonedIDs)
+		}
+
 		// Create project directory
 		if err := os.MkdirAll(dstProject, 0755); err != nil {
 			return err
@@ -307,6 +323,11 @@ func copySyncToProjects(syncDir, projectsDir string) error {
 		for _, f := range files {
 			srcPath := filepath.Join(srcProject, f.Name())
 			dstPath := filepath.Join(dstProject, f.Name())
+
+			// Skip tombstoned session files/dirs
+			if isTombstonedFile(f.Name(), tombstonedIDs) {
+				continue
+			}
 
 			if f.IsDir() {
 				if err := conv.CopyDir(srcPath, dstPath); err != nil {
@@ -326,6 +347,36 @@ func copySyncToProjects(syncDir, projectsDir string) error {
 	}
 
 	return nil
+}
+
+// deleteTombstonedFiles deletes local files for tombstoned sessions
+func deleteTombstonedFiles(projectDir string, tombstonedIDs map[string]bool) {
+	for sessionID := range tombstonedIDs {
+		// Delete .jsonl file
+		jsonlPath := filepath.Join(projectDir, sessionID+".jsonl")
+		if err := os.Remove(jsonlPath); err == nil {
+			fmt.Printf("  Deleted tombstoned: %s.jsonl\n", sessionID[:8])
+		}
+
+		// Delete session directory if it exists
+		dirPath := filepath.Join(projectDir, sessionID)
+		if info, err := os.Stat(dirPath); err == nil && info.IsDir() {
+			if err := os.RemoveAll(dirPath); err == nil {
+				fmt.Printf("  Deleted tombstoned: %s/\n", sessionID[:8])
+			}
+		}
+	}
+}
+
+// isTombstonedFile checks if a file/dir name corresponds to a tombstoned session
+func isTombstonedFile(name string, tombstonedIDs map[string]bool) bool {
+	// Check for .jsonl files
+	if strings.HasSuffix(name, ".jsonl") {
+		sessionID := strings.TrimSuffix(name, ".jsonl")
+		return tombstonedIDs[sessionID]
+	}
+	// Check for session directories (UUID format)
+	return tombstonedIDs[name]
 }
 
 // copyAndLocalizeIndex copies a sessions-index.json while localizing paths
@@ -385,6 +436,22 @@ func mergeProject(srcProject, dstProject string, params *SyncParams) error {
 	// Ensure dst project exists
 	os.MkdirAll(dstProject, 0755)
 
+	// Merge tombstones first (so we know what to skip)
+	// Load local tombstones (if any exist from previous syncs)
+	localTombstones, _ := syncutil.LoadTombstones(srcProject)
+	// Load sync tombstones
+	syncTombstones, _ := syncutil.LoadTombstones(dstProject)
+
+	// Merge local tombstones into sync
+	if syncutil.MergeTombstones(localTombstones, syncTombstones) {
+		if err := syncutil.SaveTombstones(dstProject, syncTombstones); err != nil {
+			fmt.Printf("    Warning: failed to save merged tombstones: %v\n", err)
+		}
+	}
+
+	// Get set of tombstoned session IDs
+	tombstonedIDs := syncTombstones.TombstonedSessionIDs()
+
 	// Merge sessions-index.json
 	if err := mergeSessionsIndex(srcProject, dstProject); err != nil {
 		fmt.Printf("    Warning: index merge issue: %v\n", err)
@@ -393,8 +460,13 @@ func mergeProject(srcProject, dstProject string, params *SyncParams) error {
 	// Merge conversation files from source
 	srcFiles, _ := os.ReadDir(srcProject)
 	for _, f := range srcFiles {
-		if f.Name() == "sessions-index.json" {
+		if f.Name() == "sessions-index.json" || f.Name() == syncutil.DeletionsFile {
 			continue // Already handled
+		}
+
+		// Skip tombstoned session files
+		if isTombstonedFile(f.Name(), tombstonedIDs) {
+			continue
 		}
 
 		srcPath := filepath.Join(srcProject, f.Name())
@@ -436,11 +508,16 @@ func mergeProject(srcProject, dstProject string, params *SyncParams) error {
 // mergeSessionsIndex intelligently merges src sessions-index.json into dst
 // src = user's local projects, dst = sync dir (which has remote state after pull)
 // Canonicalizes paths in src entries before merging to avoid overwriting canonical paths
+// Filters out tombstoned sessions to prevent deleted conversations from reappearing
 func mergeSessionsIndex(srcProject, dstProject string) error {
 	// Load config for path canonicalization
 	config, _ := LoadConfig()
 
 	dstIndexPath := filepath.Join(dstProject, "sessions-index.json")
+
+	// Load tombstones from sync dir - these indicate deleted sessions
+	tombstones, _ := syncutil.LoadTombstones(dstProject)
+	tombstonedIDs := tombstones.TombstonedSessionIDs()
 
 	// Load src (local) index - include unindexed sessions
 	srcIndex, err := conv.LoadSessionsIndex(srcProject)
@@ -457,15 +534,25 @@ func mergeSessionsIndex(srcProject, dstProject string) error {
 	}
 
 	// Merge: union of entries, prefer newer modified timestamp
+	// Skip tombstoned sessions
 	merged := make(map[string]conv.SessionEntry)
 
 	// Add all dst (remote) entries first - these already have canonical paths
+	// Skip tombstoned sessions
 	for _, e := range dstIndex.Entries {
+		if tombstonedIDs[e.SessionID] {
+			continue // Session was deleted, don't include
+		}
 		merged[e.SessionID] = e
 	}
 
 	// Merge src (local) entries - canonicalize paths before merging
+	// Skip tombstoned sessions
 	for _, e := range srcIndex.Entries {
+		if tombstonedIDs[e.SessionID] {
+			continue // Session was deleted, don't include
+		}
+
 		// Canonicalize paths in the entry
 		if config != nil {
 			e.ProjectPath = canonicalizePath(e.ProjectPath, config)
@@ -570,4 +657,36 @@ func countLines(path string) int {
 		}
 	}
 	return count
+}
+
+// cleanupOldTombstonesInSync removes tombstones older than 30 days from all projects in sync dir
+func cleanupOldTombstonesInSync(syncDir string) {
+	entries, err := os.ReadDir(syncDir)
+	if err != nil {
+		return
+	}
+
+	totalCleaned := 0
+	for _, entry := range entries {
+		if !entry.IsDir() || entry.Name() == ".git" {
+			continue
+		}
+
+		projectDir := filepath.Join(syncDir, entry.Name())
+		tombstones, err := syncutil.LoadTombstones(projectDir)
+		if err != nil || len(tombstones.Entries) == 0 {
+			continue
+		}
+
+		cleaned := syncutil.CleanupOldTombstones(tombstones, syncutil.TombstoneMaxAge)
+		if cleaned > 0 {
+			if err := syncutil.SaveTombstones(projectDir, tombstones); err == nil {
+				totalCleaned += cleaned
+			}
+		}
+	}
+
+	if totalCleaned > 0 {
+		fmt.Printf("  Cleaned up %d old tombstones\n", totalCleaned)
+	}
 }

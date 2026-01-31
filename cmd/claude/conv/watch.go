@@ -11,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/gigurra/tofu/cmd/claude/session"
+	"github.com/gigurra/tofu/cmd/claude/syncutil"
 )
 
 var (
@@ -233,6 +234,14 @@ func (m watchModel) deleteConversation(conv *SessionEntry) error {
 	RemoveSessionByID(index, conv.SessionID)
 	if err := SaveSessionsIndex(projectPath, index); err != nil {
 		return fmt.Errorf("failed to save index: %w", err)
+	}
+
+	// Add tombstone if sync is initialized
+	if syncutil.IsInitialized() {
+		if err := AddTombstoneForProject(projectPath, conv.SessionID); err != nil {
+			// Log but don't fail - tombstone is best-effort
+			fmt.Printf("Warning: failed to add tombstone: %v\n", err)
+		}
 	}
 
 	return nil
