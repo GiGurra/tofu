@@ -122,17 +122,23 @@ func ExtractIDFromCompletion(s string) string {
 	return s
 }
 
-// ResolveConvID resolves a short conversation ID prefix to the full UUID
-// Returns the full ID if found, or the original input if not found
-func ResolveConvID(shortID string) string {
+// ConvInfo contains resolved conversation information
+type ConvInfo struct {
+	SessionID   string // Full UUID
+	ProjectPath string // Original project directory
+}
+
+// ResolveConvID resolves a short conversation ID prefix to full info
+// Returns the full ID and project path if found
+func ResolveConvID(shortID string) *ConvInfo {
 	if shortID == "" {
-		return ""
+		return nil
 	}
 
 	projectsDir := ClaudeProjectsDir()
 	dirEntries, err := os.ReadDir(projectsDir)
 	if err != nil {
-		return shortID
+		return nil
 	}
 
 	for _, dirEntry := range dirEntries {
@@ -145,16 +151,16 @@ func ResolveConvID(shortID string) string {
 		for _, e := range entries {
 			// Exact match
 			if e.SessionID == shortID {
-				return e.SessionID
+				return &ConvInfo{SessionID: e.SessionID, ProjectPath: e.ProjectPath}
 			}
 			// Prefix match
 			if strings.HasPrefix(e.SessionID, shortID) {
-				return e.SessionID
+				return &ConvInfo{SessionID: e.SessionID, ProjectPath: e.ProjectPath}
 			}
 		}
 	}
 
-	return shortID // Return original if not found
+	return nil
 }
 
 // FormatConvCompletion formats a conversation entry for shell completion

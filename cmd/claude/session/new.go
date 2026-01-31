@@ -65,8 +65,23 @@ func runNew(params *NewParams) error {
 
 	// Extract just the ID from autocomplete format (e.g., "0459cd73_[title]_prompt..." -> "0459cd73")
 	shortID := clcommon.ExtractIDFromCompletion(params.Resume)
-	// Resolve to full UUID for claude --resume
-	fullConvID := clcommon.ResolveConvID(shortID)
+
+	// Resolve to full UUID and get project path
+	var fullConvID string
+	var convProjectPath string
+	if shortID != "" {
+		convInfo := clcommon.ResolveConvID(shortID)
+		if convInfo != nil {
+			fullConvID = convInfo.SessionID
+			convProjectPath = convInfo.ProjectPath
+		} else {
+			return fmt.Errorf("conversation %s not found", shortID)
+		}
+		// Use conversation's project directory instead of cwd
+		if convProjectPath != "" {
+			cwd = convProjectPath
+		}
+	}
 
 	// Generate session ID (use short prefix for our tracking)
 	// Priority: explicit label > conv ID prefix (when resuming) > random
