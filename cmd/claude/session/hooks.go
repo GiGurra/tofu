@@ -7,13 +7,6 @@ import (
 	"path/filepath"
 )
 
-// ClaudeSettings represents the structure of ~/.claude/settings.json
-type ClaudeSettings struct {
-	Hooks map[string][]HookMatcher `json:"hooks,omitempty"`
-	// Preserve other fields
-	Other map[string]json.RawMessage `json:"-"`
-}
-
 // HookMatcher represents a hook matcher configuration
 type HookMatcher struct {
 	Matcher string       `json:"matcher,omitempty"`
@@ -85,6 +78,7 @@ func CheckHooksInstalled() (installed bool, missing []string) {
 		return false, []string{"all (cannot read settings.json)"}
 	}
 
+	// Parse only what we need to check
 	var settings map[string]json.RawMessage
 	if err := json.Unmarshal(data, &settings); err != nil {
 		return false, []string{"all (invalid settings.json)"}
@@ -95,14 +89,15 @@ func CheckHooksInstalled() (installed bool, missing []string) {
 		return false, []string{"all (no hooks section)"}
 	}
 
-	var hooks map[string][]HookMatcher
+	var hooks map[string]json.RawMessage
 	if err := json.Unmarshal(hooksRaw, &hooks); err != nil {
 		return false, []string{"all (invalid hooks section)"}
 	}
 
-	// Check each required hook event
+	// Check each required hook event by looking for our marker in the raw JSON
 	for event := range RequiredHooks {
-		if !hasTofuHook(hooks, event) {
+		eventHooks, ok := hooks[event]
+		if !ok || !containsTofuCallback(string(eventHooks)) {
 			missing = append(missing, event)
 		}
 	}
@@ -110,27 +105,8 @@ func CheckHooksInstalled() (installed bool, missing []string) {
 	return len(missing) == 0, missing
 }
 
-// hasTofuHook checks if a hook event has a tofu status-callback hook
-func hasTofuHook(hooks map[string][]HookMatcher, event string) bool {
-	matchers, ok := hooks[event]
-	if !ok {
-		return false
-	}
-
-	for _, matcher := range matchers {
-		for _, hook := range matcher.Hooks {
-			if hook.Type == "command" && containsTofuCallback(hook.Command) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func containsTofuCallback(cmd string) bool {
-	return len(cmd) >= len(TofuHookMarker) && cmd[:len(TofuHookMarker)] == TofuHookMarker ||
-		// Also check if it contains the marker anywhere
-		findSubstring(cmd, TofuHookMarker)
+func containsTofuCallback(s string) bool {
+	return findSubstring(s, TofuHookMarker)
 }
 
 func findSubstring(s, substr string) bool {
@@ -143,6 +119,7 @@ func findSubstring(s, substr string) bool {
 }
 
 // InstallHooks adds tofu hooks to Claude settings, preserving existing config
+// Uses map[string]json.RawMessage at each level to avoid touching data we don't need to modify
 func InstallHooks() error {
 	settingsPath := ClaudeSettingsPath()
 	if settingsPath == "" {
@@ -169,21 +146,54 @@ func InstallHooks() error {
 		}
 	}
 
-	// Get existing hooks or create new
-	var hooks map[string][]HookMatcher
+	// Get existing hooks as raw JSON map (preserves structure of events we don't touch)
+	var hooks map[string]json.RawMessage
 	if hooksRaw, ok := settings["hooks"]; ok {
 		if err := json.Unmarshal(hooksRaw, &hooks); err != nil {
 			return fmt.Errorf("failed to parse hooks: %w", err)
 		}
 	} else {
-		hooks = make(map[string][]HookMatcher)
+		hooks = make(map[string]json.RawMessage)
 	}
 
-	// Add missing tofu hooks
+	// Add missing tofu hooks - only modify events that need our hooks
 	for event, requiredMatchers := range RequiredHooks {
-		if !hasTofuHook(hooks, event) {
-			// Append our hooks to existing ones for this event
-			hooks[event] = append(hooks[event], requiredMatchers...)
+		eventHooksRaw, exists := hooks[event]
+
+		// Check if this event already has our callback
+		if exists && containsTofuCallback(string(eventHooksRaw)) {
+			continue // Already installed, don't touch
+		}
+
+		if exists {
+			// Event exists but doesn't have our hook - parse, append, re-serialize just this event
+			var existingMatchers []json.RawMessage
+			if err := json.Unmarshal(eventHooksRaw, &existingMatchers); err != nil {
+				return fmt.Errorf("failed to parse %s hooks: %w", event, err)
+			}
+
+			// Append our matchers as raw JSON
+			for _, matcher := range requiredMatchers {
+				matcherJSON, err := json.Marshal(matcher)
+				if err != nil {
+					return fmt.Errorf("failed to serialize matcher: %w", err)
+				}
+				existingMatchers = append(existingMatchers, matcherJSON)
+			}
+
+			// Re-serialize just this event
+			newEventHooks, err := json.Marshal(existingMatchers)
+			if err != nil {
+				return fmt.Errorf("failed to serialize %s hooks: %w", event, err)
+			}
+			hooks[event] = newEventHooks
+		} else {
+			// Event doesn't exist - create it with our matchers
+			eventHooks, err := json.Marshal(requiredMatchers)
+			if err != nil {
+				return fmt.Errorf("failed to serialize %s hooks: %w", event, err)
+			}
+			hooks[event] = eventHooks
 		}
 	}
 
