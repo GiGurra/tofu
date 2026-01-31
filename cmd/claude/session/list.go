@@ -15,8 +15,9 @@ import (
 )
 
 type ListParams struct {
-	JSON bool `long:"json" help:"Output as JSON"`
-	All  bool `short:"a" long:"all" help:"Include exited sessions"`
+	JSON  bool `long:"json" help:"Output as JSON"`
+	All   bool `short:"a" long:"all" help:"Include exited sessions"`
+	Watch bool `short:"w" long:"watch" help:"Interactive watch mode with auto-refresh"`
 }
 
 func ListCmd() *cobra.Command {
@@ -35,6 +36,11 @@ func ListCmd() *cobra.Command {
 }
 
 func runList(params *ListParams) error {
+	// Interactive watch mode
+	if params.Watch {
+		return RunWatchMode(params.All)
+	}
+
 	states, err := ListSessionStates()
 	if err != nil {
 		return fmt.Errorf("failed to list sessions: %w", err)
