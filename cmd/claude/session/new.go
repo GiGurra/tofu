@@ -48,6 +48,9 @@ func runNew(params *NewParams) error {
 		return err
 	}
 
+	// Check if hooks are installed (warn if not)
+	EnsureHooksInstalled(false, os.Stdout, os.Stderr)
+
 	// Determine working directory
 	cwd := params.Dir
 	if cwd == "" {
@@ -102,22 +105,22 @@ func runNew(params *NewParams) error {
 	}
 	tmuxSession := "tofu-claude-" + sessionID
 
-	// Build claude command
-	claudeArgs := []string{}
+	// Build claude command with TOFU_SESSION_ID env var
+	claudeCmd := fmt.Sprintf("TOFU_SESSION_ID=%s claude", sessionID)
 	if fullConvID != "" {
-		claudeArgs = append(claudeArgs, "--resume", fullConvID)
+		claudeCmd += " --resume " + fullConvID
 	}
 
 	// Create tmux session with claude
 	// Use tmux new-session -d to create detached
+	// We use sh -c to set the environment variable
 	tmuxArgs := []string{
 		"new-session",
-		"-d",                  // detached
-		"-s", tmuxSession,     // session name
-		"-c", cwd,             // working directory
-		"claude",              // command
+		"-d",              // detached
+		"-s", tmuxSession, // session name
+		"-c", cwd,         // working directory
+		"sh", "-c", claudeCmd,
 	}
-	tmuxArgs = append(tmuxArgs, claudeArgs...)
 
 	tmuxCmd := exec.Command("tmux", tmuxArgs...)
 	tmuxCmd.Stdout = os.Stdout
@@ -130,14 +133,14 @@ func runNew(params *NewParams) error {
 	// Get the PID of claude in the tmux session
 	pid := ParsePIDFromTmux(tmuxSession)
 
-	// Create session state
+	// Create session state (starts as idle, waiting for user input)
 	state := &SessionState{
 		ID:          sessionID,
 		TmuxSession: tmuxSession,
 		PID:         pid,
 		Cwd:         cwd,
 		ConvID:      fullConvID,
-		Status:      StatusRunning,
+		Status:      StatusIdle,
 		Created:     time.Now(),
 		Updated:     time.Now(),
 	}

@@ -107,6 +107,9 @@ func runResumeWithSession(convInfo *clcommon.ConvInfo, projectPath, displayName 
 		return 1
 	}
 
+	// Check if hooks are installed (warn if not)
+	session.EnsureHooksInstalled(false, stdout, stderr)
+
 	// Use conv ID prefix as session ID
 	sessionID := convInfo.SessionID
 	if len(sessionID) > 8 {
@@ -123,13 +126,16 @@ func runResumeWithSession(convInfo *clcommon.ConvInfo, projectPath, displayName 
 
 	tmuxSession := "tofu-claude-" + sessionID
 
+	// Build claude command with TOFU_SESSION_ID env var
+	claudeCmd := fmt.Sprintf("TOFU_SESSION_ID=%s claude --resume %s", sessionID, convInfo.SessionID)
+
 	// Create tmux session
 	tmuxArgs := []string{
 		"new-session",
 		"-d",
 		"-s", tmuxSession,
 		"-c", projectPath,
-		"claude", "--resume", convInfo.SessionID,
+		"sh", "-c", claudeCmd,
 	}
 
 	tmuxCmd := exec.Command("tmux", tmuxArgs...)
@@ -138,7 +144,7 @@ func runResumeWithSession(convInfo *clcommon.ConvInfo, projectPath, displayName 
 		return 1
 	}
 
-	// Get PID and save state
+	// Get PID and save state (starts as idle, waiting for user input)
 	pid := session.ParsePIDFromTmux(tmuxSession)
 	state := &session.SessionState{
 		ID:          sessionID,
@@ -146,7 +152,7 @@ func runResumeWithSession(convInfo *clcommon.ConvInfo, projectPath, displayName 
 		PID:         pid,
 		Cwd:         projectPath,
 		ConvID:      convInfo.SessionID,
-		Status:      session.StatusRunning,
+		Status:      session.StatusIdle,
 		Created:     time.Now(),
 	}
 

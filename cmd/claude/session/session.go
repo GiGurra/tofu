@@ -46,6 +46,8 @@ func Cmd() *cobra.Command {
 			ListCmd(),
 			AttachCmd(),
 			KillCmd(),
+			InstallHooksCmd(),
+			StatusCallbackCmd(),
 		},
 	}.ToCobra()
 }
