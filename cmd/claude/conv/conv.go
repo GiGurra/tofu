@@ -1,6 +1,7 @@
 package conv
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -98,22 +99,190 @@ func GetClaudeProjectPath(realPath string) string {
 }
 
 // LoadSessionsIndex loads the sessions index from a Claude project directory
+// It also scans for unindexed .jsonl files and merges them, deduplicating by sessionId
 func LoadSessionsIndex(projectPath string) (*SessionsIndex, error) {
 	indexPath := filepath.Join(projectPath, "sessions-index.json")
 	data, err := os.ReadFile(indexPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return &SessionsIndex{Version: 1, Entries: []SessionEntry{}}, nil
-		}
-		return nil, fmt.Errorf("failed to read sessions index: %w", err)
-	}
 
 	var index SessionsIndex
-	if err := json.Unmarshal(data, &index); err != nil {
-		return nil, fmt.Errorf("failed to parse sessions index: %w", err)
+	if err != nil {
+		if os.IsNotExist(err) {
+			index = SessionsIndex{Version: 1, Entries: []SessionEntry{}}
+		} else {
+			return nil, fmt.Errorf("failed to read sessions index: %w", err)
+		}
+	} else {
+		if err := json.Unmarshal(data, &index); err != nil {
+			return nil, fmt.Errorf("failed to parse sessions index: %w", err)
+		}
+	}
+
+	// Scan for unindexed .jsonl files and merge them
+	unindexed := scanUnindexedSessions(projectPath)
+	if len(unindexed) > 0 {
+		index.Entries = mergeSessionEntries(index.Entries, unindexed)
 	}
 
 	return &index, nil
+}
+
+// scanUnindexedSessions scans for .jsonl files directly in the project directory
+// These are conversations that haven't been indexed yet by Claude Code
+func scanUnindexedSessions(projectPath string) []SessionEntry {
+	var entries []SessionEntry
+
+	files, err := os.ReadDir(projectPath)
+	if err != nil {
+		return entries
+	}
+
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+		if !strings.HasSuffix(file.Name(), ".jsonl") {
+			continue
+		}
+
+		// Extract session ID from filename (e.g., "0789725a-bc71-47dd-9ca5-1b4fe7aead9b.jsonl")
+		sessionID := strings.TrimSuffix(file.Name(), ".jsonl")
+		if len(sessionID) != 36 { // UUID length
+			continue
+		}
+
+		filePath := filepath.Join(projectPath, file.Name())
+		entry := parseJSONLSession(filePath, sessionID)
+		if entry != nil {
+			entries = append(entries, *entry)
+		}
+	}
+
+	return entries
+}
+
+// jsonlMessage represents a line in the .jsonl conversation file
+type jsonlMessage struct {
+	Type      string `json:"type"`
+	SessionID string `json:"sessionId"`
+	Timestamp string `json:"timestamp"`
+	Cwd       string `json:"cwd"`
+	GitBranch string `json:"gitBranch"`
+	Message   struct {
+		Role    string `json:"role"`
+		Content any    `json:"content"` // Can be string or array
+	} `json:"message"`
+}
+
+// parseJSONLSession parses a .jsonl file and extracts session metadata
+// Only reads the first few lines to find the first user message for the prompt
+func parseJSONLSession(filePath, sessionID string) *SessionEntry {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil
+	}
+	defer file.Close()
+
+	info, err := file.Stat()
+	if err != nil {
+		return nil
+	}
+
+	var entry SessionEntry
+	entry.SessionID = sessionID
+	entry.FullPath = filePath
+	entry.FileMtime = info.ModTime().Unix()
+
+	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
+
+	var firstTimestamp string
+	var linesRead int
+	const maxLinesToRead = 10 // Only read first few lines to find the first user message
+
+	for scanner.Scan() && linesRead < maxLinesToRead {
+		linesRead++
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+
+		var msg jsonlMessage
+		if err := json.Unmarshal([]byte(line), &msg); err != nil {
+			continue
+		}
+
+		// Track first timestamp
+		if firstTimestamp == "" && msg.Timestamp != "" {
+			firstTimestamp = msg.Timestamp
+		}
+
+		// Get project path and git branch from first message with cwd
+		if entry.ProjectPath == "" && msg.Cwd != "" {
+			entry.ProjectPath = msg.Cwd
+		}
+		if entry.GitBranch == "" && msg.GitBranch != "" {
+			entry.GitBranch = msg.GitBranch
+		}
+
+		// Capture first user message as the prompt and stop
+		if msg.Type == "user" && msg.Message.Role == "user" {
+			entry.FirstPrompt = extractMessageContent(msg.Message.Content)
+			if msg.Timestamp != "" {
+				firstTimestamp = msg.Timestamp
+			}
+			break
+		}
+	}
+
+	if firstTimestamp == "" {
+		// No valid data found
+		return nil
+	}
+
+	entry.Created = firstTimestamp
+	// Use file mtime for Modified since we're not reading the whole file
+	entry.Modified = info.ModTime().UTC().Format(time.RFC3339)
+	entry.MessageCount = 0 // Unknown for unindexed sessions
+
+	return &entry
+}
+
+// extractMessageContent extracts text content from a message
+// Content can be a string or an array of content blocks
+func extractMessageContent(content any) string {
+	switch v := content.(type) {
+	case string:
+		return v
+	case []any:
+		// Array of content blocks - look for text type
+		for _, block := range v {
+			if m, ok := block.(map[string]any); ok {
+				if text, ok := m["text"].(string); ok {
+					return text
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// mergeSessionEntries merges indexed and unindexed entries, deduplicating by sessionId
+func mergeSessionEntries(indexed, unindexed []SessionEntry) []SessionEntry {
+	// Build a set of indexed session IDs
+	indexedIDs := make(map[string]bool)
+	for _, e := range indexed {
+		indexedIDs[e.SessionID] = true
+	}
+
+	// Add unindexed entries that aren't already in the index
+	result := indexed
+	for _, e := range unindexed {
+		if !indexedIDs[e.SessionID] {
+			result = append(result, e)
+		}
+	}
+
+	return result
 }
 
 // SaveSessionsIndex saves the sessions index to a Claude project directory
