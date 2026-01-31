@@ -1,8 +1,8 @@
 # VHS Demo: tofu claude session & conversation management
 # Run with: vhs demo.tape
 
-Output demo.gif
-Output demo.mp4
+Output docs/claude/demo.gif
+Output docs/claude/demo.mp4
 Set FontSize 22
 Set Width 1400
 Set Height 800
