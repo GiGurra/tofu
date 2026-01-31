@@ -21,7 +21,15 @@ type SyncConfig struct {
 }
 
 // ConfigPath returns the path to the sync config file
+// Prefers sync dir (auto-synced) over local ~/.claude
 func ConfigPath() string {
+	// First check sync dir (shared across machines)
+	syncPath := filepath.Join(SyncDir(), "sync_config.json")
+	if _, err := os.Stat(syncPath); err == nil {
+		return syncPath
+	}
+
+	// Fall back to local ~/.claude
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".claude", "sync_config.json")
 }
