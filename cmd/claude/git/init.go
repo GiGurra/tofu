@@ -12,6 +12,7 @@ import (
 
 type InitParams struct {
 	RepoURL string `pos:"true" help:"Git repository URL to sync with"`
+	Reset   bool   `long:"reset" help:"Delete existing sync directory and reinitialize"`
 }
 
 func InitCmd() *cobra.Command {
@@ -32,9 +33,16 @@ func InitCmd() *cobra.Command {
 func runInit(params *InitParams) error {
 	syncDir := SyncDir()
 
-	// Check if already initialized
-	if IsInitialized() {
-		return fmt.Errorf("sync already initialized at %s\nUse 'tofu claude git status' to check status", syncDir)
+	// Handle reset
+	if params.Reset {
+		if IsInitialized() {
+			fmt.Printf("Removing existing sync directory: %s\n", syncDir)
+			if err := os.RemoveAll(syncDir); err != nil {
+				return fmt.Errorf("failed to remove sync directory: %w", err)
+			}
+		}
+	} else if IsInitialized() {
+		return fmt.Errorf("sync already initialized at %s\nUse --reset to reinitialize, or 'tofu claude git status' to check status", syncDir)
 	}
 
 	// Create sync directory if it doesn't exist
