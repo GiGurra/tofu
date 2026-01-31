@@ -20,7 +20,7 @@ type NewParams struct {
 
 func NewCmd() *cobra.Command {
 	return boa.CmdT[NewParams]{
-		Use:         "new [dir]",
+		Use:         "new",
 		Short:       "Start a new Claude Code session",
 		Long:        "Start a new Claude Code session in a tmux session. Attaches by default (Ctrl+B D to detach).",
 		ParamEnrich: common.DefaultParamEnricher(),
