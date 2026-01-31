@@ -115,6 +115,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.sort.Toggle(SortStatus)
 			m = m.refreshSessions()
 		case "f4", "4":
+			m.sort.Toggle(SortAge)
+			m = m.refreshSessions()
+		case "f5", "5":
 			m.sort.Toggle(SortUpdated)
 			m = m.refreshSessions()
 		}
@@ -143,8 +146,9 @@ func (m model) View() string {
 	idHdr := "ID" + m.sort.Indicator(SortID)
 	dirHdr := "DIRECTORY" + m.sort.Indicator(SortDirectory)
 	statusHdr := "STATUS" + m.sort.Indicator(SortStatus)
+	ageHdr := "AGE" + m.sort.Indicator(SortAge)
 	updatedHdr := "UPDATED" + m.sort.Indicator(SortUpdated)
-	header := fmt.Sprintf("  %-12s %-42s %-27s %s", idHdr, dirHdr, statusHdr, updatedHdr)
+	header := fmt.Sprintf("  %-12s %-35s %-22s %-10s %s", idHdr, dirHdr, statusHdr, ageHdr, updatedHdr)
 	b.WriteString(headerStyle.Render(header))
 	b.WriteString("\n")
 	width := m.width
@@ -161,10 +165,11 @@ func (m model) View() string {
 			status = status + ": " + state.StatusDetail
 		}
 
-		dir := shortenPathForTable(state.Cwd, 38)
+		dir := shortenPathForTable(state.Cwd, 33)
+		age := FormatDuration(time.Since(state.Created))
 		updated := FormatDuration(time.Since(state.Updated))
 
-		row := fmt.Sprintf("  %-10s %-40s %-25s %s", state.ID, dir, status, updated)
+		row := fmt.Sprintf("  %-10s %-35s %-22s %-10s %s", state.ID, dir, status, age, updated)
 
 		if i == m.cursor {
 			b.WriteString(selectedStyle.Render(row))
@@ -177,7 +182,7 @@ func (m model) View() string {
 
 	// Help
 	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("  ↑/↓ navigate • enter attach • 1-4 sort • r refresh • q quit"))
+	b.WriteString(helpStyle.Render("  ↑/↓ navigate • enter attach • 1-5 sort • r refresh • q quit"))
 	b.WriteString("\n")
 
 	return b.String()

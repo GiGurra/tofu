@@ -44,6 +44,7 @@ const (
 	SortID
 	SortDirectory
 	SortStatus
+	SortAge
 	SortUpdated
 )
 
@@ -114,6 +115,8 @@ func shouldSwap(a, b *SessionState, state SortState) bool {
 	case SortStatus:
 		// Custom status priority: red (needs attention) first, then yellow, then rest
 		less = statusPriority(a.Status) < statusPriority(b.Status)
+	case SortAge:
+		less = a.Created.Before(b.Created)
 	case SortUpdated:
 		less = a.Updated.Before(b.Updated)
 	default:
