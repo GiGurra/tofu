@@ -9,6 +9,22 @@ import (
 	"github.com/gigurra/tofu/cmd/claude/conv"
 )
 
+// Test path constants - same as in repair_test.go
+// These are just string values for testing path transformations, not actual filesystem paths.
+const (
+	syncTestCanonicalHome = "/home/canonical"
+	syncTestLocalHome     = "/home/local"
+	syncTestCanonicalGit  = "/home/canonical/git"
+	syncTestLocalGit      = "/home/local/projects"
+)
+
+func syncTestConfig() *SyncConfig {
+	return &SyncConfig{
+		Homes: []string{syncTestCanonicalHome, syncTestLocalHome},
+		Dirs:  [][]string{{syncTestCanonicalGit, syncTestLocalGit}},
+	}
+}
+
 func TestMergeSessionsIndex_CanonicalizesSourcePaths(t *testing.T) {
 	// Setup temp directories
 	tmpDir := t.TempDir()
@@ -27,20 +43,20 @@ func TestMergeSessionsIndex_CanonicalizesSourcePaths(t *testing.T) {
 	defer os.Setenv("HOME", origHome)
 
 	config := SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
-		Dirs:  [][]string{{"/home/gigur/git", "/Users/johkjo/git/personal"}},
+		Homes: []string{syncTestCanonicalHome, syncTestLocalHome},
+		Dirs:  [][]string{{syncTestCanonicalGit, syncTestLocalGit}},
 	}
 	configData, _ := json.MarshalIndent(config, "", "  ")
 	os.WriteFile(filepath.Join(configDir, "sync_config.json"), configData, 0644)
 
-	// Create source index with non-canonical paths
+	// Create source index with non-canonical (local) paths
 	srcIndex := conv.SessionsIndex{
 		Version: 1,
 		Entries: []conv.SessionEntry{
 			{
 				SessionID:   "session-1",
-				ProjectPath: "/Users/johkjo/git/personal/tofu",
-				FullPath:    "/Users/johkjo/.claude/projects/-Users-johkjo-git-personal-tofu/session-1.jsonl",
+				ProjectPath: "/home/local/projects/myproject",
+				FullPath:    "/home/local/.claude/projects/-home-local-projects-myproject/session-1.jsonl",
 				Modified:    "2024-01-15T12:00:00Z",
 			},
 		},
@@ -70,11 +86,12 @@ func TestMergeSessionsIndex_CanonicalizesSourcePaths(t *testing.T) {
 	}
 
 	entry := result.Entries[0]
-	if entry.ProjectPath != "/home/gigur/git/tofu" {
-		t.Errorf("ProjectPath not canonicalized: got %q, want %q", entry.ProjectPath, "/home/gigur/git/tofu")
+	if entry.ProjectPath != "/home/canonical/git/myproject" {
+		t.Errorf("ProjectPath not canonicalized: got %q, want %q", entry.ProjectPath, "/home/canonical/git/myproject")
 	}
-	// FullPath home prefix should be canonicalized (project dir name in path is a separate concern)
-	if entry.FullPath[:12] != "/home/gigur/" {
+	// FullPath home prefix should be canonicalized
+	expectedPrefix := "/home/canonical/"
+	if len(entry.FullPath) < len(expectedPrefix) || entry.FullPath[:len(expectedPrefix)] != expectedPrefix {
 		t.Errorf("FullPath home prefix not canonicalized: got %q", entry.FullPath)
 	}
 }
@@ -95,7 +112,7 @@ func TestMergeSessionsIndex_PreservesExistingCanonicalPaths(t *testing.T) {
 	defer os.Setenv("HOME", origHome)
 
 	config := SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
+		Homes: []string{syncTestCanonicalHome, syncTestLocalHome},
 	}
 	configData, _ := json.MarshalIndent(config, "", "  ")
 	os.WriteFile(filepath.Join(configDir, "sync_config.json"), configData, 0644)
@@ -106,7 +123,7 @@ func TestMergeSessionsIndex_PreservesExistingCanonicalPaths(t *testing.T) {
 		Entries: []conv.SessionEntry{
 			{
 				SessionID:   "session-1",
-				ProjectPath: "/Users/johkjo/git/tofu",
+				ProjectPath: "/home/local/git/myproject",
 				Modified:    "2024-01-10T12:00:00Z", // Older
 			},
 		},
@@ -120,7 +137,7 @@ func TestMergeSessionsIndex_PreservesExistingCanonicalPaths(t *testing.T) {
 		Entries: []conv.SessionEntry{
 			{
 				SessionID:   "session-1",
-				ProjectPath: "/home/gigur/git/tofu",
+				ProjectPath: "/home/canonical/git/myproject",
 				Modified:    "2024-01-15T12:00:00Z", // Newer
 			},
 		},
@@ -145,8 +162,8 @@ func TestMergeSessionsIndex_PreservesExistingCanonicalPaths(t *testing.T) {
 	}
 
 	entry := result.Entries[0]
-	if entry.ProjectPath != "/home/gigur/git/tofu" {
-		t.Errorf("Should keep newer canonical path: got %q, want %q", entry.ProjectPath, "/home/gigur/git/tofu")
+	if entry.ProjectPath != "/home/canonical/git/myproject" {
+		t.Errorf("Should keep newer canonical path: got %q, want %q", entry.ProjectPath, "/home/canonical/git/myproject")
 	}
 }
 
@@ -166,7 +183,7 @@ func TestMergeSessionsIndex_NewerLocalWins(t *testing.T) {
 	defer os.Setenv("HOME", origHome)
 
 	config := SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
+		Homes: []string{syncTestCanonicalHome, syncTestLocalHome},
 	}
 	configData, _ := json.MarshalIndent(config, "", "  ")
 	os.WriteFile(filepath.Join(configDir, "sync_config.json"), configData, 0644)
@@ -177,7 +194,7 @@ func TestMergeSessionsIndex_NewerLocalWins(t *testing.T) {
 		Entries: []conv.SessionEntry{
 			{
 				SessionID:    "session-1",
-				ProjectPath:  "/Users/johkjo/git/tofu",
+				ProjectPath:  "/home/local/git/myproject",
 				MessageCount: 100, // More messages
 				Modified:     "2024-01-20T12:00:00Z", // Newer
 			},
@@ -192,7 +209,7 @@ func TestMergeSessionsIndex_NewerLocalWins(t *testing.T) {
 		Entries: []conv.SessionEntry{
 			{
 				SessionID:    "session-1",
-				ProjectPath:  "/home/gigur/git/tofu",
+				ProjectPath:  "/home/canonical/git/myproject",
 				MessageCount: 50, // Fewer messages
 				Modified:     "2024-01-15T12:00:00Z", // Older
 			},
@@ -221,55 +238,50 @@ func TestMergeSessionsIndex_NewerLocalWins(t *testing.T) {
 	if entry.MessageCount != 100 {
 		t.Errorf("Should use newer entry: got MessageCount %d, want 100", entry.MessageCount)
 	}
-	if entry.ProjectPath != "/home/gigur/git/tofu" {
-		t.Errorf("Path should be canonicalized: got %q, want %q", entry.ProjectPath, "/home/gigur/git/tofu")
+	if entry.ProjectPath != "/home/canonical/git/myproject" {
+		t.Errorf("Path should be canonicalized: got %q, want %q", entry.ProjectPath, "/home/canonical/git/myproject")
 	}
 }
 
 func TestFindLocalEquivalent_FindsExistingDir(t *testing.T) {
-	config := &SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
-		Dirs:  [][]string{{"/home/gigur/git", "/Users/johkjo/git/personal"}},
-	}
-
 	localDirs := map[string]bool{
-		"-Users-johkjo-git-personal-tofu": true,
+		"-home-local-projects-myproject": true,
 	}
 
 	// Looking for canonical name, should find the local equivalent
-	result := findLocalEquivalent("-home-gigur-git-tofu", localDirs, config)
-	if result != "-Users-johkjo-git-personal-tofu" {
-		t.Errorf("Should find local equivalent: got %q, want %q", result, "-Users-johkjo-git-personal-tofu")
+	result := findLocalEquivalent("-home-canonical-git-myproject", localDirs, syncTestConfig())
+	if result != "-home-local-projects-myproject" {
+		t.Errorf("Should find local equivalent: got %q, want %q", result, "-home-local-projects-myproject")
 	}
 }
 
 func TestFindLocalEquivalent_ReturnsCanonicalIfNoLocal(t *testing.T) {
 	config := &SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
+		Homes: []string{syncTestCanonicalHome, syncTestLocalHome},
 	}
 
 	localDirs := map[string]bool{} // No local dirs
 
-	result := findLocalEquivalent("-home-gigur-git-tofu", localDirs, config)
-	if result != "-home-gigur-git-tofu" {
-		t.Errorf("Should return canonical when no local: got %q, want %q", result, "-home-gigur-git-tofu")
+	result := findLocalEquivalent("-home-canonical-git-myproject", localDirs, config)
+	if result != "-home-canonical-git-myproject" {
+		t.Errorf("Should return canonical when no local: got %q, want %q", result, "-home-canonical-git-myproject")
 	}
 }
 
 func TestFindLocalEquivalent_PrefersCanonicalIfExists(t *testing.T) {
 	config := &SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
+		Homes: []string{syncTestCanonicalHome, syncTestLocalHome},
 	}
 
 	localDirs := map[string]bool{
-		"-home-gigur-git-tofu":   true,
-		"-Users-johkjo-git-tofu": true,
+		"-home-canonical-git-myproject": true,
+		"-home-local-git-myproject":     true,
 	}
 
 	// Both exist, should prefer canonical
-	result := findLocalEquivalent("-home-gigur-git-tofu", localDirs, config)
-	if result != "-home-gigur-git-tofu" {
-		t.Errorf("Should prefer canonical: got %q, want %q", result, "-home-gigur-git-tofu")
+	result := findLocalEquivalent("-home-canonical-git-myproject", localDirs, config)
+	if result != "-home-canonical-git-myproject" {
+		t.Errorf("Should prefer canonical: got %q, want %q", result, "-home-canonical-git-myproject")
 	}
 }
 
@@ -278,28 +290,22 @@ func TestCopyAndLocalizeIndex(t *testing.T) {
 	srcPath := filepath.Join(tmpDir, "src-index.json")
 	dstPath := filepath.Join(tmpDir, "dst-index.json")
 
-	config := &SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
-		Dirs:  [][]string{{"/home/gigur/git", "/Users/johkjo/git/personal"}},
-	}
-
 	// Create source index with canonical paths
 	srcIndex := conv.SessionsIndex{
 		Version: 1,
 		Entries: []conv.SessionEntry{
 			{
 				SessionID:   "session-1",
-				ProjectPath: "/home/gigur/git/tofu",
-				FullPath:    "/home/gigur/.claude/projects/-home-gigur-git-tofu/session-1.jsonl",
+				ProjectPath: "/home/canonical/git/myproject",
+				FullPath:    "/home/canonical/.claude/projects/-home-canonical-git-myproject/session-1.jsonl",
 			},
 		},
 	}
 	srcData, _ := json.MarshalIndent(srcIndex, "", "  ")
 	os.WriteFile(srcPath, srcData, 0644)
 
-	// Copy with localization (simulating Mac)
-	localHome := "/Users/johkjo"
-	err := copyAndLocalizeIndex(srcPath, dstPath, config, localHome)
+	// Copy with localization (simulating local machine)
+	err := copyAndLocalizeIndex(srcPath, dstPath, syncTestConfig(), syncTestLocalHome)
 	if err != nil {
 		t.Fatalf("copyAndLocalizeIndex failed: %v", err)
 	}
@@ -314,12 +320,13 @@ func TestCopyAndLocalizeIndex(t *testing.T) {
 	}
 
 	entry := result.Entries[0]
-	expectedProjectPath := "/Users/johkjo/git/personal/tofu"
+	expectedProjectPath := "/home/local/projects/myproject"
 	if entry.ProjectPath != expectedProjectPath {
 		t.Errorf("ProjectPath not localized: got %q, want %q", entry.ProjectPath, expectedProjectPath)
 	}
 
-	expectedFullPath := "/Users/johkjo/.claude/projects/-home-gigur-git-tofu/session-1.jsonl"
+	// FullPath should be fully localized (both home prefix AND embedded project dir)
+	expectedFullPath := "/home/local/.claude/projects/-home-local-projects-myproject/session-1.jsonl"
 	if entry.FullPath != expectedFullPath {
 		t.Errorf("FullPath not localized: got %q, want %q", entry.FullPath, expectedFullPath)
 	}
@@ -331,25 +338,24 @@ func TestCopyAndLocalizeIndex_AlreadyLocal(t *testing.T) {
 	dstPath := filepath.Join(tmpDir, "dst-index.json")
 
 	config := &SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
+		Homes: []string{syncTestCanonicalHome, syncTestLocalHome},
 	}
 
-	// Source already has canonical (Linux) paths
+	// Source already has canonical paths
 	srcIndex := conv.SessionsIndex{
 		Version: 1,
 		Entries: []conv.SessionEntry{
 			{
 				SessionID:   "session-1",
-				ProjectPath: "/home/gigur/git/tofu",
+				ProjectPath: "/home/canonical/git/myproject",
 			},
 		},
 	}
 	srcData, _ := json.MarshalIndent(srcIndex, "", "  ")
 	os.WriteFile(srcPath, srcData, 0644)
 
-	// Copy with localization on Linux (canonical = local)
-	localHome := "/home/gigur"
-	err := copyAndLocalizeIndex(srcPath, dstPath, config, localHome)
+	// Copy with localization on canonical machine (canonical = local)
+	err := copyAndLocalizeIndex(srcPath, dstPath, config, syncTestCanonicalHome)
 	if err != nil {
 		t.Fatalf("copyAndLocalizeIndex failed: %v", err)
 	}
@@ -361,15 +367,15 @@ func TestCopyAndLocalizeIndex_AlreadyLocal(t *testing.T) {
 
 	entry := result.Entries[0]
 	// Should stay as canonical since we're on the canonical machine
-	if entry.ProjectPath != "/home/gigur/git/tofu" {
-		t.Errorf("Path should stay canonical on Linux: got %q", entry.ProjectPath)
+	if entry.ProjectPath != "/home/canonical/git/myproject" {
+		t.Errorf("Path should stay canonical: got %q", entry.ProjectPath)
 	}
 }
 
 func TestRoundTrip_LocalToSyncToLocal(t *testing.T) {
 	// This tests the full round trip:
-	// 1. Mac local paths → sync (canonicalized)
-	// 2. sync → Mac local (localized back)
+	// 1. Local paths → sync (canonicalized)
+	// 2. sync → Local (localized back)
 
 	tmpDir := t.TempDir()
 
@@ -381,13 +387,13 @@ func TestRoundTrip_LocalToSyncToLocal(t *testing.T) {
 	defer os.Setenv("HOME", origHome)
 
 	config := SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
-		Dirs:  [][]string{{"/home/gigur/git", "/Users/johkjo/git/personal"}},
+		Homes: []string{syncTestCanonicalHome, syncTestLocalHome},
+		Dirs:  [][]string{{syncTestCanonicalGit, syncTestLocalGit}},
 	}
 	configData, _ := json.MarshalIndent(config, "", "  ")
 	os.WriteFile(filepath.Join(configDir, "sync_config.json"), configData, 0644)
 
-	// Create source (Mac local) index
+	// Create source (local machine) index
 	srcDir := filepath.Join(tmpDir, "local")
 	os.MkdirAll(srcDir, 0755)
 	srcIndex := conv.SessionsIndex{
@@ -395,8 +401,8 @@ func TestRoundTrip_LocalToSyncToLocal(t *testing.T) {
 		Entries: []conv.SessionEntry{
 			{
 				SessionID:   "session-1",
-				ProjectPath: "/Users/johkjo/git/personal/tofu",
-				FullPath:    "/Users/johkjo/.claude/projects/-Users-johkjo-git-personal-tofu/session-1.jsonl",
+				ProjectPath: "/home/local/projects/myproject",
+				FullPath:    "/home/local/.claude/projects/-home-local-projects-myproject/session-1.jsonl",
 				Modified:    "2024-01-15T12:00:00Z",
 			},
 		},
@@ -422,32 +428,31 @@ func TestRoundTrip_LocalToSyncToLocal(t *testing.T) {
 	var syncResult conv.SessionsIndex
 	json.Unmarshal(syncResultData, &syncResult)
 
-	if syncResult.Entries[0].ProjectPath != "/home/gigur/git/tofu" {
+	if syncResult.Entries[0].ProjectPath != "/home/canonical/git/myproject" {
 		t.Errorf("Sync should have canonical path: got %q", syncResult.Entries[0].ProjectPath)
 	}
 
-	// Step 2: Copy sync → local (should localize back to Mac paths)
+	// Step 2: Copy sync → local (should localize back to local paths)
 	dstDir := filepath.Join(tmpDir, "local-copy")
 	os.MkdirAll(dstDir, 0755)
 
-	localHome := "/Users/johkjo"
 	err = copyAndLocalizeIndex(
 		filepath.Join(syncDir, "sessions-index.json"),
 		filepath.Join(dstDir, "sessions-index.json"),
 		&config,
-		localHome,
+		syncTestLocalHome,
 	)
 	if err != nil {
 		t.Fatalf("copyAndLocalizeIndex failed: %v", err)
 	}
 
-	// Verify local copy has Mac paths
+	// Verify local copy has local paths
 	localResultData, _ := os.ReadFile(filepath.Join(dstDir, "sessions-index.json"))
 	var localResult conv.SessionsIndex
 	json.Unmarshal(localResultData, &localResult)
 
-	expectedPath := "/Users/johkjo/git/personal/tofu"
+	expectedPath := "/home/local/projects/myproject"
 	if localResult.Entries[0].ProjectPath != expectedPath {
-		t.Errorf("Local should have Mac path: got %q, want %q", localResult.Entries[0].ProjectPath, expectedPath)
+		t.Errorf("Local should have local path: got %q, want %q", localResult.Entries[0].ProjectPath, expectedPath)
 	}
 }

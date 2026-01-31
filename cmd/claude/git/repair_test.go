@@ -9,21 +9,37 @@ import (
 	"github.com/gigurra/tofu/cmd/claude/conv"
 )
 
+// Test path constants - these are just string values for testing path transformations,
+// not actual filesystem paths. Using generic names for clarity.
+// Must match the constants in config_test.go
+const (
+	testCanonicalHome = "/home/canonical"
+	testLocalHome     = "/home/local"
+	testCanonicalGit  = "/home/canonical/git"
+	testLocalGit      = "/home/local/projects"
+)
+
+func testConfig() *SyncConfig {
+	return &SyncConfig{
+		Homes: []string{testCanonicalHome, testLocalHome},
+		Dirs:  [][]string{{testCanonicalGit, testLocalGit}},
+	}
+}
+
 func TestUpdateIndexFile_Canonicalize(t *testing.T) {
-	// Create temp directory structure
 	tempDir := t.TempDir()
-	projectDir := filepath.Join(tempDir, "-Users-johkjo-git-personal-tofu")
+	projectDir := filepath.Join(tempDir, "-home-local-projects-myproject")
 	if err := os.MkdirAll(projectDir, 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	// Create a sessions-index.json with Mac paths
+	// Create a sessions-index.json with local paths
 	index := conv.SessionsIndex{
 		Entries: []conv.SessionEntry{
 			{
 				SessionID:   "abc123",
-				ProjectPath: "/Users/johkjo/git/personal/tofu",
-				FullPath:    "/Users/johkjo/.claude/projects/-Users-johkjo-git-personal-tofu/abc123.jsonl",
+				ProjectPath: "/home/local/projects/myproject",
+				FullPath:    "/home/local/.claude/projects/-home-local-projects-myproject/abc123.jsonl",
 			},
 		},
 	}
@@ -39,13 +55,8 @@ func TestUpdateIndexFile_Canonicalize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	config := &SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
-		Dirs:  [][]string{{"/home/gigur/git", "/Users/johkjo/git/personal"}},
-	}
-
 	// Canonicalize (empty localHome)
-	wasFixed, err := updateIndexFile(indexPath, config, "")
+	wasFixed, err := updateIndexFile(indexPath, testConfig(), "")
 	if err != nil {
 		t.Fatalf("updateIndexFile failed: %v", err)
 	}
@@ -68,14 +79,14 @@ func TestUpdateIndexFile_Canonicalize(t *testing.T) {
 		t.Fatalf("expected 1 entry, got %d", len(result.Entries))
 	}
 
-	// Should be canonicalized to Linux paths (including embedded project dir in fullPath)
-	if result.Entries[0].ProjectPath != "/home/gigur/git/tofu" {
+	// Should be canonicalized (including embedded project dir in fullPath)
+	if result.Entries[0].ProjectPath != "/home/canonical/git/myproject" {
 		t.Errorf("ProjectPath not canonicalized: got %q, want %q",
-			result.Entries[0].ProjectPath, "/home/gigur/git/tofu")
+			result.Entries[0].ProjectPath, "/home/canonical/git/myproject")
 	}
 
 	// FullPath should have both the home prefix AND embedded project dir canonicalized
-	expectedFullPath := "/home/gigur/.claude/projects/-home-gigur-git-tofu/abc123.jsonl"
+	expectedFullPath := "/home/canonical/.claude/projects/-home-canonical-git-myproject/abc123.jsonl"
 	if result.Entries[0].FullPath != expectedFullPath {
 		t.Errorf("FullPath not canonicalized: got %q, want %q",
 			result.Entries[0].FullPath, expectedFullPath)
@@ -83,20 +94,19 @@ func TestUpdateIndexFile_Canonicalize(t *testing.T) {
 }
 
 func TestUpdateIndexFile_Localize(t *testing.T) {
-	// Create temp directory structure
 	tempDir := t.TempDir()
-	projectDir := filepath.Join(tempDir, "-home-gigur-git-tofu")
+	projectDir := filepath.Join(tempDir, "-home-canonical-git-myproject")
 	if err := os.MkdirAll(projectDir, 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	// Create a sessions-index.json with canonical (Linux) paths
+	// Create a sessions-index.json with canonical paths
 	index := conv.SessionsIndex{
 		Entries: []conv.SessionEntry{
 			{
 				SessionID:   "abc123",
-				ProjectPath: "/home/gigur/git/tofu",
-				FullPath:    "/home/gigur/.claude/projects/-home-gigur-git-tofu/abc123.jsonl",
+				ProjectPath: "/home/canonical/git/myproject",
+				FullPath:    "/home/canonical/.claude/projects/-home-canonical-git-myproject/abc123.jsonl",
 			},
 		},
 	}
@@ -112,13 +122,8 @@ func TestUpdateIndexFile_Localize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	config := &SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
-		Dirs:  [][]string{{"/home/gigur/git", "/Users/johkjo/git/personal"}},
-	}
-
-	// Localize to Mac
-	wasFixed, err := updateIndexFile(indexPath, config, "/Users/johkjo")
+	// Localize to local
+	wasFixed, err := updateIndexFile(indexPath, testConfig(), testLocalHome)
 	if err != nil {
 		t.Fatalf("updateIndexFile failed: %v", err)
 	}
@@ -141,22 +146,22 @@ func TestUpdateIndexFile_Localize(t *testing.T) {
 		t.Fatalf("expected 1 entry, got %d", len(result.Entries))
 	}
 
-	// Should be localized to Mac paths
-	if result.Entries[0].ProjectPath != "/Users/johkjo/git/personal/tofu" {
+	// Should be localized
+	if result.Entries[0].ProjectPath != "/home/local/projects/myproject" {
 		t.Errorf("ProjectPath not localized: got %q, want %q",
-			result.Entries[0].ProjectPath, "/Users/johkjo/git/personal/tofu")
+			result.Entries[0].ProjectPath, "/home/local/projects/myproject")
 	}
 
-	if result.Entries[0].FullPath != "/Users/johkjo/.claude/projects/-home-gigur-git-tofu/abc123.jsonl" {
+	// FullPath should be fully localized (both home prefix AND embedded project dir)
+	if result.Entries[0].FullPath != "/home/local/.claude/projects/-home-local-projects-myproject/abc123.jsonl" {
 		t.Errorf("FullPath not localized: got %q, want %q",
-			result.Entries[0].FullPath, "/Users/johkjo/.claude/projects/-home-gigur-git-tofu/abc123.jsonl")
+			result.Entries[0].FullPath, "/home/local/.claude/projects/-home-local-projects-myproject/abc123.jsonl")
 	}
 }
 
 func TestUpdateIndexFile_NoChange(t *testing.T) {
-	// Create temp directory structure
 	tempDir := t.TempDir()
-	projectDir := filepath.Join(tempDir, "-home-gigur-git-tofu")
+	projectDir := filepath.Join(tempDir, "-home-canonical-git-myproject")
 	if err := os.MkdirAll(projectDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -166,8 +171,8 @@ func TestUpdateIndexFile_NoChange(t *testing.T) {
 		Entries: []conv.SessionEntry{
 			{
 				SessionID:   "abc123",
-				ProjectPath: "/home/gigur/git/tofu",
-				FullPath:    "/home/gigur/.claude/projects/-home-gigur-git-tofu/abc123.jsonl",
+				ProjectPath: "/home/canonical/git/myproject",
+				FullPath:    "/home/canonical/.claude/projects/-home-canonical-git-myproject/abc123.jsonl",
 			},
 		},
 	}
@@ -183,13 +188,8 @@ func TestUpdateIndexFile_NoChange(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	config := &SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
-		Dirs:  [][]string{{"/home/gigur/git", "/Users/johkjo/git/personal"}},
-	}
-
 	// Canonicalize - should report no change since it's already canonical
-	wasFixed, err := updateIndexFile(indexPath, config, "")
+	wasFixed, err := updateIndexFile(indexPath, testConfig(), "")
 	if err != nil {
 		t.Fatalf("updateIndexFile failed: %v", err)
 	}
@@ -201,8 +201,8 @@ func TestUpdateIndexFile_NoChange(t *testing.T) {
 func TestUpdateSessionPaths_MultipleProjects(t *testing.T) {
 	tempDir := t.TempDir()
 
-	// Create two project directories with Mac paths
-	projects := []string{"-Users-johkjo-git-personal-tofu", "-Users-johkjo-git-personal-other"}
+	// Create two project directories with local paths
+	projects := []string{"-home-local-projects-myproject", "-home-local-projects-other"}
 	for _, proj := range projects {
 		projectDir := filepath.Join(tempDir, proj)
 		if err := os.MkdirAll(projectDir, 0755); err != nil {
@@ -213,7 +213,7 @@ func TestUpdateSessionPaths_MultipleProjects(t *testing.T) {
 			Entries: []conv.SessionEntry{
 				{
 					SessionID:   "session1",
-					ProjectPath: "/Users/johkjo/git/personal/something",
+					ProjectPath: "/home/local/projects/something",
 				},
 			},
 		}
@@ -228,13 +228,8 @@ func TestUpdateSessionPaths_MultipleProjects(t *testing.T) {
 		}
 	}
 
-	config := &SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
-		Dirs:  [][]string{{"/home/gigur/git", "/Users/johkjo/git/personal"}},
-	}
-
 	// Canonicalize both
-	fixed, err := updateSessionPaths(tempDir, config, "")
+	fixed, err := updateSessionPaths(tempDir, testConfig(), "")
 	if err != nil {
 		t.Fatalf("updateSessionPaths failed: %v", err)
 	}
@@ -249,7 +244,7 @@ func TestUpdateSessionPaths_MultipleProjects(t *testing.T) {
 		var result conv.SessionsIndex
 		json.Unmarshal(data, &result)
 
-		if result.Entries[0].ProjectPath != "/home/gigur/git/something" {
+		if result.Entries[0].ProjectPath != "/home/canonical/git/something" {
 			t.Errorf("project %s not canonicalized: %q", proj, result.Entries[0].ProjectPath)
 		}
 	}
@@ -258,33 +253,28 @@ func TestUpdateSessionPaths_MultipleProjects(t *testing.T) {
 func TestRepairDirectory_CanonicalizesSyncDir(t *testing.T) {
 	tempDir := t.TempDir()
 
-	// Create a project dir with Mac path naming
-	macProjectDir := filepath.Join(tempDir, "-Users-johkjo-git-personal-tofu")
-	if err := os.MkdirAll(macProjectDir, 0755); err != nil {
+	// Create a project dir with local path naming
+	localProjectDir := filepath.Join(tempDir, "-home-local-projects-myproject")
+	if err := os.MkdirAll(localProjectDir, 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	// Create index with Mac paths
+	// Create index with local paths
 	index := conv.SessionsIndex{
 		Entries: []conv.SessionEntry{
-			{SessionID: "test1", ProjectPath: "/Users/johkjo/git/personal/tofu"},
+			{SessionID: "test1", ProjectPath: "/home/local/projects/myproject"},
 		},
 	}
 	indexData, _ := json.MarshalIndent(index, "", "  ")
-	if err := os.WriteFile(filepath.Join(macProjectDir, "sessions-index.json"), indexData, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(localProjectDir, "sessions-index.json"), indexData, 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(macProjectDir, "test1.jsonl"), []byte(`{}`), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(localProjectDir, "test1.jsonl"), []byte(`{}`), 0644); err != nil {
 		t.Fatal(err)
-	}
-
-	config := &SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
-		Dirs:  [][]string{{"/home/gigur/git", "/Users/johkjo/git/personal"}},
 	}
 
 	// Repair as sync dir (canonicalize - empty localHome)
-	count, err := repairDirectory(tempDir, config, false, "")
+	count, err := repairDirectory(tempDir, testConfig(), false, "")
 	if err != nil {
 		t.Fatalf("repairDirectory failed: %v", err)
 	}
@@ -295,14 +285,14 @@ func TestRepairDirectory_CanonicalizesSyncDir(t *testing.T) {
 	}
 
 	// Canonical dir should exist
-	canonicalDir := filepath.Join(tempDir, "-home-gigur-git-tofu")
+	canonicalDir := filepath.Join(tempDir, "-home-canonical-git-myproject")
 	if _, err := os.Stat(canonicalDir); os.IsNotExist(err) {
 		t.Error("canonical directory was not created")
 	}
 
-	// Mac dir should be removed
-	if _, err := os.Stat(macProjectDir); !os.IsNotExist(err) {
-		t.Error("Mac directory was not removed after merge")
+	// Local dir should be removed
+	if _, err := os.Stat(localProjectDir); !os.IsNotExist(err) {
+		t.Error("local directory was not removed after merge")
 	}
 
 	// Check paths in index are canonicalized
@@ -311,7 +301,7 @@ func TestRepairDirectory_CanonicalizesSyncDir(t *testing.T) {
 	var result conv.SessionsIndex
 	json.Unmarshal(data, &result)
 
-	if result.Entries[0].ProjectPath != "/home/gigur/git/tofu" {
+	if result.Entries[0].ProjectPath != "/home/canonical/git/myproject" {
 		t.Errorf("path not canonicalized: %q", result.Entries[0].ProjectPath)
 	}
 }
@@ -320,15 +310,15 @@ func TestRepairDirectory_LocalizesLocalDir(t *testing.T) {
 	tempDir := t.TempDir()
 
 	// Create a project dir with canonical path naming
-	canonicalProjectDir := filepath.Join(tempDir, "-home-gigur-git-tofu")
+	canonicalProjectDir := filepath.Join(tempDir, "-home-canonical-git-myproject")
 	if err := os.MkdirAll(canonicalProjectDir, 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	// Create index with canonical (Linux) paths
+	// Create index with canonical paths
 	index := conv.SessionsIndex{
 		Entries: []conv.SessionEntry{
-			{SessionID: "test1", ProjectPath: "/home/gigur/git/tofu"},
+			{SessionID: "test1", ProjectPath: "/home/canonical/git/myproject"},
 		},
 	}
 	indexData, _ := json.MarshalIndent(index, "", "  ")
@@ -339,58 +329,104 @@ func TestRepairDirectory_LocalizesLocalDir(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	config := &SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
-		Dirs:  [][]string{{"/home/gigur/git", "/Users/johkjo/git/personal"}},
-	}
-
-	// Repair as local dir (localize - with localHome set to Mac)
-	_, err := repairDirectory(tempDir, config, false, "/Users/johkjo")
+	// Repair as local dir (localize - with localHome set)
+	count, err := repairDirectory(tempDir, testConfig(), false, testLocalHome)
 	if err != nil {
 		t.Fatalf("repairDirectory failed: %v", err)
 	}
 
-	// Check paths in index are localized to Mac
-	indexPath := filepath.Join(canonicalProjectDir, "sessions-index.json")
+	// Should have renamed the directory
+	if count != 1 {
+		t.Errorf("expected 1 directory to be renamed, got %d", count)
+	}
+
+	// Local dir should exist with content
+	localProjectDir := filepath.Join(tempDir, "-home-local-projects-myproject")
+	if _, err := os.Stat(localProjectDir); os.IsNotExist(err) {
+		t.Error("local directory should have been created")
+	}
+
+	// Canonical dir should be removed
+	if _, err := os.Stat(canonicalProjectDir); !os.IsNotExist(err) {
+		t.Error("canonical directory should be removed after localizing")
+	}
+
+	// Check paths in index are localized
+	indexPath := filepath.Join(localProjectDir, "sessions-index.json")
 	data, _ := os.ReadFile(indexPath)
 	var result conv.SessionsIndex
 	json.Unmarshal(data, &result)
 
-	if result.Entries[0].ProjectPath != "/Users/johkjo/git/personal/tofu" {
+	if result.Entries[0].ProjectPath != "/home/local/projects/myproject" {
 		t.Errorf("path not localized: got %q, want %q",
-			result.Entries[0].ProjectPath, "/Users/johkjo/git/personal/tofu")
+			result.Entries[0].ProjectPath, "/home/local/projects/myproject")
+	}
+}
+
+func TestRepairDirectory_LocalizesLocalDir_AlreadyLocalStaysUnchanged(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create a project dir already in local form
+	localProjectDir := filepath.Join(tempDir, "-home-local-projects-myproject")
+	if err := os.MkdirAll(localProjectDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create index with already localized paths
+	index := conv.SessionsIndex{
+		Entries: []conv.SessionEntry{
+			{SessionID: "test1", ProjectPath: "/home/local/projects/myproject"},
+		},
+	}
+	indexData, _ := json.MarshalIndent(index, "", "  ")
+	if err := os.WriteFile(filepath.Join(localProjectDir, "sessions-index.json"), indexData, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(localProjectDir, "test1.jsonl"), []byte(`{}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Repair as local dir - should be a no-op since already localized
+	count, err := repairDirectory(tempDir, testConfig(), false, testLocalHome)
+	if err != nil {
+		t.Fatalf("repairDirectory failed: %v", err)
+	}
+
+	// Should not need any repairs
+	if count != 0 {
+		t.Errorf("expected 0 directories to be renamed (already local), got %d", count)
+	}
+
+	// Local dir should still exist
+	if _, err := os.Stat(localProjectDir); os.IsNotExist(err) {
+		t.Error("local directory should still exist")
 	}
 }
 
 func TestRepairDirectory_DryRun(t *testing.T) {
 	tempDir := t.TempDir()
 
-	// Create a project dir with Mac path naming
-	macProjectDir := filepath.Join(tempDir, "-Users-johkjo-git-personal-tofu")
-	if err := os.MkdirAll(macProjectDir, 0755); err != nil {
+	// Create a project dir with local path naming
+	localProjectDir := filepath.Join(tempDir, "-home-local-projects-myproject")
+	if err := os.MkdirAll(localProjectDir, 0755); err != nil {
 		t.Fatal(err)
 	}
 
 	index := conv.SessionsIndex{
 		Entries: []conv.SessionEntry{
-			{SessionID: "test1", ProjectPath: "/Users/johkjo/git/personal/tofu"},
+			{SessionID: "test1", ProjectPath: "/home/local/projects/myproject"},
 		},
 	}
 	indexData, _ := json.MarshalIndent(index, "", "  ")
-	if err := os.WriteFile(filepath.Join(macProjectDir, "sessions-index.json"), indexData, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(localProjectDir, "sessions-index.json"), indexData, 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(macProjectDir, "test1.jsonl"), []byte(`{}`), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(localProjectDir, "test1.jsonl"), []byte(`{}`), 0644); err != nil {
 		t.Fatal(err)
-	}
-
-	config := &SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
-		Dirs:  [][]string{{"/home/gigur/git", "/Users/johkjo/git/personal"}},
 	}
 
 	// Dry run
-	count, err := repairDirectory(tempDir, config, true, "")
+	count, err := repairDirectory(tempDir, testConfig(), true, "")
 	if err != nil {
 		t.Fatalf("repairDirectory dry-run failed: %v", err)
 	}
@@ -400,43 +436,38 @@ func TestRepairDirectory_DryRun(t *testing.T) {
 		t.Errorf("expected 1 merge to be reported, got %d", count)
 	}
 
-	// But Mac dir should still exist (dry run doesn't modify)
-	if _, err := os.Stat(macProjectDir); os.IsNotExist(err) {
-		t.Error("Mac directory should still exist in dry-run mode")
+	// But local dir should still exist (dry run doesn't modify)
+	if _, err := os.Stat(localProjectDir); os.IsNotExist(err) {
+		t.Error("local directory should still exist in dry-run mode")
 	}
 
 	// And canonical dir should NOT exist
-	canonicalDir := filepath.Join(tempDir, "-home-gigur-git-tofu")
+	canonicalDir := filepath.Join(tempDir, "-home-canonical-git-myproject")
 	if _, err := os.Stat(canonicalDir); !os.IsNotExist(err) {
 		t.Error("canonical directory should not be created in dry-run mode")
 	}
 }
 
 func TestCanonicalizePath(t *testing.T) {
-	config := &SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
-		Dirs:  [][]string{{"/home/gigur/git", "/Users/johkjo/git/personal"}},
-	}
-
 	tests := []struct {
 		name     string
 		path     string
 		expected string
 	}{
 		{
-			name:     "mac git personal to canonical",
-			path:     "/Users/johkjo/git/personal/tofu",
-			expected: "/home/gigur/git/tofu",
+			name:     "local projects to canonical",
+			path:     "/home/local/projects/myproject",
+			expected: "/home/canonical/git/myproject",
 		},
 		{
-			name:     "mac home other to canonical",
-			path:     "/Users/johkjo/Documents/notes",
-			expected: "/home/gigur/Documents/notes",
+			name:     "local home other to canonical",
+			path:     "/home/local/Documents/notes",
+			expected: "/home/canonical/Documents/notes",
 		},
 		{
 			name:     "already canonical",
-			path:     "/home/gigur/git/tofu",
-			expected: "/home/gigur/git/tofu",
+			path:     "/home/canonical/git/myproject",
+			expected: "/home/canonical/git/myproject",
 		},
 		{
 			name:     "unrelated path unchanged",
@@ -447,7 +478,7 @@ func TestCanonicalizePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := canonicalizePath(tt.path, config)
+			result := canonicalizePath(tt.path, testConfig())
 			if result != tt.expected {
 				t.Errorf("canonicalizePath(%q) = %q, want %q", tt.path, result, tt.expected)
 			}
@@ -456,46 +487,41 @@ func TestCanonicalizePath(t *testing.T) {
 }
 
 func TestCanonicalizeEmbeddedProjectDir(t *testing.T) {
-	config := &SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
-		Dirs:  [][]string{{"/home/gigur/git", "/Users/johkjo/git/personal"}},
-	}
-
 	tests := []struct {
 		name     string
 		path     string
 		expected string
 	}{
 		{
-			name:     "fullPath with embedded mac project dir",
-			path:     "/home/gigur/.claude/projects/-Users-johkjo-git-personal-tofu/session.jsonl",
-			expected: "/home/gigur/.claude/projects/-home-gigur-git-tofu/session.jsonl",
+			name:     "fullPath with embedded local project dir",
+			path:     "/home/canonical/.claude/projects/-home-local-projects-myproject/session.jsonl",
+			expected: "/home/canonical/.claude/projects/-home-canonical-git-myproject/session.jsonl",
 		},
 		{
 			name:     "fullPath with already canonical project dir",
-			path:     "/home/gigur/.claude/projects/-home-gigur-git-tofu/session.jsonl",
-			expected: "/home/gigur/.claude/projects/-home-gigur-git-tofu/session.jsonl",
+			path:     "/home/canonical/.claude/projects/-home-canonical-git-myproject/session.jsonl",
+			expected: "/home/canonical/.claude/projects/-home-canonical-git-myproject/session.jsonl",
 		},
 		{
 			name:     "fullPath without session file (project dir only)",
-			path:     "/home/gigur/.claude/projects/-Users-johkjo-git-personal-tofu",
-			expected: "/home/gigur/.claude/projects/-home-gigur-git-tofu",
+			path:     "/home/canonical/.claude/projects/-home-local-projects-myproject",
+			expected: "/home/canonical/.claude/projects/-home-canonical-git-myproject",
 		},
 		{
 			name:     "path without .claude/projects marker unchanged",
-			path:     "/home/gigur/some/other/path/session.jsonl",
-			expected: "/home/gigur/some/other/path/session.jsonl",
+			path:     "/home/canonical/some/other/path/session.jsonl",
+			expected: "/home/canonical/some/other/path/session.jsonl",
 		},
 		{
-			name:     "complete mac fullPath gets fully canonicalized",
-			path:     "/Users/johkjo/.claude/projects/-Users-johkjo-git-personal-tofu/abc.jsonl",
-			expected: "/home/gigur/.claude/projects/-home-gigur-git-tofu/abc.jsonl",
+			name:     "complete local fullPath gets fully canonicalized",
+			path:     "/home/local/.claude/projects/-home-local-projects-myproject/abc.jsonl",
+			expected: "/home/canonical/.claude/projects/-home-canonical-git-myproject/abc.jsonl",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := canonicalizePath(tt.path, config)
+			result := canonicalizePath(tt.path, testConfig())
 			if result != tt.expected {
 				t.Errorf("canonicalizePath(%q) = %q, want %q", tt.path, result, tt.expected)
 			}
@@ -504,18 +530,13 @@ func TestCanonicalizeEmbeddedProjectDir(t *testing.T) {
 }
 
 func TestRepairRoundTrip_SyncThenLocal(t *testing.T) {
-	// Simulate the full workflow: Mac paths -> sync (canonicalize) -> local on Mac (localize)
+	// Simulate the full workflow: local paths -> sync (canonicalize) -> local machine (localize)
 	syncDir := t.TempDir()
 	localDir := t.TempDir()
 
-	config := &SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
-		Dirs:  [][]string{{"/home/gigur/git", "/Users/johkjo/git/personal"}},
-	}
-
-	// Step 1: Create project with Mac paths (as if on Mac)
-	macProjectDir := filepath.Join(syncDir, "-Users-johkjo-git-personal-tofu")
-	if err := os.MkdirAll(macProjectDir, 0755); err != nil {
+	// Step 1: Create project with local paths (as if on local machine)
+	localProjectDir := filepath.Join(syncDir, "-home-local-projects-myproject")
+	if err := os.MkdirAll(localProjectDir, 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -523,29 +544,34 @@ func TestRepairRoundTrip_SyncThenLocal(t *testing.T) {
 		Entries: []conv.SessionEntry{
 			{
 				SessionID:   "test1",
-				ProjectPath: "/Users/johkjo/git/personal/tofu",
-				FullPath:    "/Users/johkjo/.claude/projects/-Users-johkjo-git-personal-tofu/test1.jsonl",
+				ProjectPath: "/home/local/projects/myproject",
+				FullPath:    "/home/local/.claude/projects/-home-local-projects-myproject/test1.jsonl",
 			},
 		},
 	}
 	indexData, _ := json.MarshalIndent(index, "", "  ")
-	if err := os.WriteFile(filepath.Join(macProjectDir, "sessions-index.json"), indexData, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(localProjectDir, "sessions-index.json"), indexData, 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(macProjectDir, "test1.jsonl"), []byte(`{}`), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(localProjectDir, "test1.jsonl"), []byte(`{}`), 0644); err != nil {
 		t.Fatal(err)
 	}
 
 	// Step 2: Repair sync dir (canonicalize)
-	_, err := repairDirectory(syncDir, config, false, "")
+	_, err := repairDirectory(syncDir, testConfig(), false, "")
 	if err != nil {
 		t.Fatalf("sync repair failed: %v", err)
 	}
 
 	// Verify canonical dir was created in sync
-	canonicalDir := filepath.Join(syncDir, "-home-gigur-git-tofu")
+	canonicalDir := filepath.Join(syncDir, "-home-canonical-git-myproject")
 	if _, err := os.Stat(canonicalDir); os.IsNotExist(err) {
 		t.Fatal("canonical directory not created")
+	}
+
+	// Verify local dir was removed in sync
+	if _, err := os.Stat(localProjectDir); !os.IsNotExist(err) {
+		t.Fatal("local directory should be removed from sync after canonicalize")
 	}
 
 	// Check sync paths are canonical
@@ -554,41 +580,57 @@ func TestRepairRoundTrip_SyncThenLocal(t *testing.T) {
 	var syncResult conv.SessionsIndex
 	json.Unmarshal(data, &syncResult)
 
-	if syncResult.Entries[0].ProjectPath != "/home/gigur/git/tofu" {
+	if syncResult.Entries[0].ProjectPath != "/home/canonical/git/myproject" {
 		t.Errorf("sync not canonicalized: %q", syncResult.Entries[0].ProjectPath)
 	}
 
 	// Step 3: Copy to local dir (simulating sync -> local copy)
-	localProjectDir := filepath.Join(localDir, "-home-gigur-git-tofu")
-	if err := os.MkdirAll(localProjectDir, 0755); err != nil {
+	localCanonicalDir := filepath.Join(localDir, "-home-canonical-git-myproject")
+	if err := os.MkdirAll(localCanonicalDir, 0755); err != nil {
 		t.Fatal(err)
 	}
 	// Copy files
-	if err := os.WriteFile(filepath.Join(localProjectDir, "sessions-index.json"), data, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(localCanonicalDir, "sessions-index.json"), data, 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(localProjectDir, "test1.jsonl"), []byte(`{}`), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(localCanonicalDir, "test1.jsonl"), []byte(`{}`), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	// Step 4: Repair local dir with Mac localHome (localize)
-	_, err = repairDirectory(localDir, config, false, "/Users/johkjo")
+	// Step 4: Repair local dir with localHome (localize)
+	count, err := repairDirectory(localDir, testConfig(), false, testLocalHome)
 	if err != nil {
 		t.Fatalf("local repair failed: %v", err)
 	}
 
-	// Check local paths are localized to Mac
-	localIndexPath := filepath.Join(localProjectDir, "sessions-index.json")
+	// Should have renamed 1 directory
+	if count != 1 {
+		t.Errorf("expected 1 directory rename, got %d", count)
+	}
+
+	// Verify canonical dir was renamed to local form
+	localMacDir := filepath.Join(localDir, "-home-local-projects-myproject")
+	if _, err := os.Stat(localMacDir); os.IsNotExist(err) {
+		t.Fatal("local directory should be created after localize")
+	}
+
+	// Verify canonical dir was removed in local
+	if _, err := os.Stat(localCanonicalDir); !os.IsNotExist(err) {
+		t.Fatal("canonical directory should be removed from local after localize")
+	}
+
+	// Check local paths are localized
+	localIndexPath := filepath.Join(localMacDir, "sessions-index.json")
 	localData, _ := os.ReadFile(localIndexPath)
 	var localResult conv.SessionsIndex
 	json.Unmarshal(localData, &localResult)
 
-	if localResult.Entries[0].ProjectPath != "/Users/johkjo/git/personal/tofu" {
+	if localResult.Entries[0].ProjectPath != "/home/local/projects/myproject" {
 		t.Errorf("local not localized: got %q, want %q",
-			localResult.Entries[0].ProjectPath, "/Users/johkjo/git/personal/tofu")
+			localResult.Entries[0].ProjectPath, "/home/local/projects/myproject")
 	}
 
-	expectedFullPath := "/Users/johkjo/.claude/projects/-home-gigur-git-tofu/test1.jsonl"
+	expectedFullPath := "/home/local/.claude/projects/-home-local-projects-myproject/test1.jsonl"
 	if localResult.Entries[0].FullPath != expectedFullPath {
 		t.Errorf("local fullPath not localized: got %q, want %q",
 			localResult.Entries[0].FullPath, expectedFullPath)
@@ -598,39 +640,34 @@ func TestRepairRoundTrip_SyncThenLocal(t *testing.T) {
 func TestRepairDirectory_MergeEquivalentDirs(t *testing.T) {
 	tempDir := t.TempDir()
 
-	config := &SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
-		Dirs:  [][]string{{"/home/gigur/git", "/Users/johkjo/git/personal"}},
-	}
-
 	// Create TWO equivalent directories
-	linuxDir := filepath.Join(tempDir, "-home-gigur-git-tofu")
-	macDir := filepath.Join(tempDir, "-Users-johkjo-git-personal-tofu")
+	canonicalDir := filepath.Join(tempDir, "-home-canonical-git-myproject")
+	localDir := filepath.Join(tempDir, "-home-local-projects-myproject")
 
-	for _, dir := range []string{linuxDir, macDir} {
+	for _, dir := range []string{canonicalDir, localDir} {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	// Linux dir has session1
-	linuxIndex := conv.SessionsIndex{
-		Entries: []conv.SessionEntry{{SessionID: "session1", ProjectPath: "/home/gigur/git/tofu"}},
+	// Canonical dir has session1
+	canonicalIndex := conv.SessionsIndex{
+		Entries: []conv.SessionEntry{{SessionID: "session1", ProjectPath: "/home/canonical/git/myproject"}},
 	}
-	linuxData, _ := json.MarshalIndent(linuxIndex, "", "  ")
-	os.WriteFile(filepath.Join(linuxDir, "sessions-index.json"), linuxData, 0644)
-	os.WriteFile(filepath.Join(linuxDir, "session1.jsonl"), []byte(`{"linux":true}`), 0644)
+	canonicalData, _ := json.MarshalIndent(canonicalIndex, "", "  ")
+	os.WriteFile(filepath.Join(canonicalDir, "sessions-index.json"), canonicalData, 0644)
+	os.WriteFile(filepath.Join(canonicalDir, "session1.jsonl"), []byte(`{"canonical":true}`), 0644)
 
-	// Mac dir has session2
-	macIndex := conv.SessionsIndex{
-		Entries: []conv.SessionEntry{{SessionID: "session2", ProjectPath: "/Users/johkjo/git/personal/tofu"}},
+	// Local dir has session2
+	localIndex := conv.SessionsIndex{
+		Entries: []conv.SessionEntry{{SessionID: "session2", ProjectPath: "/home/local/projects/myproject"}},
 	}
-	macData, _ := json.MarshalIndent(macIndex, "", "  ")
-	os.WriteFile(filepath.Join(macDir, "sessions-index.json"), macData, 0644)
-	os.WriteFile(filepath.Join(macDir, "session2.jsonl"), []byte(`{"mac":true}`), 0644)
+	localData, _ := json.MarshalIndent(localIndex, "", "  ")
+	os.WriteFile(filepath.Join(localDir, "sessions-index.json"), localData, 0644)
+	os.WriteFile(filepath.Join(localDir, "session2.jsonl"), []byte(`{"local":true}`), 0644)
 
 	// Repair (canonicalize)
-	count, err := repairDirectory(tempDir, config, false, "")
+	count, err := repairDirectory(tempDir, testConfig(), false, "")
 	if err != nil {
 		t.Fatalf("repairDirectory failed: %v", err)
 	}
@@ -640,18 +677,18 @@ func TestRepairDirectory_MergeEquivalentDirs(t *testing.T) {
 	}
 
 	// Only canonical dir should exist
-	if _, err := os.Stat(linuxDir); os.IsNotExist(err) {
+	if _, err := os.Stat(canonicalDir); os.IsNotExist(err) {
 		t.Error("canonical directory should still exist")
 	}
-	if _, err := os.Stat(macDir); !os.IsNotExist(err) {
-		t.Error("mac directory should be removed after merge")
+	if _, err := os.Stat(localDir); !os.IsNotExist(err) {
+		t.Error("local directory should be removed after merge")
 	}
 
 	// Canonical dir should have both session files
-	if _, err := os.Stat(filepath.Join(linuxDir, "session1.jsonl")); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(canonicalDir, "session1.jsonl")); os.IsNotExist(err) {
 		t.Error("session1.jsonl should exist in merged dir")
 	}
-	if _, err := os.Stat(filepath.Join(linuxDir, "session2.jsonl")); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(canonicalDir, "session2.jsonl")); os.IsNotExist(err) {
 		t.Error("session2.jsonl should exist in merged dir")
 	}
 }

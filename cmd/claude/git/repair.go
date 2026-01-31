@@ -117,22 +117,32 @@ func repairDirectory(dir string, config *SyncConfig, dryRun bool, localHome stri
 		groups[canonical] = append(groups[canonical], entry.Name())
 	}
 
-	// Find groups that need merging (more than one entry, or entry differs from canonical)
+	// Find groups that need merging
+	// For local repair (localHome != ""), target is the localized form
+	// For sync repair (localHome == ""), target is the canonical form
 	mergeCount := 0
 	for canonical, originals := range groups {
-		needsMerge := len(originals) > 1 || (len(originals) == 1 && originals[0] != canonical)
+		// Determine the target directory name
+		var target string
+		if localHome != "" {
+			target = config.LocalizeProjectDir(canonical, localHome)
+		} else {
+			target = canonical
+		}
+
+		needsMerge := len(originals) > 1 || (len(originals) == 1 && originals[0] != target)
 
 		if !needsMerge {
 			continue
 		}
 
 		mergeCount++
-		fmt.Printf("Merge group: %s\n", canonical)
+		fmt.Printf("Merge group: %s\n", target)
 		for _, orig := range originals {
-			if orig == canonical {
-				fmt.Printf("  - %s (canonical)\n", orig)
+			if orig == target {
+				fmt.Printf("  - %s (target)\n", orig)
 			} else {
-				fmt.Printf("  - %s -> merge into canonical\n", orig)
+				fmt.Printf("  - %s -> merge into target\n", orig)
 			}
 		}
 
@@ -142,23 +152,23 @@ func repairDirectory(dir string, config *SyncConfig, dryRun bool, localHome stri
 		}
 
 		// Perform the merge
-		canonicalPath := filepath.Join(dir, canonical)
+		targetPath := filepath.Join(dir, target)
 
-		// Ensure canonical directory exists
-		if err := os.MkdirAll(canonicalPath, 0755); err != nil {
-			return 0, fmt.Errorf("failed to create canonical directory: %w", err)
+		// Ensure target directory exists
+		if err := os.MkdirAll(targetPath, 0755); err != nil {
+			return 0, fmt.Errorf("failed to create target directory: %w", err)
 		}
 
-		// Merge each non-canonical directory into canonical
+		// Merge each non-target directory into target
 		for _, orig := range originals {
-			if orig == canonical {
+			if orig == target {
 				continue
 			}
 
 			origPath := filepath.Join(dir, orig)
 			fmt.Printf("  Merging %s...\n", orig)
 
-			if err := mergeProjectIntoCanonical(origPath, canonicalPath); err != nil {
+			if err := mergeProjectIntoCanonical(origPath, targetPath); err != nil {
 				fmt.Printf("    Warning: merge failed: %v\n", err)
 				continue
 			}

@@ -228,7 +228,8 @@ func (c *SyncConfig) LocalizePath(path, localHome string) string {
 			// Find local equivalent in this group
 			for _, dir := range group[1:] {
 				if strings.HasPrefix(dir, localPrefix) {
-					return dir + path[len(canonicalDir):]
+					path = dir + path[len(canonicalDir):]
+					break
 				}
 			}
 		}
@@ -236,8 +237,58 @@ func (c *SyncConfig) LocalizePath(path, localHome string) string {
 
 	// Apply homes mapping
 	if strings.HasPrefix(path, canonical) {
-		return localPrefix + path[len(canonical):]
+		path = localPrefix + path[len(canonical):]
 	}
 
+	// Also localize embedded project directory names (e.g., in fullPath)
+	path = c.localizeEmbeddedProjectDir(path, localHome)
+
 	return path
+}
+
+// localizeEmbeddedProjectDir finds and localizes project dir names embedded in paths
+// e.g., /home/local/.claude/projects/-home-canonical-git-myproject/session.jsonl
+// becomes /home/local/.claude/projects/-home-local-projects-myproject/session.jsonl
+func (c *SyncConfig) localizeEmbeddedProjectDir(path, localHome string) string {
+	// Look for .claude/projects/ pattern
+	projectsMarker := ".claude/projects/"
+	idx := strings.Index(path, projectsMarker)
+	if idx == -1 {
+		return path
+	}
+
+	// Find the project dir name (starts after projects/, ends at next /)
+	start := idx + len(projectsMarker)
+	end := strings.Index(path[start:], "/")
+	if end == -1 {
+		// Project dir is the last component
+		projectDir := path[start:]
+		localDir := c.LocalizeProjectDir(projectDir, localHome)
+		if projectDir != localDir {
+			return path[:start] + localDir
+		}
+		return path
+	}
+
+	// Extract, localize, and replace
+	projectDir := path[start : start+end]
+	localDir := c.LocalizeProjectDir(projectDir, localHome)
+	if projectDir != localDir {
+		return path[:start] + localDir + path[start+end:]
+	}
+	return path
+}
+
+// LocalizeProjectDir converts a project dir to the local machine's form
+// This is the reverse of CanonicalizeProjectDir
+// e.g., "-home-gigur-git-tofu" -> "-Users-johkjo-git-personal-tofu" (on Mac)
+func (c *SyncConfig) LocalizeProjectDir(projectDir, localHome string) string {
+	if c == nil || len(c.Homes) == 0 {
+		return projectDir
+	}
+
+	// Convert to path, localize, convert back
+	path := ProjectDirToPath(projectDir)
+	localPath := c.LocalizePath(path, localHome)
+	return PathToProjectDir(localPath)
 }

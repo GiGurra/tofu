@@ -4,14 +4,23 @@ import (
 	"testing"
 )
 
+// Test paths - these are just string values for testing path transformations,
+// not actual filesystem paths. Using generic names for clarity.
+const (
+	canonicalHome = "/home/canonical"
+	localHome     = "/home/local"
+	canonicalGit  = "/home/canonical/git"
+	localGit      = "/home/local/projects"
+)
+
 func TestProjectDirToPath(t *testing.T) {
 	tests := []struct {
 		input    string
 		expected string
 	}{
-		{"-home-gigur-git-tofu", "/home/gigur/git/tofu"},
-		{"-Users-johkjo-git-personal-tofu", "/Users/johkjo/git/personal/tofu"},
-		{"home-gigur-git-tofu", "/home/gigur/git/tofu"}, // without leading dash
+		{"-home-canonical-git-myproject", "/home/canonical/git/myproject"},
+		{"-home-local-projects-myproject", "/home/local/projects/myproject"},
+		{"home-canonical-git-myproject", "/home/canonical/git/myproject"}, // without leading dash
 	}
 
 	for _, tt := range tests {
@@ -29,8 +38,8 @@ func TestPathToProjectDir(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"/home/gigur/git/tofu", "-home-gigur-git-tofu"},
-		{"/Users/johkjo/git/personal/tofu", "-Users-johkjo-git-personal-tofu"},
+		{"/home/canonical/git/myproject", "-home-canonical-git-myproject"},
+		{"/home/local/projects/myproject", "-home-local-projects-myproject"},
 	}
 
 	for _, tt := range tests {
@@ -45,7 +54,7 @@ func TestPathToProjectDir(t *testing.T) {
 
 func TestCanonicalizeProjectDir_HomesOnly(t *testing.T) {
 	config := &SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
+		Homes: []string{canonicalHome, localHome},
 	}
 
 	tests := []struct {
@@ -55,13 +64,13 @@ func TestCanonicalizeProjectDir_HomesOnly(t *testing.T) {
 	}{
 		{
 			name:     "already canonical",
-			input:    "-home-gigur-git-tofu",
-			expected: "-home-gigur-git-tofu",
+			input:    "-home-canonical-git-myproject",
+			expected: "-home-canonical-git-myproject",
 		},
 		{
-			name:     "mac to linux",
-			input:    "-Users-johkjo-git-tofu",
-			expected: "-home-gigur-git-tofu",
+			name:     "local to canonical",
+			input:    "-home-local-git-myproject",
+			expected: "-home-canonical-git-myproject",
 		},
 		{
 			name:     "unrelated path unchanged",
@@ -83,7 +92,7 @@ func TestCanonicalizeProjectDir_HomesOnly(t *testing.T) {
 func TestCanonicalizeProjectDir_DirsOnly(t *testing.T) {
 	config := &SyncConfig{
 		Dirs: [][]string{
-			{"/home/gigur/git", "/Users/johkjo/git/personal"},
+			{canonicalGit, localGit},
 		},
 	}
 
@@ -94,18 +103,18 @@ func TestCanonicalizeProjectDir_DirsOnly(t *testing.T) {
 	}{
 		{
 			name:     "already canonical",
-			input:    "-home-gigur-git-tofu",
-			expected: "-home-gigur-git-tofu",
+			input:    "-home-canonical-git-myproject",
+			expected: "-home-canonical-git-myproject",
 		},
 		{
-			name:     "mac personal to linux git",
-			input:    "-Users-johkjo-git-personal-tofu",
-			expected: "-home-gigur-git-tofu",
+			name:     "local projects to canonical git",
+			input:    "-home-local-projects-myproject",
+			expected: "-home-canonical-git-myproject",
 		},
 		{
-			name:     "unrelated mac path unchanged",
-			input:    "-Users-johkjo-Documents-notes",
-			expected: "-Users-johkjo-Documents-notes",
+			name:     "unrelated local path unchanged",
+			input:    "-home-local-Documents-notes",
+			expected: "-home-local-Documents-notes",
 		},
 	}
 
@@ -122,9 +131,9 @@ func TestCanonicalizeProjectDir_DirsOnly(t *testing.T) {
 func TestCanonicalizeProjectDir_DirsAndHomes(t *testing.T) {
 	// Real-world scenario: dirs mapping first, then homes
 	config := &SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
+		Homes: []string{canonicalHome, localHome},
 		Dirs: [][]string{
-			{"/home/gigur/git", "/Users/johkjo/git/personal"},
+			{canonicalGit, localGit},
 		},
 	}
 
@@ -135,23 +144,23 @@ func TestCanonicalizeProjectDir_DirsAndHomes(t *testing.T) {
 	}{
 		{
 			name:     "already canonical",
-			input:    "-home-gigur-git-tofu",
-			expected: "-home-gigur-git-tofu",
+			input:    "-home-canonical-git-myproject",
+			expected: "-home-canonical-git-myproject",
 		},
 		{
-			name:     "mac personal git to linux git",
-			input:    "-Users-johkjo-git-personal-tofu",
-			expected: "-home-gigur-git-tofu",
+			name:     "local projects to canonical git",
+			input:    "-home-local-projects-myproject",
+			expected: "-home-canonical-git-myproject",
 		},
 		{
-			name:     "mac home other dir uses homes mapping",
-			input:    "-Users-johkjo-Documents-notes",
-			expected: "-home-gigur-Documents-notes",
+			name:     "local home other dir uses homes mapping",
+			input:    "-home-local-Documents-notes",
+			expected: "-home-canonical-Documents-notes",
 		},
 		{
-			name:     "mac non-personal git uses homes mapping only",
-			input:    "-Users-johkjo-git-work-project",
-			expected: "-home-gigur-git-work-project",
+			name:     "local non-projects git uses homes mapping only",
+			input:    "-home-local-git-work-project",
+			expected: "-home-canonical-git-work-project",
 		},
 	}
 
@@ -167,9 +176,9 @@ func TestCanonicalizeProjectDir_DirsAndHomes(t *testing.T) {
 
 func TestFindEquivalentProjectDirs(t *testing.T) {
 	config := &SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
+		Homes: []string{canonicalHome, localHome},
 		Dirs: [][]string{
-			{"/home/gigur/git", "/Users/johkjo/git/personal"},
+			{canonicalGit, localGit},
 		},
 	}
 
@@ -179,12 +188,12 @@ func TestFindEquivalentProjectDirs(t *testing.T) {
 		expected []string
 	}{
 		{
-			name:  "linux git project",
-			input: "-home-gigur-git-tofu",
+			name:  "canonical git project",
+			input: "-home-canonical-git-myproject",
 			expected: []string{
-				"-home-gigur-git-tofu",
-				"-Users-johkjo-git-tofu",          // from homes mapping
-				"-Users-johkjo-git-personal-tofu", // from dirs mapping
+				"-home-canonical-git-myproject",
+				"-home-local-git-myproject",      // from homes mapping
+				"-home-local-projects-myproject", // from dirs mapping
 			},
 		},
 	}
@@ -212,24 +221,24 @@ func TestFindEquivalentProjectDirs(t *testing.T) {
 
 func TestNilConfig(t *testing.T) {
 	var config *SyncConfig
-	result := config.CanonicalizeProjectDir("-home-gigur-git-tofu")
-	if result != "-home-gigur-git-tofu" {
+	result := config.CanonicalizeProjectDir("-home-canonical-git-myproject")
+	if result != "-home-canonical-git-myproject" {
 		t.Errorf("nil config should return input unchanged, got %q", result)
 	}
 }
 
 func TestEmptyConfig(t *testing.T) {
 	config := &SyncConfig{}
-	result := config.CanonicalizeProjectDir("-home-gigur-git-tofu")
-	if result != "-home-gigur-git-tofu" {
+	result := config.CanonicalizeProjectDir("-home-canonical-git-myproject")
+	if result != "-home-canonical-git-myproject" {
 		t.Errorf("empty config should return input unchanged, got %q", result)
 	}
 }
 
-func TestLocalizePath_LinuxToMac(t *testing.T) {
+func TestLocalizePath_ToLocal(t *testing.T) {
 	config := &SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
-		Dirs:  [][]string{{"/home/gigur/git", "/Users/johkjo/git/personal"}},
+		Homes: []string{canonicalHome, localHome},
+		Dirs:  [][]string{{canonicalGit, localGit}},
 	}
 
 	tests := []struct {
@@ -239,27 +248,27 @@ func TestLocalizePath_LinuxToMac(t *testing.T) {
 		expected  string
 	}{
 		{
-			name:      "canonical to mac with dirs mapping",
-			path:      "/home/gigur/git/tofu",
-			localHome: "/Users/johkjo",
-			expected:  "/Users/johkjo/git/personal/tofu",
+			name:      "canonical to local with dirs mapping",
+			path:      "/home/canonical/git/myproject",
+			localHome: localHome,
+			expected:  "/home/local/projects/myproject",
 		},
 		{
-			name:      "canonical to mac with homes only",
-			path:      "/home/gigur/Documents/notes",
-			localHome: "/Users/johkjo",
-			expected:  "/Users/johkjo/Documents/notes",
+			name:      "canonical to local with homes only",
+			path:      "/home/canonical/Documents/notes",
+			localHome: localHome,
+			expected:  "/home/local/Documents/notes",
 		},
 		{
 			name:      "already local path unchanged",
-			path:      "/Users/johkjo/git/personal/tofu",
-			localHome: "/Users/johkjo",
-			expected:  "/Users/johkjo/git/personal/tofu",
+			path:      "/home/local/projects/myproject",
+			localHome: localHome,
+			expected:  "/home/local/projects/myproject",
 		},
 		{
 			name:      "unrelated path unchanged",
 			path:      "/var/log/something",
-			localHome: "/Users/johkjo",
+			localHome: localHome,
 			expected:  "/var/log/something",
 		},
 	}
@@ -274,11 +283,11 @@ func TestLocalizePath_LinuxToMac(t *testing.T) {
 	}
 }
 
-func TestLocalizePath_MacToLinux(t *testing.T) {
-	// Same config but localHome is Linux
+func TestLocalizePath_ToCanonical(t *testing.T) {
+	// When localHome matches canonical, paths should stay canonical
 	config := &SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
-		Dirs:  [][]string{{"/home/gigur/git", "/Users/johkjo/git/personal"}},
+		Homes: []string{canonicalHome, localHome},
+		Dirs:  [][]string{{canonicalGit, localGit}},
 	}
 
 	tests := []struct {
@@ -288,16 +297,16 @@ func TestLocalizePath_MacToLinux(t *testing.T) {
 		expected  string
 	}{
 		{
-			name:      "canonical stays canonical on linux",
-			path:      "/home/gigur/git/tofu",
-			localHome: "/home/gigur",
-			expected:  "/home/gigur/git/tofu",
+			name:      "canonical stays canonical when on canonical machine",
+			path:      "/home/canonical/git/myproject",
+			localHome: canonicalHome,
+			expected:  "/home/canonical/git/myproject",
 		},
 		{
-			name:      "mac path stays unchanged on linux (no reverse needed)",
-			path:      "/Users/johkjo/git/personal/tofu",
-			localHome: "/home/gigur",
-			expected:  "/Users/johkjo/git/personal/tofu",
+			name:      "local path stays unchanged on canonical machine (no reverse needed)",
+			path:      "/home/local/projects/myproject",
+			localHome: canonicalHome,
+			expected:  "/home/local/projects/myproject",
 		},
 	}
 
@@ -313,34 +322,105 @@ func TestLocalizePath_MacToLinux(t *testing.T) {
 
 func TestLocalizePath_NilConfig(t *testing.T) {
 	var config *SyncConfig
-	result := config.LocalizePath("/home/gigur/git/tofu", "/Users/johkjo")
-	if result != "/home/gigur/git/tofu" {
+	result := config.LocalizePath("/home/canonical/git/myproject", localHome)
+	if result != "/home/canonical/git/myproject" {
 		t.Errorf("nil config should return path unchanged, got %q", result)
 	}
 }
 
 func TestLocalizePath_EmptyConfig(t *testing.T) {
 	config := &SyncConfig{}
-	result := config.LocalizePath("/home/gigur/git/tofu", "/Users/johkjo")
-	if result != "/home/gigur/git/tofu" {
+	result := config.LocalizePath("/home/canonical/git/myproject", localHome)
+	if result != "/home/canonical/git/myproject" {
 		t.Errorf("empty config should return path unchanged, got %q", result)
 	}
 }
 
 func TestLocalizePath_FullPathWithProjectDir(t *testing.T) {
 	config := &SyncConfig{
-		Homes: []string{"/home/gigur", "/Users/johkjo"},
-		Dirs:  [][]string{{"/home/gigur/git", "/Users/johkjo/git/personal"}},
+		Homes: []string{canonicalHome, localHome},
+		Dirs:  [][]string{{canonicalGit, localGit}},
 	}
 
-	// FullPath contains the .claude path which should also be localized
-	path := "/home/gigur/.claude/projects/-home-gigur-git-tofu/session.jsonl"
-	localHome := "/Users/johkjo"
+	// FullPath contains the .claude path which should also be localized,
+	// including the embedded project directory name
+	path := "/home/canonical/.claude/projects/-home-canonical-git-myproject/session.jsonl"
 
 	result := config.LocalizePath(path, localHome)
-	expected := "/Users/johkjo/.claude/projects/-home-gigur-git-tofu/session.jsonl"
+	// Both home prefix AND embedded project dir should be localized
+	expected := "/home/local/.claude/projects/-home-local-projects-myproject/session.jsonl"
 
 	if result != expected {
 		t.Errorf("LocalizePath(%q, %q) = %q, want %q", path, localHome, result, expected)
+	}
+}
+
+func TestLocalizeProjectDir(t *testing.T) {
+	config := &SyncConfig{
+		Homes: []string{canonicalHome, localHome},
+		Dirs:  [][]string{{canonicalGit, localGit}},
+	}
+
+	tests := []struct {
+		name       string
+		projectDir string
+		localHome  string
+		expected   string
+	}{
+		{
+			name:       "canonical to local with dirs mapping",
+			projectDir: "-home-canonical-git-myproject",
+			localHome:  localHome,
+			expected:   "-home-local-projects-myproject",
+		},
+		{
+			name:       "canonical to local with homes only (no dirs match)",
+			projectDir: "-home-canonical-Documents-notes",
+			localHome:  localHome,
+			expected:   "-home-local-Documents-notes",
+		},
+		{
+			name:       "already local stays unchanged",
+			projectDir: "-home-local-projects-myproject",
+			localHome:  localHome,
+			expected:   "-home-local-projects-myproject",
+		},
+		{
+			name:       "canonical stays canonical on canonical machine",
+			projectDir: "-home-canonical-git-myproject",
+			localHome:  canonicalHome,
+			expected:   "-home-canonical-git-myproject",
+		},
+		{
+			name:       "unrelated path unchanged",
+			projectDir: "-var-log-something",
+			localHome:  localHome,
+			expected:   "-var-log-something",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := config.LocalizeProjectDir(tt.projectDir, tt.localHome)
+			if result != tt.expected {
+				t.Errorf("LocalizeProjectDir(%q, %q) = %q, want %q", tt.projectDir, tt.localHome, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestLocalizeProjectDir_NilConfig(t *testing.T) {
+	var config *SyncConfig
+	result := config.LocalizeProjectDir("-home-canonical-git-myproject", localHome)
+	if result != "-home-canonical-git-myproject" {
+		t.Errorf("nil config should return input unchanged, got %q", result)
+	}
+}
+
+func TestLocalizeProjectDir_EmptyConfig(t *testing.T) {
+	config := &SyncConfig{}
+	result := config.LocalizeProjectDir("-home-canonical-git-myproject", localHome)
+	if result != "-home-canonical-git-myproject" {
+		t.Errorf("empty config should return input unchanged, got %q", result)
 	}
 }
