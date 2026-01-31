@@ -15,6 +15,7 @@ import (
 type NewParams struct {
 	Dir      string `pos:"true" optional:"true" help:"Directory to start session in (defaults to current directory)"`
 	Resume   string `long:"resume" short:"r" optional:"true" help:"Resume an existing conversation by ID"`
+	Global   bool   `short:"g" help:"Search for conversation across all projects (with --resume)"`
 	Label    string `long:"label" optional:"true" help:"Custom label for the session"`
 	Detached bool   `long:"detached" short:"d" help:"Start detached (don't attach to session)"`
 }
@@ -70,12 +71,15 @@ func runNew(params *NewParams) error {
 	var fullConvID string
 	var convProjectPath string
 	if shortID != "" {
-		convInfo := clcommon.ResolveConvID(shortID)
+		convInfo := clcommon.ResolveConvID(shortID, params.Global, cwd)
 		if convInfo != nil {
 			fullConvID = convInfo.SessionID
 			convProjectPath = convInfo.ProjectPath
 		} else {
-			return fmt.Errorf("conversation %s not found", shortID)
+			if params.Global {
+				return fmt.Errorf("conversation %s not found", shortID)
+			}
+			return fmt.Errorf("conversation %s not found in current project (use -g to search all projects)", shortID)
 		}
 		// Use conversation's project directory instead of cwd
 		if convProjectPath != "" {

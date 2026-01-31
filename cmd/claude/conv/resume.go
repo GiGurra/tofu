@@ -44,58 +44,19 @@ func ResumeCmd() *cobra.Command {
 }
 
 func RunResume(params *ResumeParams, stdout, stderr *os.File) int {
-	var entry *SessionEntry
-	var projectPath string
-
 	// Extract just the ID from autocomplete format (e.g., "0459cd73_[tofu_claude]_prompt..." -> "0459cd73")
 	convID := clcommon.ExtractIDFromCompletion(params.ConvID)
 
-	if params.Global {
-		// Search all projects
-		projectsDir := ClaudeProjectsDir()
-		entries, err := os.ReadDir(projectsDir)
-		if err != nil {
-			fmt.Fprintf(stderr, "Error reading projects directory: %v\n", err)
-			return 1
-		}
-
-		for _, dirEntry := range entries {
-			if !dirEntry.IsDir() {
-				continue
-			}
-			projPath := projectsDir + "/" + dirEntry.Name()
-			index, err := LoadSessionsIndex(projPath)
-			if err != nil {
-				continue
-			}
-			if found, _ := FindSessionByID(index, convID); found != nil {
-				entry = found
-				projectPath = found.ProjectPath
-				break
-			}
-		}
-	} else {
-		// Search current directory
-		cwd, err := os.Getwd()
-		if err != nil {
-			fmt.Fprintf(stderr, "Error getting current directory: %v\n", err)
-			return 1
-		}
-
-		claudeProjectPath := GetClaudeProjectPath(cwd)
-		index, err := LoadSessionsIndex(claudeProjectPath)
-		if err != nil {
-			fmt.Fprintf(stderr, "Error loading sessions index: %v\n", err)
-			return 1
-		}
-
-		entry, _ = FindSessionByID(index, convID)
-		if entry != nil {
-			projectPath = entry.ProjectPath
-		}
+	// Get current directory for local search
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(stderr, "Error getting current directory: %v\n", err)
+		return 1
 	}
 
-	if entry == nil {
+	// Resolve conversation ID to full info
+	convInfo := clcommon.ResolveConvID(convID, params.Global, cwd)
+	if convInfo == nil {
 		fmt.Fprintf(stderr, "Conversation %s not found\n", convID)
 		if !params.Global {
 			fmt.Fprintf(stderr, "Hint: use -g to search all projects\n")
@@ -103,21 +64,26 @@ func RunResume(params *ResumeParams, stdout, stderr *os.File) int {
 		return 1
 	}
 
+	projectPath := convInfo.ProjectPath
+
 	// Show what we're doing
-	displayName := entry.DisplayTitle()
+	displayName := convInfo.DisplayTitle
+	if displayName == "" {
+		displayName = convInfo.FirstPrompt
+	}
 	if len(displayName) > 50 {
 		displayName = displayName[:47] + "..."
 	}
 
 	// Use session management by default (unless --no-tmux)
 	if !params.NoTmux {
-		return runResumeWithSession(entry, projectPath, displayName, !params.Detached, stdout, stderr)
+		return runResumeWithSession(convInfo, projectPath, displayName, !params.Detached, stdout, stderr)
 	}
 
 	fmt.Fprintf(stdout, "Resuming [%s] in %s\n\n", displayName, projectPath)
 
 	// Run claude --resume as a subprocess with connected I/O
-	cmd := exec.Command("claude", "--resume", entry.SessionID)
+	cmd := exec.Command("claude", "--resume", convInfo.SessionID)
 	cmd.Dir = projectPath
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -134,7 +100,7 @@ func RunResume(params *ResumeParams, stdout, stderr *os.File) int {
 	return 0
 }
 
-func runResumeWithSession(entry *SessionEntry, projectPath, displayName string, attach bool, stdout, stderr *os.File) int {
+func runResumeWithSession(convInfo *clcommon.ConvInfo, projectPath, displayName string, attach bool, stdout, stderr *os.File) int {
 	// Check tmux is installed
 	if err := session.CheckTmuxInstalled(); err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
@@ -142,7 +108,7 @@ func runResumeWithSession(entry *SessionEntry, projectPath, displayName string, 
 	}
 
 	// Use conv ID prefix as session ID
-	sessionID := entry.SessionID
+	sessionID := convInfo.SessionID
 	if len(sessionID) > 8 {
 		sessionID = sessionID[:8]
 	}
@@ -163,7 +129,7 @@ func runResumeWithSession(entry *SessionEntry, projectPath, displayName string, 
 		"-d",
 		"-s", tmuxSession,
 		"-c", projectPath,
-		"claude", "--resume", entry.SessionID,
+		"claude", "--resume", convInfo.SessionID,
 	}
 
 	tmuxCmd := exec.Command("tmux", tmuxArgs...)
@@ -179,7 +145,7 @@ func runResumeWithSession(entry *SessionEntry, projectPath, displayName string, 
 		TmuxSession: tmuxSession,
 		PID:         pid,
 		Cwd:         projectPath,
-		ConvID:      entry.SessionID,
+		ConvID:      convInfo.SessionID,
 		Status:      session.StatusRunning,
 		Created:     time.Now(),
 	}

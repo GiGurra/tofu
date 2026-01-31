@@ -124,17 +124,26 @@ func ExtractIDFromCompletion(s string) string {
 
 // ConvInfo contains resolved conversation information
 type ConvInfo struct {
-	SessionID   string // Full UUID
-	ProjectPath string // Original project directory
+	SessionID    string // Full UUID
+	ProjectPath  string // Original project directory
+	FirstPrompt  string // First user prompt
+	DisplayTitle string // Title or summary for display
 }
 
 // ResolveConvID resolves a short conversation ID prefix to full info
-// Returns the full ID and project path if found
-func ResolveConvID(shortID string) *ConvInfo {
+// If global is true, searches all projects; otherwise only searches cwd's project
+func ResolveConvID(shortID string, global bool, cwd string) *ConvInfo {
 	if shortID == "" {
 		return nil
 	}
 
+	if global {
+		return resolveConvIDGlobal(shortID)
+	}
+	return resolveConvIDLocal(shortID, cwd)
+}
+
+func resolveConvIDGlobal(shortID string) *ConvInfo {
 	projectsDir := ClaudeProjectsDir()
 	dirEntries, err := os.ReadDir(projectsDir)
 	if err != nil {
@@ -146,20 +155,33 @@ func ResolveConvID(shortID string) *ConvInfo {
 			continue
 		}
 		projPath := filepath.Join(projectsDir, dirEntry.Name())
-		entries := loadConvEntries(projPath)
-
-		for _, e := range entries {
-			// Exact match
-			if e.SessionID == shortID {
-				return &ConvInfo{SessionID: e.SessionID, ProjectPath: e.ProjectPath}
-			}
-			// Prefix match
-			if strings.HasPrefix(e.SessionID, shortID) {
-				return &ConvInfo{SessionID: e.SessionID, ProjectPath: e.ProjectPath}
-			}
+		if info := findConvInProject(shortID, projPath); info != nil {
+			return info
 		}
 	}
 
+	return nil
+}
+
+func resolveConvIDLocal(shortID string, cwd string) *ConvInfo {
+	projPath := getClaudeProjectPath(cwd)
+	return findConvInProject(shortID, projPath)
+}
+
+func findConvInProject(shortID, projPath string) *ConvInfo {
+	entries := loadConvEntries(projPath)
+
+	for _, e := range entries {
+		// Exact match or prefix match
+		if e.SessionID == shortID || strings.HasPrefix(e.SessionID, shortID) {
+			return &ConvInfo{
+				SessionID:    e.SessionID,
+				ProjectPath:  e.ProjectPath,
+				FirstPrompt:  e.FirstPrompt,
+				DisplayTitle: e.DisplayTitle(),
+			}
+		}
+	}
 	return nil
 }
 
