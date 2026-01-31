@@ -24,8 +24,8 @@ const (
 	// OpenSSL format constants
 	opensslSaltHeader = "Salted__"
 	opensslSaltSize   = 8
-	opensslKeySize    = 32 // AES-256
-	opensslIVSize     = 16 // AES block size
+	opensslKeySize    = 32     // AES-256
+	opensslIVSize     = 16     // AES block size
 	opensslIterations = 600000 // PBKDF2 iterations (modern recommendation)
 )
 

@@ -39,13 +39,13 @@ func Cmd() *cobra.Command {
 // then spilling to a temporary file if exceeded. It can then be read from
 // or written to a destination.
 type Buffer struct {
-	maxSize      int64
-	memBuffer    []byte
-	tempFile     *os.File
-	tempWriter   *bufio.Writer
+	maxSize       int64
+	memBuffer     []byte
+	tempFile      *os.File
+	tempWriter    *bufio.Writer
 	usingTempFile bool
-	totalSize    int64
-	readPos      int64
+	totalSize     int64
+	readPos       int64
 }
 
 // NewBuffer creates a new sponge buffer with the given max memory size.

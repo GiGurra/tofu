@@ -52,8 +52,8 @@ type Params struct {
 
 func Cmd() *cobra.Command {
 	return boa.CmdT[Params]{
-		Use:     "magic8",
-		Short:   "Ask the Magic 8-Ball",
+		Use:         "magic8",
+		Short:       "Ask the Magic 8-Ball",
 		Long:        "Ask the Magic 8-Ball for guidance on important architectural decisions.",
 		ParamEnrich: common.DefaultParamEnricher(),
 		RunFunc: func(params *Params, cmd *cobra.Command, args []string) {

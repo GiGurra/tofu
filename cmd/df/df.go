@@ -244,7 +244,9 @@ func statToFilesystemInfo(stat interface{}, device, mountPoint, fsType string) F
 
 	// Handle platform-specific stat types
 	switch s := stat.(type) {
-	case interface{ GetBlocks() (uint64, uint64, uint64, int64) }:
+	case interface {
+		GetBlocks() (uint64, uint64, uint64, int64)
+	}:
 		blocks, bfree, bavail, bsize := s.GetBlocks()
 		info.Size = blocks * uint64(bsize)
 		info.Available = bavail * uint64(bsize)

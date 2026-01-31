@@ -19,8 +19,8 @@ type Params struct {
 
 func Cmd() *cobra.Command {
 	return boa.CmdT[Params]{
-		Use:     "pick",
-		Short:   "Randomly pick from a list",
+		Use:         "pick",
+		Short:       "Randomly pick from a list",
 		Long:        "Randomly select items from arguments or stdin. Great for settling debates or choosing lunch spots.",
 		ParamEnrich: common.DefaultParamEnricher(),
 		RunFunc: func(params *Params, cmd *cobra.Command, args []string) {

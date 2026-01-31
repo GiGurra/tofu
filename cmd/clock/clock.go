@@ -109,8 +109,8 @@ func drawClock(radius int) {
 	}
 
 	// Calculate hand angles (0 = 12 o'clock, clockwise)
-	secondAngle := float64(second)*6 - 90          // 6 degrees per second
-	minuteAngle := float64(minute)*6 - 90          // 6 degrees per minute
+	secondAngle := float64(second)*6 - 90                    // 6 degrees per second
+	minuteAngle := float64(minute)*6 - 90                    // 6 degrees per minute
 	hourAngle := float64(hour)*30 + float64(minute)*0.5 - 90 // 30 degrees per hour + minute offset
 
 	// Draw hands (second hand longest, hour hand shortest)

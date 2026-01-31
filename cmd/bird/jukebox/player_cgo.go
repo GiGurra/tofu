@@ -19,14 +19,14 @@ const AudioAvailable = true
 type player struct {
 	mu sync.Mutex
 
-	initialized  bool
-	sampleRate   beep.SampleRate
-	ctrl         *beep.Ctrl
-	streamer     beep.StreamSeekCloser
-	format       beep.Format
-	resampled    beep.Streamer
-	done         chan struct{}
-	onSongDone   func() // Callback when song finishes
+	initialized bool
+	sampleRate  beep.SampleRate
+	ctrl        *beep.Ctrl
+	streamer    beep.StreamSeekCloser
+	format      beep.Format
+	resampled   beep.Streamer
+	done        chan struct{}
+	onSongDone  func() // Callback when song finishes
 }
 
 // newPlayer creates a new audio player.

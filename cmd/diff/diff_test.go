@@ -8,12 +8,12 @@ import (
 
 func TestComputeDiff(t *testing.T) {
 	tests := []struct {
-		name          string
-		lines1        []string
-		lines2        []string
-		wantInserts   int
-		wantDeletes   int
-		wantEqual     int
+		name        string
+		lines1      []string
+		lines2      []string
+		wantInserts int
+		wantDeletes int
+		wantEqual   int
 	}{
 		{
 			name:        "identical",

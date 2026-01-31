@@ -22,8 +22,8 @@ var dicePattern = regexp.MustCompile(`^(\d*)d(\d+)([+-]\d+)?$`)
 
 func Cmd() *cobra.Command {
 	return boa.CmdT[Params]{
-		Use:     "dice",
-		Short:   "Roll dice using standard notation",
+		Use:         "dice",
+		Short:       "Roll dice using standard notation",
 		Long:        "Roll dice using D&D-style notation. Examples: d20, 2d6, 3d8+5, 1d20-2",
 		ParamEnrich: common.DefaultParamEnricher(),
 		RunFunc: func(params *Params, cmd *cobra.Command, args []string) {

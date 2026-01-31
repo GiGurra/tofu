@@ -337,4 +337,3 @@ func sortSearchResults(results []SearchResult, sortBy string, asc bool) {
 		return !less
 	})
 }
-

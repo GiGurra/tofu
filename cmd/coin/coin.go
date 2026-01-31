@@ -11,8 +11,8 @@ import (
 )
 
 type Params struct {
-	Count    int  `short:"n" help:"Number of flips." default:"1"`
-	Animate  bool `short:"a" help:"Show flip animation." default:"false"`
+	Count   int  `short:"n" help:"Number of flips." default:"1"`
+	Animate bool `short:"a" help:"Show flip animation." default:"false"`
 }
 
 var frames = []string{"🪙", "⚪", "🪙", "⚫"}

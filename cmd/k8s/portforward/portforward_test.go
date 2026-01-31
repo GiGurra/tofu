@@ -113,10 +113,10 @@ func TestPortForward_BasicConnection(t *testing.T) {
 	defer cancel()
 
 	cfg := Config{
-		Source: Source{Kind: SourceDeployment, Name: testDeployment},
-		Namespace:  testNamespace1,
-		Ports:      []string{"18080:80"},
-		Keepalive:  false,
+		Source:    Source{Kind: SourceDeployment, Name: testDeployment},
+		Namespace: testNamespace1,
+		Ports:     []string{"18080:80"},
+		Keepalive: false,
 	}
 
 	// Start port-forward in background
@@ -159,10 +159,10 @@ func TestPortForward_DifferentNamespace(t *testing.T) {
 	defer cancel()
 
 	cfg := Config{
-		Source: Source{Kind: SourceDeployment, Name: testDeployment},
-		Namespace:  testNamespace2,
-		Ports:      []string{"18081:80"},
-		Keepalive:  false,
+		Source:    Source{Kind: SourceDeployment, Name: testDeployment},
+		Namespace: testNamespace2,
+		Ports:     []string{"18081:80"},
+		Keepalive: false,
 	}
 
 	// Start port-forward in background
@@ -199,10 +199,10 @@ func TestPortForward_MultiplePorts(t *testing.T) {
 	defer cancel()
 
 	cfg := Config{
-		Source: Source{Kind: SourceDeployment, Name: testDeployment},
-		Namespace:  testNamespace1,
-		Ports:      []string{"18082:80", "18083:80"}, // Both map to port 80
-		Keepalive:  false,
+		Source:    Source{Kind: SourceDeployment, Name: testDeployment},
+		Namespace: testNamespace1,
+		Ports:     []string{"18082:80", "18083:80"}, // Both map to port 80
+		Keepalive: false,
 	}
 
 	// Start port-forward in background
@@ -330,10 +330,10 @@ func TestPortForward_ProactiveReconnect(t *testing.T) {
 
 func TestPortForward_DeploymentNotFound(t *testing.T) {
 	cfg := Config{
-		Source: Source{Kind: SourceDeployment, Name: "nonexistent-deployment"},
-		Namespace:  testNamespace1,
-		Ports:      []string{"18085:80"},
-		Keepalive:  false,
+		Source:    Source{Kind: SourceDeployment, Name: "nonexistent-deployment"},
+		Namespace: testNamespace1,
+		Ports:     []string{"18085:80"},
+		Keepalive: false,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -362,10 +362,10 @@ func TestFindRunningPod(t *testing.T) {
 
 	f := &portForwarder{
 		config: Config{
-			Source: Source{Kind: SourceDeployment, Name: testDeployment},
-			Namespace:  testNamespace1,
-			Ports:      []string{"80"},
-			Keepalive:  false,
+			Source:    Source{Kind: SourceDeployment, Name: testDeployment},
+			Namespace: testNamespace1,
+			Ports:     []string{"80"},
+			Keepalive: false,
 		},
 		stdout: io.Discard,
 		stderr: io.Discard,

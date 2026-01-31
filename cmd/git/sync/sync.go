@@ -38,10 +38,10 @@ type RepoResult struct {
 	Stashed        bool
 	Dropped        bool
 	// Post-sync state
-	FinalBranch       string
-	HasUncommitted    bool
-	OnDefaultBranch   bool
-	OnFeatureBranch   bool
+	FinalBranch     string
+	HasUncommitted  bool
+	OnDefaultBranch bool
+	OnFeatureBranch bool
 }
 
 func Cmd() *cobra.Command {

@@ -11,8 +11,8 @@ import (
 )
 
 type Params struct {
-	Count  int    `short:"n" help:"Number of names to generate." default:"1"`
-	Style  string `short:"s" help:"Style: operation, project, variable, animal." default:"operation"`
+	Count int    `short:"n" help:"Number of names to generate." default:"1"`
+	Style string `short:"s" help:"Style: operation, project, variable, animal." default:"operation"`
 }
 
 var adjectives = []string{

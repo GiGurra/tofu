@@ -21,13 +21,13 @@ type Params struct {
 }
 
 type IPOutput struct {
-	Interfaces     map[string][]string `json:"interfaces"`
-	PublicIP       string              `json:"public_ip,omitempty"`
-	PublicIPError  string              `json:"public_ip_error,omitempty"`
-	DNSServers     []string            `json:"dns_servers,omitempty"`
-	DNSError       string              `json:"dns_error,omitempty"`
-	Gateways       []string            `json:"gateways,omitempty"`
-	GatewaysError  string              `json:"gateways_error,omitempty"`
+	Interfaces    map[string][]string `json:"interfaces"`
+	PublicIP      string              `json:"public_ip,omitempty"`
+	PublicIPError string              `json:"public_ip_error,omitempty"`
+	DNSServers    []string            `json:"dns_servers,omitempty"`
+	DNSError      string              `json:"dns_error,omitempty"`
+	Gateways      []string            `json:"gateways,omitempty"`
+	GatewaysError string              `json:"gateways_error,omitempty"`
 }
 
 func Cmd() *cobra.Command {

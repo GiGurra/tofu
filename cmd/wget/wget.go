@@ -18,15 +18,15 @@ import (
 )
 
 type Params struct {
-	URL        string `pos:"true" help:"URL to download"`
-	Output     string `short:"O" optional:"true" help:"Write output to file (use '-' for stdout)"`
-	Continue   bool   `short:"c" optional:"true" help:"Resume a partially downloaded file"`
-	Quiet      bool   `short:"q" optional:"true" help:"Quiet mode - no progress output"`
-	NoProgress bool   `optional:"true" help:"Disable progress bar but show other output"`
-	Insecure   bool   `short:"k" optional:"true" help:"Allow insecure server connections when using SSL"`
-	Timeout    int    `short:"T" optional:"true" help:"Set timeout in seconds" default:"30"`
-	Retries    int    `short:"t" optional:"true" help:"Set number of retries (0 for infinite)" default:"3"`
-	UserAgent  string `short:"U" optional:"true" help:"Set User-Agent header"`
+	URL        string   `pos:"true" help:"URL to download"`
+	Output     string   `short:"O" optional:"true" help:"Write output to file (use '-' for stdout)"`
+	Continue   bool     `short:"c" optional:"true" help:"Resume a partially downloaded file"`
+	Quiet      bool     `short:"q" optional:"true" help:"Quiet mode - no progress output"`
+	NoProgress bool     `optional:"true" help:"Disable progress bar but show other output"`
+	Insecure   bool     `short:"k" optional:"true" help:"Allow insecure server connections when using SSL"`
+	Timeout    int      `short:"T" optional:"true" help:"Set timeout in seconds" default:"30"`
+	Retries    int      `short:"t" optional:"true" help:"Set number of retries (0 for infinite)" default:"3"`
+	UserAgent  string   `short:"U" optional:"true" help:"Set User-Agent header"`
 	Headers    []string `short:"H" optional:"true" help:"Add custom header(s)"`
 }
 

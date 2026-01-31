@@ -16,12 +16,12 @@ type MountInfo struct {
 
 // windowsStatfs holds filesystem statistics for Windows
 type windowsStatfs struct {
-	Bsize   int64
-	Blocks  uint64
-	Bfree   uint64
-	Bavail  uint64
-	Files   uint64
-	Ffree   uint64
+	Bsize  int64
+	Blocks uint64
+	Bfree  uint64
+	Bavail uint64
+	Files  uint64
+	Ffree  uint64
 }
 
 // extractStatInfo extracts filesystem info from windowsStatfs

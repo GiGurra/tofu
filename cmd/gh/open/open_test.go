@@ -106,14 +106,14 @@ func TestLooksLikeRepoURL(t *testing.T) {
 		{"bitbucket.org/owner/repo", true},
 		{"git.example.com/group/project", true},
 		{"github.com/owner/repo/tree/main", true},
-		{"github.com/owner", true},   // valid URL pattern (user profile page)
-		{"github.com", false},        // just domain, no path
-		{"./some/path", false},       // starts with dot
-		{".hidden/path", false},      // starts with dot
-		{".", false},                 // current dir
-		{"..", false},                // parent dir
-		{"some-dir", false},          // simple name, no dot in domain
-		{"owner/repo", false},        // no domain (no dot)
+		{"github.com/owner", true}, // valid URL pattern (user profile page)
+		{"github.com", false},      // just domain, no path
+		{"./some/path", false},     // starts with dot
+		{".hidden/path", false},    // starts with dot
+		{".", false},               // current dir
+		{"..", false},              // parent dir
+		{"some-dir", false},        // simple name, no dot in domain
+		{"owner/repo", false},      // no domain (no dot)
 	}
 
 	for _, tc := range tests {

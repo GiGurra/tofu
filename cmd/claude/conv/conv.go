@@ -26,7 +26,7 @@ type SessionEntry struct {
 	FullPath     string `json:"fullPath"`
 	FileMtime    int64  `json:"fileMtime"`
 	FirstPrompt  string `json:"firstPrompt"`
-	Summary      string `json:"summary,omitempty"`      // New field in recent Claude versions
+	Summary      string `json:"summary,omitempty"`     // New field in recent Claude versions
 	CustomTitle  string `json:"customTitle,omitempty"` // Legacy field, kept for backwards compatibility
 	MessageCount int    `json:"messageCount"`
 	Created      string `json:"created"`
@@ -474,4 +474,3 @@ func FilterEntriesByTime(entries []SessionEntry, since, before string) ([]Sessio
 
 	return filtered, nil
 }
-

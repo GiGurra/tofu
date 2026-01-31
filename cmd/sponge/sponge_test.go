@@ -374,10 +374,10 @@ func TestRunToFile_TransformPipeline(t *testing.T) {
 
 // filteringReader wraps a reader and filters out lines containing the exclude string
 type filteringReader struct {
-	source   io.Reader
-	exclude  string
-	buffer   []byte
-	scanned  bool
+	source  io.Reader
+	exclude string
+	buffer  []byte
+	scanned bool
 }
 
 func (f *filteringReader) Read(p []byte) (n int, err error) {

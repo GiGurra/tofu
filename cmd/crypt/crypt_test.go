@@ -196,8 +196,8 @@ func TestDetectFormat(t *testing.T) {
 	os.WriteFile(unknownFile, []byte("random data"), 0644)
 
 	tests := []struct {
-		file   string
-		want   string
+		file string
+		want string
 	}{
 		{ageFile, "age"},
 		{opensslFile, "openssl"},
@@ -624,7 +624,7 @@ func TestPKCS7UnpadInvalid(t *testing.T) {
 	}{
 		{"empty", []byte{}},
 		{"zero padding", []byte{0x41, 0x41, 0x00}},
-		{"padding too large", []byte{0x41, 0x41, 0x20}}, // 32 > 16
+		{"padding too large", []byte{0x41, 0x41, 0x20}},                // 32 > 16
 		{"inconsistent padding", []byte{0x41, 0x41, 0x01, 0x03, 0x03}}, // last byte says 3, but data[2]=0x01 not 0x03
 	}
 
