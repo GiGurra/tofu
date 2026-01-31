@@ -42,10 +42,7 @@ This command:
 
 func runRepair(params *RepairParams) error {
 	syncDir := SyncDir()
-
-	if !IsInitialized() {
-		return fmt.Errorf("git sync not initialized. Run 'tofu claude git init <repo-url>' first")
-	}
+	projectsDir := ProjectsDir()
 
 	config, err := LoadConfig()
 	if err != nil {
@@ -58,13 +55,48 @@ func runRepair(params *RepairParams) error {
 		return nil
 	}
 
-	fmt.Printf("Scanning sync directory for projects to repair...\n")
 	fmt.Printf("Config: homes=%v, dirs=%d groups\n\n", config.Homes, len(config.Dirs))
 
-	// Find all project directories in sync
-	entries, err := os.ReadDir(syncDir)
+	// Repair local projects directory
+	fmt.Printf("=== Repairing local projects (%s) ===\n\n", projectsDir)
+	localCount, err := repairDirectory(projectsDir, config, params.DryRun)
 	if err != nil {
-		return fmt.Errorf("failed to read sync directory: %w", err)
+		fmt.Printf("Warning: local repair failed: %v\n", err)
+	}
+
+	// Repair sync directory (if initialized)
+	syncCount := 0
+	if IsInitialized() {
+		fmt.Printf("\n=== Repairing sync directory (%s) ===\n\n", syncDir)
+		syncCount, err = repairDirectory(syncDir, config, params.DryRun)
+		if err != nil {
+			fmt.Printf("Warning: sync repair failed: %v\n", err)
+		}
+	}
+
+	totalCount := localCount + syncCount
+	if totalCount == 0 {
+		fmt.Printf("\nNo projects need repair.\n")
+	} else if params.DryRun {
+		fmt.Printf("\nWould repair %d project groups total. Run without --dry-run to apply.\n", totalCount)
+	} else {
+		fmt.Printf("\nRepaired %d project groups total.\n", totalCount)
+		if IsInitialized() {
+			fmt.Printf("Run 'tofu claude git sync' to commit and push the repairs.\n")
+		}
+	}
+
+	return nil
+}
+
+// repairDirectory repairs a single directory by merging equivalent project dirs
+func repairDirectory(dir string, config *SyncConfig, dryRun bool) (int, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("failed to read directory: %w", err)
 	}
 
 	// Group projects by canonical name
@@ -97,17 +129,17 @@ func runRepair(params *RepairParams) error {
 			}
 		}
 
-		if params.DryRun {
+		if dryRun {
 			fmt.Printf("  [dry-run] Would merge %d directories\n\n", len(originals))
 			continue
 		}
 
 		// Perform the merge
-		canonicalPath := filepath.Join(syncDir, canonical)
+		canonicalPath := filepath.Join(dir, canonical)
 
 		// Ensure canonical directory exists
 		if err := os.MkdirAll(canonicalPath, 0755); err != nil {
-			return fmt.Errorf("failed to create canonical directory: %w", err)
+			return 0, fmt.Errorf("failed to create canonical directory: %w", err)
 		}
 
 		// Merge each non-canonical directory into canonical
@@ -116,7 +148,7 @@ func runRepair(params *RepairParams) error {
 				continue
 			}
 
-			origPath := filepath.Join(syncDir, orig)
+			origPath := filepath.Join(dir, orig)
 			fmt.Printf("  Merging %s...\n", orig)
 
 			if err := mergeProjectIntoCanonical(origPath, canonicalPath); err != nil {
@@ -132,16 +164,7 @@ func runRepair(params *RepairParams) error {
 		fmt.Println()
 	}
 
-	if mergeCount == 0 {
-		fmt.Printf("No projects need repair.\n")
-	} else if params.DryRun {
-		fmt.Printf("Would repair %d project groups. Run without --dry-run to apply.\n", mergeCount)
-	} else {
-		fmt.Printf("Repaired %d project groups.\n", mergeCount)
-		fmt.Printf("\nRun 'tofu claude git sync' to commit and push the repairs.\n")
-	}
-
-	return nil
+	return mergeCount, nil
 }
 
 // mergeProjectIntoCanonical merges a source project into the canonical project
