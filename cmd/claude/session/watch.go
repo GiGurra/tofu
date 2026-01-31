@@ -127,7 +127,11 @@ func (m model) View() string {
 	header := fmt.Sprintf("  %-10s %-40s %-25s %s", "ID", "DIRECTORY", "STATUS", "UPDATED")
 	b.WriteString(headerStyle.Render(header))
 	b.WriteString("\n")
-	b.WriteString(headerStyle.Render(strings.Repeat("─", min(m.width-2, 90))))
+	width := m.width
+	if width < 10 {
+		width = 90 // default width
+	}
+	b.WriteString(headerStyle.Render(strings.Repeat("─", min(width-2, 90))))
 	b.WriteString("\n")
 
 	// Rows
