@@ -20,6 +20,7 @@ var (
 	exitedStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))     // Gray
 	headerStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("250"))
 	helpStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	searchStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
 )
 
 type tickMsg time.Time
@@ -48,7 +49,8 @@ var filterOptions = []struct {
 }
 
 type model struct {
-	sessions      []*SessionState
+	allSessions   []*SessionState // all sessions before search filter
+	sessions      []*SessionState // sessions after search filter
 	cursor        int
 	width         int
 	height        int
@@ -63,6 +65,8 @@ type model struct {
 	filterCursor  int             // cursor position in filter menu
 	filterChecked map[string]bool // checked items in filter menu
 	helpView      bool            // showing help view
+	searchInput   string          // current search query
+	searchFocused bool            // whether search box is focused
 }
 
 func initialModel(includeAll bool, statusFilter, hideFilter []string) model {
@@ -111,7 +115,28 @@ func (m model) refreshSessions() model {
 
 	// Apply sorting
 	SortSessions(filtered, m.sort)
-	m.sessions = filtered
+	m.allSessions = filtered
+
+	// Apply search filter
+	m = m.applySearchFilter()
+
+	return m
+}
+
+// applySearchFilter filters sessions based on search input
+func (m model) applySearchFilter() model {
+	if m.searchInput == "" {
+		m.sessions = m.allSessions
+	} else {
+		query := strings.ToLower(m.searchInput)
+		var filtered []*SessionState
+		for _, s := range m.allSessions {
+			if sessionMatchesSearch(s, query) {
+				filtered = append(filtered, s)
+			}
+		}
+		m.sessions = filtered
+	}
 
 	// Keep cursor in bounds
 	if m.cursor >= len(m.sessions) {
@@ -122,6 +147,15 @@ func (m model) refreshSessions() model {
 	}
 
 	return m
+}
+
+// sessionMatchesSearch checks if a session matches the search query
+func sessionMatchesSearch(s *SessionState, query string) bool {
+	return strings.Contains(strings.ToLower(s.ID), query) ||
+		strings.Contains(strings.ToLower(s.Cwd), query) ||
+		strings.Contains(strings.ToLower(s.Status), query) ||
+		strings.Contains(strings.ToLower(s.StatusDetail), query) ||
+		strings.Contains(strings.ToLower(s.ConvID), query)
 }
 
 // matchesShowFilter checks if a status matches the show filter
@@ -193,6 +227,48 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+		// Handle search mode
+		if m.searchFocused {
+			switch msg.String() {
+			case "esc":
+				if m.searchInput != "" {
+					m.searchInput = ""
+					m = m.applySearchFilter()
+				} else {
+					m.searchFocused = false
+				}
+			case "enter":
+				m.searchFocused = false
+			case "up":
+				// Exit search and navigate up
+				m.searchFocused = false
+				if m.cursor > 0 {
+					m.cursor--
+				}
+			case "down":
+				// Exit search and navigate down
+				m.searchFocused = false
+				if m.cursor < len(m.sessions)-1 {
+					m.cursor++
+				}
+			case "backspace":
+				if len(m.searchInput) > 0 {
+					m.searchInput = m.searchInput[:len(m.searchInput)-1]
+					m = m.applySearchFilter()
+				}
+			case "ctrl+u":
+				m.searchInput = ""
+				m = m.applySearchFilter()
+			default:
+				// Add printable characters to search
+				if len(msg.String()) == 1 && msg.String()[0] >= 32 && msg.String()[0] < 127 {
+					m.searchInput += msg.String()
+					m = m.applySearchFilter()
+				}
+			}
+			return m, nil
+		}
+
 		// Handle filter menu
 		if m.filterMenu {
 			switch msg.String() {
@@ -247,8 +323,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Normal mode
 		switch msg.String() {
-		case "q", "ctrl+c", "esc":
+		case "q", "ctrl+c":
 			return m, tea.Quit
+		case "esc":
+			if m.searchInput != "" {
+				m.searchInput = ""
+				m = m.applySearchFilter()
+			} else {
+				return m, tea.Quit
+			}
+		case "/":
+			m.searchFocused = true
 		case "up", "k":
 			if m.cursor > 0 {
 				m.cursor--
@@ -335,20 +420,45 @@ func (m model) View() string {
 		return m.renderFilterMenu()
 	}
 
-	// Show empty state
-	if len(m.sessions) == 0 {
-		msg := "\n  No active sessions"
-		if len(m.statusFilter) > 0 {
-			msg += fmt.Sprintf(" (filter: %s)", strings.Join(m.statusFilter, ", "))
-		}
-		msg += "\n\n  Press 'f' to change filter, 'q' to quit\n"
-		return msg
-	}
-
 	var b strings.Builder
 
+	// Search box
+	b.WriteString("\n  ")
+	if m.searchFocused {
+		b.WriteString(searchStyle.Render("Search: "))
+		b.WriteString(searchStyle.Render("[" + m.searchInput + "_]"))
+	} else if m.searchInput != "" {
+		b.WriteString(searchStyle.Render("Search: [" + m.searchInput + "]"))
+	} else {
+		b.WriteString(helpStyle.Render("/ to search"))
+	}
+
+	// Show count
+	if len(m.sessions) != len(m.allSessions) {
+		b.WriteString(helpStyle.Render(fmt.Sprintf("  [showing %d of %d]", len(m.sessions), len(m.allSessions))))
+	} else if len(m.allSessions) > 0 {
+		b.WriteString(helpStyle.Render(fmt.Sprintf("  [%d sessions]", len(m.allSessions))))
+	}
+	b.WriteString("\n\n")
+
+	// Show empty state
+	if len(m.sessions) == 0 {
+		if len(m.allSessions) == 0 {
+			b.WriteString("  No active sessions")
+			if len(m.statusFilter) > 0 {
+				b.WriteString(fmt.Sprintf(" (filter: %s)", strings.Join(m.statusFilter, ", ")))
+			}
+			b.WriteString("\n")
+		} else {
+			b.WriteString("  No matches for \"" + m.searchInput + "\"\n")
+		}
+		b.WriteString("\n")
+		b.WriteString(helpStyle.Render("  / search • f filter • r refresh • q quit"))
+		b.WriteString("\n")
+		return b.String()
+	}
+
 	// Header with sort indicators and filter badge
-	b.WriteString("\n")
 	idHdr := "ID" + m.sort.Indicator(SortID)
 	dirHdr := "DIRECTORY" + m.sort.Indicator(SortDirectory)
 	statusHdr := "STATUS" + m.sort.Indicator(SortStatus)
@@ -407,10 +517,10 @@ func (m model) View() string {
 		case confirmAttachForce:
 			b.WriteString(confirmStyle.Render(fmt.Sprintf("  Session %s already attached. Detach other clients? [y/n]", m.sessions[m.cursor].ID)))
 		default:
-			b.WriteString(helpStyle.Render("  h help • ↑/↓ navigate • enter attach • q quit"))
+			b.WriteString(helpStyle.Render("  h help • / search • ↑/↓ navigate • enter attach • q quit"))
 		}
 	} else {
-		b.WriteString(helpStyle.Render("  h help • ↑/↓ navigate • enter attach • q quit"))
+		b.WriteString(helpStyle.Render("  h help • / search • ↑/↓ navigate • enter attach • q quit"))
 	}
 	b.WriteString("\n")
 
@@ -467,6 +577,13 @@ func (m model) renderHelpView() string {
 	b.WriteString("    q/esc     Quit watch mode\n")
 	b.WriteString("\n")
 
+	b.WriteString(headerStyle.Render("  Search"))
+	b.WriteString("\n")
+	b.WriteString("    /         Start search\n")
+	b.WriteString("    esc       Clear search / exit search mode\n")
+	b.WriteString("    ^U        Clear search input\n")
+	b.WriteString("\n")
+
 	b.WriteString(headerStyle.Render("  Actions"))
 	b.WriteString("\n")
 	b.WriteString("    del/x     Kill selected session (with confirmation)\n")
@@ -520,6 +637,8 @@ type WatchState struct {
 	Sort         SortState
 	StatusFilter []string
 	HideFilter   []string
+	SearchInput  string
+	Cursor       int
 }
 
 // AttachResult holds the result of selecting a session to attach
@@ -533,7 +652,14 @@ type AttachResult struct {
 func RunInteractive(includeAll bool, state WatchState) (AttachResult, WatchState, error) {
 	m := initialModel(includeAll, state.StatusFilter, state.HideFilter)
 	m.sort = state.Sort
+	m.searchInput = state.SearchInput
+	m.cursor = state.Cursor
 	m = m.refreshSessions()
+
+	// Ensure cursor is still valid after loading
+	if m.cursor >= len(m.sessions) {
+		m.cursor = max(0, len(m.sessions)-1)
+	}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	finalModel, err := p.Run()
@@ -546,7 +672,14 @@ func RunInteractive(includeAll bool, state WatchState) (AttachResult, WatchState
 		TmuxSession: fm.shouldAttach,
 		ForceAttach: fm.forceAttach,
 	}
-	return result, WatchState{Sort: fm.sort, StatusFilter: fm.statusFilter, HideFilter: fm.hideFilter}, nil
+	newState := WatchState{
+		Sort:         fm.sort,
+		StatusFilter: fm.statusFilter,
+		HideFilter:   fm.hideFilter,
+		SearchInput:  fm.searchInput,
+		Cursor:       fm.cursor,
+	}
+	return result, newState, nil
 }
 
 // RunWatchMode runs the interactive watch mode with attach support

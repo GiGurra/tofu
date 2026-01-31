@@ -451,8 +451,8 @@ func (m watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		// Calculate viewport height (terminal height - header - search - footer - padding)
-		m.viewportHeight = max(msg.Height-7, 5)
+		// Calculate viewport height (terminal height - search box - header - separator - scroll - footer)
+		m.viewportHeight = max(msg.Height-10, 5)
 		m = m.ensureCursorVisible()
 
 	case watchTickMsg:
