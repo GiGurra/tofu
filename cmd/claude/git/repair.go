@@ -1,9 +1,11 @@
 package git
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/GiGurra/boa/pkg/boa"
 	"github.com/gigurra/tofu/cmd/claude/conv"
@@ -164,7 +166,115 @@ func repairDirectory(dir string, config *SyncConfig, dryRun bool) (int, error) {
 		fmt.Println()
 	}
 
+	// Always canonicalize projectPath in all sessions-index.json files
+	if !dryRun {
+		pathsFixed, err := canonicalizeSessionPaths(dir, config)
+		if err != nil {
+			fmt.Printf("Warning: failed to canonicalize session paths: %v\n", err)
+		} else if pathsFixed > 0 {
+			fmt.Printf("Canonicalized paths in %d session index files\n", pathsFixed)
+		}
+	}
+
 	return mergeCount, nil
+}
+
+// canonicalizeSessionPaths updates projectPath in all sessions-index.json files
+func canonicalizeSessionPaths(dir string, config *SyncConfig) (int, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0, err
+	}
+
+	fixed := 0
+	for _, entry := range entries {
+		if !entry.IsDir() || entry.Name() == ".git" {
+			continue
+		}
+
+		indexPath := filepath.Join(dir, entry.Name(), "sessions-index.json")
+		wasFixed, err := canonicalizeIndexFile(indexPath, config)
+		if err != nil {
+			// Just warn, don't fail
+			continue
+		}
+		if wasFixed {
+			fixed++
+		}
+	}
+
+	return fixed, nil
+}
+
+// canonicalizeIndexFile updates projectPath fields in a sessions-index.json
+// Also rebuilds the index to include all .jsonl files (prevents unindexed files from adding old paths)
+// Returns true if the file was modified
+func canonicalizeIndexFile(indexPath string, config *SyncConfig) (bool, error) {
+	projectDir := filepath.Dir(indexPath)
+
+	// Load index using conv package (includes unindexed sessions)
+	index, err := conv.LoadSessionsIndex(projectDir)
+	if err != nil {
+		return false, err
+	}
+
+	for i := range index.Entries {
+		// Canonicalize projectPath
+		origPath := index.Entries[i].ProjectPath
+		if origPath != "" {
+			index.Entries[i].ProjectPath = canonicalizePath(origPath, config)
+		}
+
+		// Canonicalize fullPath
+		origFull := index.Entries[i].FullPath
+		if origFull != "" {
+			index.Entries[i].FullPath = canonicalizePath(origFull, config)
+		}
+	}
+
+	// Always write the complete index to prevent unindexed files from adding old paths back
+	newData, err := json.MarshalIndent(index, "", "  ")
+	if err != nil {
+		return false, err
+	}
+
+	// Check if content changed
+	oldData, _ := os.ReadFile(indexPath)
+	if string(oldData) == string(newData) {
+		return false, nil
+	}
+
+	return true, os.WriteFile(indexPath, newData, 0644)
+}
+
+// canonicalizePath converts a filesystem path to its canonical form
+func canonicalizePath(path string, config *SyncConfig) string {
+	// Apply dirs mappings first
+	for _, group := range config.Dirs {
+		if len(group) < 2 {
+			continue
+		}
+		canonical := group[0]
+		for _, dir := range group[1:] {
+			if strings.HasPrefix(path, dir) {
+				path = canonical + path[len(dir):]
+				break
+			}
+		}
+	}
+
+	// Apply homes mappings
+	if len(config.Homes) >= 2 {
+		canonical := config.Homes[0]
+		for _, home := range config.Homes[1:] {
+			if strings.HasPrefix(path, home) {
+				path = canonical + path[len(home):]
+				break
+			}
+		}
+	}
+
+	return path
 }
 
 // mergeProjectIntoCanonical merges a source project into the canonical project
