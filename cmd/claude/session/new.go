@@ -56,7 +56,15 @@ func runNew(params *NewParams) error {
 	}
 
 	// Generate session ID
+	// Priority: explicit label > conv ID (when resuming) > random
 	sessionID := GenerateSessionID()
+	if params.Resume != "" {
+		// Use conv ID prefix as session ID for easy association
+		sessionID = params.Resume
+		if len(sessionID) > 8 {
+			sessionID = sessionID[:8]
+		}
+	}
 	if params.Label != "" {
 		sessionID = params.Label
 	}
