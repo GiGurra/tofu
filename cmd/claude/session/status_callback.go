@@ -82,6 +82,12 @@ func runStatusCallback(params *StatusCallbackParams) error {
 	state.Status = params.Status
 	state.Updated = time.Now()
 
+	// Update ConvID from hook input if we don't have it yet
+	// This happens when a session is started fresh (not resuming)
+	if state.ConvID == "" && hookInput.SessionID != "" {
+		state.ConvID = hookInput.SessionID
+	}
+
 	// Add detail if available
 	if hookInput.HookEventName != "" {
 		state.StatusDetail = hookInput.HookEventName
