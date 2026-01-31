@@ -83,9 +83,9 @@ func (s *SortState) Indicator(col SortColumn) string {
 		return ""
 	}
 	if s.Direction == SortAsc {
-		return " ▲"
+		return " ▼"
 	}
-	return " ▼"
+	return " ▲"
 }
 
 // SortSessions sorts sessions according to the current sort state
