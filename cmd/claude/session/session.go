@@ -157,6 +157,7 @@ func Cmd() *cobra.Command {
 			ListCmd(),
 			AttachCmd(),
 			KillCmd(),
+			PruneCmd(),
 			InstallHooksCmd(),
 			StatusCallbackCmd(),
 		},
@@ -216,11 +217,11 @@ func DeleteSessionState(id string) error {
 	return os.Remove(SessionStatePath(id))
 }
 
+// DefaultCleanupAge is the default max age for exited sessions in prune command
+const DefaultCleanupAge = 7 * 24 * time.Hour // 1 week
+
 // ListSessionStates returns all session states
-// Also performs automatic cleanup of old exited sessions
 func ListSessionStates() ([]*SessionState, error) {
-	// Auto-cleanup old exited sessions (older than 1 hour)
-	_ = CleanupOldExitedSessions(1 * time.Hour)
 
 	dir := SessionsDir()
 	entries, err := os.ReadDir(dir)
