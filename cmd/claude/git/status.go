@@ -4,12 +4,16 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/GiGurra/boa/pkg/boa"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
 )
+
+var uuidRegex = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 type StatusParams struct{}
 
@@ -65,28 +69,40 @@ func runStatus(_ *StatusParams) error {
 	if len(output) == 0 {
 		fmt.Printf("No pending changes to sync.\n")
 	} else {
-		// Parse and summarize the changes
+		// Parse and group changes by conversation UUID
 		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-		conversations := []string{}
+		conversations := make(map[string]int) // uuid -> file count
+		otherChanges := 0
+
 		for _, line := range lines {
-			if strings.HasSuffix(line, ".jsonl") {
-				// Extract conversation path
-				parts := strings.Fields(line)
-				if len(parts) >= 2 {
-					conversations = append(conversations, parts[len(parts)-1])
-				}
+			parts := strings.Fields(line)
+			if len(parts) < 2 {
+				continue
+			}
+			path := parts[len(parts)-1]
+
+			// Extract UUID from paths like:
+			// - project/uuid.jsonl
+			// - project/uuid/subagents/foo.jsonl
+			uuid := extractConversationUUID(path)
+			if uuid != "" {
+				conversations[uuid]++
+			} else {
+				otherChanges++
 			}
 		}
 
 		if len(conversations) > 0 {
-			fmt.Printf("Conversations with new messages (%d):\n", len(conversations))
-			for _, c := range conversations {
-				fmt.Printf("  %s\n", c)
+			fmt.Printf("Conversations with pending changes (%d):\n", len(conversations))
+			for uuid, count := range conversations {
+				if count == 1 {
+					fmt.Printf("  %s\n", uuid)
+				} else {
+					fmt.Printf("  %s (%d files)\n", uuid, count)
+				}
 			}
 		}
 
-		// Show full status
-		otherChanges := len(lines) - len(conversations)
 		if otherChanges > 0 {
 			fmt.Printf("\nOther changes: %d files\n", otherChanges)
 		}
@@ -101,4 +117,25 @@ func runStatus(_ *StatusParams) error {
 	}
 
 	return nil
+}
+
+// extractConversationUUID extracts the conversation UUID from a path
+// Handles paths like:
+// - project/uuid.jsonl
+// - project/uuid/subagents/foo.jsonl
+func extractConversationUUID(path string) string {
+	parts := strings.Split(path, "/")
+	for _, part := range parts {
+		// Check for uuid.jsonl
+		name := strings.TrimSuffix(part, ".jsonl")
+		if uuidRegex.MatchString(name) {
+			return name
+		}
+		// Check for uuid directory
+		base := filepath.Base(part)
+		if uuidRegex.MatchString(base) {
+			return base
+		}
+	}
+	return ""
 }
