@@ -225,3 +225,122 @@ func TestEmptyConfig(t *testing.T) {
 		t.Errorf("empty config should return input unchanged, got %q", result)
 	}
 }
+
+func TestLocalizePath_LinuxToMac(t *testing.T) {
+	config := &SyncConfig{
+		Homes: []string{"/home/gigur", "/Users/johkjo"},
+		Dirs:  [][]string{{"/home/gigur/git", "/Users/johkjo/git/personal"}},
+	}
+
+	tests := []struct {
+		name      string
+		path      string
+		localHome string
+		expected  string
+	}{
+		{
+			name:      "canonical to mac with dirs mapping",
+			path:      "/home/gigur/git/tofu",
+			localHome: "/Users/johkjo",
+			expected:  "/Users/johkjo/git/personal/tofu",
+		},
+		{
+			name:      "canonical to mac with homes only",
+			path:      "/home/gigur/Documents/notes",
+			localHome: "/Users/johkjo",
+			expected:  "/Users/johkjo/Documents/notes",
+		},
+		{
+			name:      "already local path unchanged",
+			path:      "/Users/johkjo/git/personal/tofu",
+			localHome: "/Users/johkjo",
+			expected:  "/Users/johkjo/git/personal/tofu",
+		},
+		{
+			name:      "unrelated path unchanged",
+			path:      "/var/log/something",
+			localHome: "/Users/johkjo",
+			expected:  "/var/log/something",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := config.LocalizePath(tt.path, tt.localHome)
+			if result != tt.expected {
+				t.Errorf("LocalizePath(%q, %q) = %q, want %q", tt.path, tt.localHome, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestLocalizePath_MacToLinux(t *testing.T) {
+	// Same config but localHome is Linux
+	config := &SyncConfig{
+		Homes: []string{"/home/gigur", "/Users/johkjo"},
+		Dirs:  [][]string{{"/home/gigur/git", "/Users/johkjo/git/personal"}},
+	}
+
+	tests := []struct {
+		name      string
+		path      string
+		localHome string
+		expected  string
+	}{
+		{
+			name:      "canonical stays canonical on linux",
+			path:      "/home/gigur/git/tofu",
+			localHome: "/home/gigur",
+			expected:  "/home/gigur/git/tofu",
+		},
+		{
+			name:      "mac path stays unchanged on linux (no reverse needed)",
+			path:      "/Users/johkjo/git/personal/tofu",
+			localHome: "/home/gigur",
+			expected:  "/Users/johkjo/git/personal/tofu",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := config.LocalizePath(tt.path, tt.localHome)
+			if result != tt.expected {
+				t.Errorf("LocalizePath(%q, %q) = %q, want %q", tt.path, tt.localHome, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestLocalizePath_NilConfig(t *testing.T) {
+	var config *SyncConfig
+	result := config.LocalizePath("/home/gigur/git/tofu", "/Users/johkjo")
+	if result != "/home/gigur/git/tofu" {
+		t.Errorf("nil config should return path unchanged, got %q", result)
+	}
+}
+
+func TestLocalizePath_EmptyConfig(t *testing.T) {
+	config := &SyncConfig{}
+	result := config.LocalizePath("/home/gigur/git/tofu", "/Users/johkjo")
+	if result != "/home/gigur/git/tofu" {
+		t.Errorf("empty config should return path unchanged, got %q", result)
+	}
+}
+
+func TestLocalizePath_FullPathWithProjectDir(t *testing.T) {
+	config := &SyncConfig{
+		Homes: []string{"/home/gigur", "/Users/johkjo"},
+		Dirs:  [][]string{{"/home/gigur/git", "/Users/johkjo/git/personal"}},
+	}
+
+	// FullPath contains the .claude path which should also be localized
+	path := "/home/gigur/.claude/projects/-home-gigur-git-tofu/session.jsonl"
+	localHome := "/Users/johkjo"
+
+	result := config.LocalizePath(path, localHome)
+	expected := "/Users/johkjo/.claude/projects/-home-gigur-git-tofu/session.jsonl"
+
+	if result != expected {
+		t.Errorf("LocalizePath(%q, %q) = %q, want %q", path, localHome, result, expected)
+	}
+}

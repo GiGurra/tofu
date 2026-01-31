@@ -272,3 +272,182 @@ func TestFindLocalEquivalent_PrefersCanonicalIfExists(t *testing.T) {
 		t.Errorf("Should prefer canonical: got %q, want %q", result, "-home-gigur-git-tofu")
 	}
 }
+
+func TestCopyAndLocalizeIndex(t *testing.T) {
+	tmpDir := t.TempDir()
+	srcPath := filepath.Join(tmpDir, "src-index.json")
+	dstPath := filepath.Join(tmpDir, "dst-index.json")
+
+	config := &SyncConfig{
+		Homes: []string{"/home/gigur", "/Users/johkjo"},
+		Dirs:  [][]string{{"/home/gigur/git", "/Users/johkjo/git/personal"}},
+	}
+
+	// Create source index with canonical paths
+	srcIndex := conv.SessionsIndex{
+		Version: 1,
+		Entries: []conv.SessionEntry{
+			{
+				SessionID:   "session-1",
+				ProjectPath: "/home/gigur/git/tofu",
+				FullPath:    "/home/gigur/.claude/projects/-home-gigur-git-tofu/session-1.jsonl",
+			},
+		},
+	}
+	srcData, _ := json.MarshalIndent(srcIndex, "", "  ")
+	os.WriteFile(srcPath, srcData, 0644)
+
+	// Copy with localization (simulating Mac)
+	localHome := "/Users/johkjo"
+	err := copyAndLocalizeIndex(srcPath, dstPath, config, localHome)
+	if err != nil {
+		t.Fatalf("copyAndLocalizeIndex failed: %v", err)
+	}
+
+	// Read result
+	resultData, _ := os.ReadFile(dstPath)
+	var result conv.SessionsIndex
+	json.Unmarshal(resultData, &result)
+
+	if len(result.Entries) != 1 {
+		t.Fatalf("Expected 1 entry, got %d", len(result.Entries))
+	}
+
+	entry := result.Entries[0]
+	expectedProjectPath := "/Users/johkjo/git/personal/tofu"
+	if entry.ProjectPath != expectedProjectPath {
+		t.Errorf("ProjectPath not localized: got %q, want %q", entry.ProjectPath, expectedProjectPath)
+	}
+
+	expectedFullPath := "/Users/johkjo/.claude/projects/-home-gigur-git-tofu/session-1.jsonl"
+	if entry.FullPath != expectedFullPath {
+		t.Errorf("FullPath not localized: got %q, want %q", entry.FullPath, expectedFullPath)
+	}
+}
+
+func TestCopyAndLocalizeIndex_AlreadyLocal(t *testing.T) {
+	tmpDir := t.TempDir()
+	srcPath := filepath.Join(tmpDir, "src-index.json")
+	dstPath := filepath.Join(tmpDir, "dst-index.json")
+
+	config := &SyncConfig{
+		Homes: []string{"/home/gigur", "/Users/johkjo"},
+	}
+
+	// Source already has canonical (Linux) paths
+	srcIndex := conv.SessionsIndex{
+		Version: 1,
+		Entries: []conv.SessionEntry{
+			{
+				SessionID:   "session-1",
+				ProjectPath: "/home/gigur/git/tofu",
+			},
+		},
+	}
+	srcData, _ := json.MarshalIndent(srcIndex, "", "  ")
+	os.WriteFile(srcPath, srcData, 0644)
+
+	// Copy with localization on Linux (canonical = local)
+	localHome := "/home/gigur"
+	err := copyAndLocalizeIndex(srcPath, dstPath, config, localHome)
+	if err != nil {
+		t.Fatalf("copyAndLocalizeIndex failed: %v", err)
+	}
+
+	// Read result
+	resultData, _ := os.ReadFile(dstPath)
+	var result conv.SessionsIndex
+	json.Unmarshal(resultData, &result)
+
+	entry := result.Entries[0]
+	// Should stay as canonical since we're on the canonical machine
+	if entry.ProjectPath != "/home/gigur/git/tofu" {
+		t.Errorf("Path should stay canonical on Linux: got %q", entry.ProjectPath)
+	}
+}
+
+func TestRoundTrip_LocalToSyncToLocal(t *testing.T) {
+	// This tests the full round trip:
+	// 1. Mac local paths → sync (canonicalized)
+	// 2. sync → Mac local (localized back)
+
+	tmpDir := t.TempDir()
+
+	// Setup config
+	configDir := filepath.Join(tmpDir, ".claude")
+	os.MkdirAll(configDir, 0755)
+	origHome := os.Getenv("HOME")
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	config := SyncConfig{
+		Homes: []string{"/home/gigur", "/Users/johkjo"},
+		Dirs:  [][]string{{"/home/gigur/git", "/Users/johkjo/git/personal"}},
+	}
+	configData, _ := json.MarshalIndent(config, "", "  ")
+	os.WriteFile(filepath.Join(configDir, "sync_config.json"), configData, 0644)
+
+	// Create source (Mac local) index
+	srcDir := filepath.Join(tmpDir, "local")
+	os.MkdirAll(srcDir, 0755)
+	srcIndex := conv.SessionsIndex{
+		Version: 1,
+		Entries: []conv.SessionEntry{
+			{
+				SessionID:   "session-1",
+				ProjectPath: "/Users/johkjo/git/personal/tofu",
+				FullPath:    "/Users/johkjo/.claude/projects/-Users-johkjo-git-personal-tofu/session-1.jsonl",
+				Modified:    "2024-01-15T12:00:00Z",
+			},
+		},
+	}
+	srcData, _ := json.MarshalIndent(srcIndex, "", "  ")
+	os.WriteFile(filepath.Join(srcDir, "sessions-index.json"), srcData, 0644)
+
+	// Create sync dir (starts empty)
+	syncDir := filepath.Join(tmpDir, "sync")
+	os.MkdirAll(syncDir, 0755)
+	syncIndex := conv.SessionsIndex{Version: 1, Entries: []conv.SessionEntry{}}
+	syncData, _ := json.MarshalIndent(syncIndex, "", "  ")
+	os.WriteFile(filepath.Join(syncDir, "sessions-index.json"), syncData, 0644)
+
+	// Step 1: Merge local → sync (should canonicalize)
+	err := mergeSessionsIndex(srcDir, syncDir)
+	if err != nil {
+		t.Fatalf("mergeSessionsIndex failed: %v", err)
+	}
+
+	// Verify sync has canonical paths
+	syncResultData, _ := os.ReadFile(filepath.Join(syncDir, "sessions-index.json"))
+	var syncResult conv.SessionsIndex
+	json.Unmarshal(syncResultData, &syncResult)
+
+	if syncResult.Entries[0].ProjectPath != "/home/gigur/git/tofu" {
+		t.Errorf("Sync should have canonical path: got %q", syncResult.Entries[0].ProjectPath)
+	}
+
+	// Step 2: Copy sync → local (should localize back to Mac paths)
+	dstDir := filepath.Join(tmpDir, "local-copy")
+	os.MkdirAll(dstDir, 0755)
+
+	localHome := "/Users/johkjo"
+	err = copyAndLocalizeIndex(
+		filepath.Join(syncDir, "sessions-index.json"),
+		filepath.Join(dstDir, "sessions-index.json"),
+		&config,
+		localHome,
+	)
+	if err != nil {
+		t.Fatalf("copyAndLocalizeIndex failed: %v", err)
+	}
+
+	// Verify local copy has Mac paths
+	localResultData, _ := os.ReadFile(filepath.Join(dstDir, "sessions-index.json"))
+	var localResult conv.SessionsIndex
+	json.Unmarshal(localResultData, &localResult)
+
+	expectedPath := "/Users/johkjo/git/personal/tofu"
+	if localResult.Entries[0].ProjectPath != expectedPath {
+		t.Errorf("Local should have Mac path: got %q, want %q", localResult.Entries[0].ProjectPath, expectedPath)
+	}
+}

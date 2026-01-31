@@ -184,3 +184,52 @@ func contains(slice []string, item string) bool {
 	}
 	return false
 }
+
+// LocalizePath converts a canonical path to the local machine's equivalent path
+// This is the reverse of canonicalization - it expands canonical paths to local paths
+// localHome should be the current machine's home directory
+func (c *SyncConfig) LocalizePath(path, localHome string) string {
+	if c == nil || len(c.Homes) == 0 {
+		return path
+	}
+
+	canonical := c.Homes[0]
+
+	// Find which local home/dir mapping applies to this machine
+	// by checking if localHome matches any of the configured homes
+	var localPrefix string
+	for _, home := range c.Homes {
+		if home == localHome || strings.HasPrefix(localHome, home) {
+			localPrefix = home
+			break
+		}
+	}
+
+	// If we couldn't find a matching local prefix, can't localize
+	if localPrefix == "" || localPrefix == canonical {
+		return path
+	}
+
+	// Check dirs mappings first (more specific)
+	for _, group := range c.Dirs {
+		if len(group) < 2 {
+			continue
+		}
+		canonicalDir := group[0]
+		if strings.HasPrefix(path, canonicalDir) {
+			// Find local equivalent in this group
+			for _, dir := range group[1:] {
+				if strings.HasPrefix(dir, localPrefix) {
+					return dir + path[len(canonicalDir):]
+				}
+			}
+		}
+	}
+
+	// Apply homes mapping
+	if strings.HasPrefix(path, canonical) {
+		return localPrefix + path[len(canonical):]
+	}
+
+	return path
+}

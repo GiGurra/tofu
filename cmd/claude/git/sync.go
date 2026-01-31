@@ -255,6 +255,7 @@ func copyProjectsToSync(projectsDir, syncDir string, dryRun bool) error {
 
 // copySyncToProjects copies merged results back to projects directory
 // Uses sync_config.json to map canonical paths to local equivalents
+// Also localizes paths inside sessions-index.json to use local machine paths
 func copySyncToProjects(syncDir, projectsDir string) error {
 	// Load config for path mapping
 	config, err := LoadConfig()
@@ -262,6 +263,9 @@ func copySyncToProjects(syncDir, projectsDir string) error {
 		fmt.Printf("  Warning: could not load sync config: %v\n", err)
 		config = &SyncConfig{}
 	}
+
+	// Get local home for path localization
+	localHome, _ := os.UserHomeDir()
 
 	entries, err := os.ReadDir(syncDir)
 	if err != nil {
@@ -286,7 +290,6 @@ func copySyncToProjects(syncDir, projectsDir string) error {
 		srcProject := filepath.Join(syncDir, entry.Name())
 
 		// Find the local equivalent project dir
-		// Check if any equivalent path exists locally
 		localName := findLocalEquivalent(entry.Name(), localDirs, config)
 		dstProject := filepath.Join(projectsDir, localName)
 
@@ -295,19 +298,27 @@ func copySyncToProjects(syncDir, projectsDir string) error {
 			return err
 		}
 
-		// Copy all files
+		// Copy all files, with special handling for sessions-index.json
 		files, err := os.ReadDir(srcProject)
 		if err != nil {
 			continue
 		}
 
 		for _, f := range files {
+			srcPath := filepath.Join(srcProject, f.Name())
+			dstPath := filepath.Join(dstProject, f.Name())
+
 			if f.IsDir() {
-				if err := conv.CopyDir(filepath.Join(srcProject, f.Name()), filepath.Join(dstProject, f.Name())); err != nil {
+				if err := conv.CopyDir(srcPath, dstPath); err != nil {
+					fmt.Printf("  Warning: failed to copy %s: %v\n", f.Name(), err)
+				}
+			} else if f.Name() == "sessions-index.json" {
+				// Special handling: localize paths in sessions-index.json
+				if err := copyAndLocalizeIndex(srcPath, dstPath, config, localHome); err != nil {
 					fmt.Printf("  Warning: failed to copy %s: %v\n", f.Name(), err)
 				}
 			} else {
-				if err := conv.CopyFile(filepath.Join(srcProject, f.Name()), filepath.Join(dstProject, f.Name())); err != nil {
+				if err := conv.CopyFile(srcPath, dstPath); err != nil {
 					fmt.Printf("  Warning: failed to copy %s: %v\n", f.Name(), err)
 				}
 			}
@@ -315,6 +326,37 @@ func copySyncToProjects(syncDir, projectsDir string) error {
 	}
 
 	return nil
+}
+
+// copyAndLocalizeIndex copies a sessions-index.json while localizing paths
+func copyAndLocalizeIndex(srcPath, dstPath string, config *SyncConfig, localHome string) error {
+	data, err := os.ReadFile(srcPath)
+	if err != nil {
+		return err
+	}
+
+	var index conv.SessionsIndex
+	if err := json.Unmarshal(data, &index); err != nil {
+		return err
+	}
+
+	// Localize paths in entries
+	for i := range index.Entries {
+		if index.Entries[i].ProjectPath != "" {
+			index.Entries[i].ProjectPath = config.LocalizePath(index.Entries[i].ProjectPath, localHome)
+		}
+		if index.Entries[i].FullPath != "" {
+			index.Entries[i].FullPath = config.LocalizePath(index.Entries[i].FullPath, localHome)
+		}
+	}
+
+	// Write localized index
+	newData, err := json.MarshalIndent(index, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(dstPath, newData, 0644)
 }
 
 // findLocalEquivalent finds the local project dir name for a canonical sync dir
