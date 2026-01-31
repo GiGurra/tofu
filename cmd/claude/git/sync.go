@@ -150,7 +150,15 @@ func getRemoteBranch(syncDir string) string {
 // mergeLocalToSync merges local conversations into the sync directory
 // This is an intelligent merge: for sessions-index.json we merge entries,
 // for conversation files we copy if newer or prompt on conflict
+// Project directories are canonicalized using sync_config.json mappings
 func mergeLocalToSync(projectsDir, syncDir string, params *SyncParams) error {
+	// Load config for path canonicalization
+	config, err := LoadConfig()
+	if err != nil {
+		fmt.Printf("  Warning: could not load sync config: %v\n", err)
+		config = &SyncConfig{} // Continue with empty config
+	}
+
 	entries, err := os.ReadDir(projectsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -165,10 +173,17 @@ func mergeLocalToSync(projectsDir, syncDir string, params *SyncParams) error {
 		}
 
 		localProject := filepath.Join(projectsDir, entry.Name())
-		syncProject := filepath.Join(syncDir, entry.Name())
+
+		// Canonicalize the project dir name for sync
+		canonicalName := config.CanonicalizeProjectDir(entry.Name())
+		syncProject := filepath.Join(syncDir, canonicalName)
 
 		if params.DryRun {
-			fmt.Printf("  Would merge: %s\n", entry.Name())
+			if canonicalName != entry.Name() {
+				fmt.Printf("  Would merge: %s -> %s\n", entry.Name(), canonicalName)
+			} else {
+				fmt.Printf("  Would merge: %s\n", entry.Name())
+			}
 			continue
 		}
 
@@ -239,10 +254,28 @@ func copyProjectsToSync(projectsDir, syncDir string, dryRun bool) error {
 }
 
 // copySyncToProjects copies merged results back to projects directory
+// Uses sync_config.json to map canonical paths to local equivalents
 func copySyncToProjects(syncDir, projectsDir string) error {
+	// Load config for path mapping
+	config, err := LoadConfig()
+	if err != nil {
+		fmt.Printf("  Warning: could not load sync config: %v\n", err)
+		config = &SyncConfig{}
+	}
+
 	entries, err := os.ReadDir(syncDir)
 	if err != nil {
 		return err
+	}
+
+	// Build set of existing local project dirs for quick lookup
+	localDirs := make(map[string]bool)
+	if localEntries, err := os.ReadDir(projectsDir); err == nil {
+		for _, e := range localEntries {
+			if e.IsDir() {
+				localDirs[e.Name()] = true
+			}
+		}
 	}
 
 	for _, entry := range entries {
@@ -251,7 +284,11 @@ func copySyncToProjects(syncDir, projectsDir string) error {
 		}
 
 		srcProject := filepath.Join(syncDir, entry.Name())
-		dstProject := filepath.Join(projectsDir, entry.Name())
+
+		// Find the local equivalent project dir
+		// Check if any equivalent path exists locally
+		localName := findLocalEquivalent(entry.Name(), localDirs, config)
+		dstProject := filepath.Join(projectsDir, localName)
 
 		// Create project directory
 		if err := os.MkdirAll(dstProject, 0755); err != nil {
@@ -278,6 +315,26 @@ func copySyncToProjects(syncDir, projectsDir string) error {
 	}
 
 	return nil
+}
+
+// findLocalEquivalent finds the local project dir name for a canonical sync dir
+// Returns the canonical name if no local equivalent is found
+func findLocalEquivalent(canonicalName string, localDirs map[string]bool, config *SyncConfig) string {
+	// If canonical already exists locally, use it
+	if localDirs[canonicalName] {
+		return canonicalName
+	}
+
+	// Find all equivalent project dirs and check if any exist locally
+	equivalents := config.FindEquivalentProjectDirs(canonicalName)
+	for _, eq := range equivalents {
+		if localDirs[eq] {
+			return eq
+		}
+	}
+
+	// No local equivalent found, use canonical
+	return canonicalName
 }
 
 // mergeProject merges a source project into destination project

@@ -1,0 +1,186 @@
+package git
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+// SyncConfig holds path mapping configuration for cross-machine sync
+type SyncConfig struct {
+	// Homes lists equivalent home directories across machines
+	// The first entry is the canonical form
+	// e.g., ["/home/gigur", "/Users/johkjo"]
+	Homes []string `json:"homes"`
+
+	// Dirs lists groups of equivalent directories
+	// Each group's first entry is the canonical form
+	// e.g., [["/home/gigur/git", "/Users/johkjo/git/personal"]]
+	Dirs [][]string `json:"dirs"`
+}
+
+// ConfigPath returns the path to the sync config file
+func ConfigPath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".claude", "sync_config.json")
+}
+
+// LoadConfig loads the sync config, returning empty config if not found
+func LoadConfig() (*SyncConfig, error) {
+	path := ConfigPath()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &SyncConfig{}, nil
+		}
+		return nil, err
+	}
+
+	var config SyncConfig
+	if err := json.Unmarshal(data, &config); err != nil {
+		return nil, err
+	}
+	return &config, nil
+}
+
+// SaveConfig saves the sync config
+func SaveConfig(config *SyncConfig) error {
+	path := ConfigPath()
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
+}
+
+// ProjectDirToPath converts a Claude project dir name back to a path
+// e.g., "-home-gigur-git-tofu" -> "/home/gigur/git/tofu"
+func ProjectDirToPath(projectDir string) string {
+	// Remove leading dash and convert dashes to path separators
+	if strings.HasPrefix(projectDir, "-") {
+		projectDir = projectDir[1:]
+	}
+	return "/" + strings.ReplaceAll(projectDir, "-", "/")
+}
+
+// PathToProjectDir converts a path to Claude project dir name
+// e.g., "/home/gigur/git/tofu" -> "-home-gigur-git-tofu"
+func PathToProjectDir(path string) string {
+	// Normalize path separators and remove leading slash
+	path = filepath.ToSlash(path)
+	if strings.HasPrefix(path, "/") {
+		path = path[1:]
+	}
+	return "-" + strings.ReplaceAll(path, "/", "-")
+}
+
+// CanonicalizeProjectDir converts a project dir to its canonical form
+// by applying path mappings from the config
+//
+// Order of operations:
+// 1. Convert project dir to path
+// 2. Apply dirs mappings (most specific first)
+// 3. Apply homes mappings
+// 4. Convert back to project dir
+func (c *SyncConfig) CanonicalizeProjectDir(projectDir string) string {
+	if c == nil {
+		return projectDir
+	}
+
+	// Convert to path for easier manipulation
+	path := ProjectDirToPath(projectDir)
+
+	// Apply dirs mappings (check all entries in each group)
+	path = c.applyDirsMapping(path)
+
+	// Apply homes mappings
+	path = c.applyHomesMapping(path)
+
+	// Convert back to project dir
+	return PathToProjectDir(path)
+}
+
+// applyDirsMapping applies directory mappings to a path
+// If path starts with any dir in a group, replace with the canonical (first) dir
+func (c *SyncConfig) applyDirsMapping(path string) string {
+	for _, group := range c.Dirs {
+		if len(group) < 2 {
+			continue
+		}
+		canonical := group[0]
+		for _, dir := range group[1:] {
+			if strings.HasPrefix(path, dir) {
+				// Replace this dir prefix with the canonical one
+				return canonical + path[len(dir):]
+			}
+		}
+	}
+	return path
+}
+
+// applyHomesMapping applies home directory mappings to a path
+// If path starts with any home, replace with the canonical (first) home
+func (c *SyncConfig) applyHomesMapping(path string) string {
+	if len(c.Homes) < 2 {
+		return path
+	}
+	canonical := c.Homes[0]
+	for _, home := range c.Homes[1:] {
+		if strings.HasPrefix(path, home) {
+			return canonical + path[len(home):]
+		}
+	}
+	return path
+}
+
+// FindEquivalentProjectDirs returns all project dir names that map to the same canonical form
+func (c *SyncConfig) FindEquivalentProjectDirs(projectDir string) []string {
+	if c == nil {
+		return []string{projectDir}
+	}
+
+	canonical := c.CanonicalizeProjectDir(projectDir)
+	result := []string{canonical}
+
+	// Generate all possible variants by applying reverse mappings
+	canonicalPath := ProjectDirToPath(canonical)
+
+	// For each home variant
+	for _, home := range c.Homes {
+		if len(c.Homes) > 0 && strings.HasPrefix(canonicalPath, c.Homes[0]) {
+			variant := home + canonicalPath[len(c.Homes[0]):]
+			variantDir := PathToProjectDir(variant)
+			if variantDir != canonical && !contains(result, variantDir) {
+				result = append(result, variantDir)
+			}
+		}
+	}
+
+	// For each dirs variant
+	for _, group := range c.Dirs {
+		if len(group) < 2 {
+			continue
+		}
+		if strings.HasPrefix(canonicalPath, group[0]) {
+			for _, dir := range group[1:] {
+				variant := dir + canonicalPath[len(group[0]):]
+				variantDir := PathToProjectDir(variant)
+				if !contains(result, variantDir) {
+					result = append(result, variantDir)
+				}
+			}
+		}
+	}
+
+	return result
+}
+
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}

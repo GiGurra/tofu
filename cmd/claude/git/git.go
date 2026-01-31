@@ -25,6 +25,7 @@ Usage:
 			InitCmd(),
 			SyncCmd(),
 			StatusCmd(),
+			RepairCmd(),
 		},
 	}.ToCobra()
 }
