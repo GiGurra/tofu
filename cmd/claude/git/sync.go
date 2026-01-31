@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -577,6 +578,11 @@ func mergeSessionsIndex(srcProject, dstProject string) error {
 	for _, e := range merged {
 		dstIndex.Entries = append(dstIndex.Entries, e)
 	}
+
+	// Sort by sessionId for stable ordering (prevents spurious diffs from map iteration randomness)
+	sort.Slice(dstIndex.Entries, func(i, j int) bool {
+		return dstIndex.Entries[i].SessionID < dstIndex.Entries[j].SessionID
+	})
 
 	// Save merged index to dst
 	data, err := json.MarshalIndent(dstIndex, "", "  ")
