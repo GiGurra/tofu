@@ -504,21 +504,39 @@ func (m watchModel) View() string {
 		return b.String()
 	}
 
-	// Header
-	width := m.width
-	if width < 10 {
-		width = 120
+	// Header - calculate dynamic title width based on terminal width
+	termWidth := m.width
+	if termWidth < 80 {
+		termWidth = 120
+	}
+
+	// Fixed column widths: sessionMark(2) + id(10) + branch(15) + modified(16) + spaces(4) = 47
+	// Global adds: project(30) + space(1) = 31 more
+	// Title gets the rest
+	var fixedWidth int
+	if m.global {
+		fixedWidth = 2 + 10 + 1 + 30 + 1 + 1 + 15 + 1 + 16 // 77
+	} else {
+		fixedWidth = 2 + 10 + 1 + 1 + 15 + 1 + 16 // 46
+	}
+	titleWidth := termWidth - fixedWidth - 2 // -2 for some margin
+	if titleWidth < 30 {
+		titleWidth = 30
+	}
+	if titleWidth > 80 {
+		titleWidth = 80
 	}
 
 	var header string
+	rowWidth := fixedWidth + titleWidth
 	if m.global {
-		header = fmt.Sprintf("  %-10s %-30s %-40s %-15s %s", "ID", "PROJECT", "TITLE/PROMPT", "BRANCH", "MODIFIED")
+		header = fmt.Sprintf("  %-10s %-30s %-*s %-15s %-16s", "ID", "PROJECT", titleWidth, "TITLE/PROMPT", "BRANCH", "MODIFIED")
 	} else {
-		header = fmt.Sprintf("  %-10s %-50s %-15s %s", "ID", "TITLE/PROMPT", "BRANCH", "MODIFIED")
+		header = fmt.Sprintf("  %-10s %-*s %-15s %-16s", "ID", titleWidth, "TITLE/PROMPT", "BRANCH", "MODIFIED")
 	}
 	b.WriteString(wHeaderStyle.Render(header))
 	b.WriteString("\n")
-	b.WriteString(wHeaderStyle.Render(strings.Repeat("─", min(width-2, 100))))
+	b.WriteString(wHeaderStyle.Render(strings.Repeat("─", rowWidth)))
 	b.WriteString("\n")
 
 	// Render visible rows only
@@ -539,24 +557,26 @@ func (m watchModel) View() string {
 
 		// Format row
 		id := e.SessionID[:8]
-		title := e.DisplayTitle()
-		if title == "" {
-			title = truncatePrompt(e.FirstPrompt, 48)
-		} else {
-			title = truncatePrompt("["+title+"]", 48)
-		}
 		branch := e.GitBranch
 		if len(branch) > 15 {
 			branch = branch[:14] + "…"
 		}
 		modified := formatDate(e.Modified)
 
+		// Use dynamic title width (titleWidth calculated above)
+		title := e.DisplayTitle()
+		if title == "" {
+			title = truncatePrompt(e.FirstPrompt, titleWidth-2)
+		} else {
+			title = truncatePrompt("["+title+"]", titleWidth-2)
+		}
+
 		var row string
 		if m.global {
 			project := shortenPath(e.ProjectPath, 28)
-			row = fmt.Sprintf("%s%-10s %-30s %-40s %-15s %s", sessionMark, id, project, title, branch, modified)
+			row = fmt.Sprintf("%s%-10s %-30s %-*s %-15s %s", sessionMark, id, project, titleWidth, title, branch, modified)
 		} else {
-			row = fmt.Sprintf("%s%-10s %-50s %-15s %s", sessionMark, id, title, branch, modified)
+			row = fmt.Sprintf("%s%-10s %-*s %-15s %s", sessionMark, id, titleWidth, title, branch, modified)
 		}
 
 		if i == m.cursor {
