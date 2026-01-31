@@ -1,4 +1,4 @@
-# Conversation Management
+# Conversation Management 💬
 
 Browse, search, and manage Claude Code conversations.
 
@@ -168,14 +168,14 @@ When deleting a conversation:
   - `s` - Stop session only (keep conversation)
   - `n` - Cancel
 
-## Session Indicators
+## Session Indicators ⚡
 
 In the conversation list, indicators show session status:
 
 | Indicator | Meaning |
 |-----------|---------|
-| ⚡ | Conversation has an attached session |
-| ○ | Conversation has an active (but not attached) session |
+| ⚡ | Conversation has an attached session (someone's watching!) |
+| ○ | Conversation has an active session (running in background) |
 | (none) | No active session |
 
 ## Time Filters

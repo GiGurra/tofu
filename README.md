@@ -14,7 +14,7 @@ go install github.com/gigurra/tofu@latest
 
 ---
 
-## Featured: Claude Code Session Management
+## Featured: Claude Code Session Management 🤖✨
 
 ![Claude Demo](docs/claude/demo.gif)
 
@@ -27,10 +27,10 @@ tofu claude conv ls -w           # Interactive conversation browser
 tofu claude conv ls -g -w        # Search across all projects
 ```
 
-- **Tmux integration** - Run Claude in persistent sessions, attach/detach anytime
-- **Status tracking** - See when Claude is working, idle, or waiting for input
-- **Interactive watch modes** - Browse with search, filtering, and sorting
-- **Session indicators** - Know which conversations have active sessions
+- 📺 **Tmux integration** - Run Claude in persistent sessions, attach/detach anytime
+- 🔮 **Status tracking** - See when Claude is working, idle, or waiting for input
+- 🔍 **Interactive watch modes** - Browse with search, filtering, and sorting
+- ⚡ **Session indicators** - Know which conversations have active sessions
 
 **[Full documentation →](https://gigurra.github.io/tofu/claude/)**
 
@@ -74,7 +74,7 @@ tofu clip                             # Clipboard operations
 tofu uuid                             # Generate UUIDs
 ```
 
-### Fun
+### Fun 🎮
 
 ```bash
 tofu bird                             # Flappy Tofu game

@@ -1,4 +1,4 @@
-# Claude Code Integration
+# Claude Code Integration 🤖✨
 
 Powerful session and conversation management for [Claude Code](https://claude.ai/code).
 
@@ -6,10 +6,10 @@ Powerful session and conversation management for [Claude Code](https://claude.ai
 
 ## Features
 
-- **Session Management** - Run Claude in tmux sessions, attach/detach anytime
-- **Status Tracking** - See when Claude is working, idle, or waiting for input
-- **Interactive Watch Modes** - Browse sessions and conversations with search, filtering, sorting
-- **Session Indicators** - Know which conversations have active sessions (⚡ attached, ○ active)
+- 📺 **Session Management** - Run Claude in tmux sessions, attach/detach anytime
+- 🔮 **Status Tracking** - See when Claude is working, idle, or waiting for input
+- 🔍 **Interactive Watch Modes** - Browse sessions and conversations with search, filtering, sorting
+- ⚡ **Session Indicators** - Know which conversations have active sessions (⚡ attached, ○ active)
 
 ## Installation
 
@@ -25,7 +25,7 @@ tofu claude session install-hooks
 
 This adds hooks to `~/.claude/settings.json` that report Claude's status (working, idle, awaiting input) to tofu.
 
-## Quick Start
+## Quick Start 🚀
 
 ```bash
 # Start Claude in a new tmux session
@@ -55,7 +55,7 @@ tofu claude conv ls -w
 | `conv delete` | Delete a conversation |
 | `conv prune-empty` | Delete empty conversations |
 
-## Interactive Watch Mode Keys
+## Interactive Watch Mode Keys ⌨️
 
 Both `session ls -w` and `conv ls -w` support these keys:
 

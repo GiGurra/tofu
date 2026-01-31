@@ -1,4 +1,4 @@
-# Session Management
+# Session Management 📺
 
 Run Claude Code in persistent tmux sessions with status tracking.
 
@@ -158,17 +158,17 @@ Press `w` or use `-w` flag to enter interactive mode.
 
 Press the same key again to toggle ascending/descending/off.
 
-## Session Status
+## Session Status 🔮
 
 Sessions report their status via Claude hooks:
 
-| Status | Icon | Description |
-|--------|------|-------------|
-| `idle` | Yellow | Claude is waiting |
-| `working` | Green | Claude is processing |
-| `awaiting-permission` | Red | Needs permission approval |
-| `awaiting-input` | Red | Waiting for user input |
-| `exited` | Gray | Session has ended |
+| Status | Color | Description |
+|--------|-------|-------------|
+| `idle` | 🟡 Yellow | Claude is waiting for input |
+| `working` | 🟢 Green | Claude is processing |
+| `awaiting-permission` | 🔴 Red | Needs permission approval |
+| `awaiting-input` | 🔴 Red | Waiting for user input |
+| `exited` | ⚫ Gray | Session has ended |
 
 ## Tmux Integration
 
