@@ -7,6 +7,8 @@
 **Tools Of Fantastic Utility** - Cross-platform CLI tools written in Go.
 
 50+ Unix-like commands that work consistently on Windows, macOS, and Linux.
+This repo started out as a joke, where I gave claude code the instruction to "add more silly commands", repeatedly.
+Now though, it does have some use with `tofu claude` and `tofu k8s|gh|git`.
 
 ```bash
 go install github.com/gigurra/tofu@latest
