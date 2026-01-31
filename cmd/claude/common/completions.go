@@ -113,6 +113,15 @@ func getClaudeProjectPath(realPath string) string {
 	return filepath.Join(ClaudeProjectsDir(), projectDir)
 }
 
+// ExtractIDFromCompletion extracts just the ID from autocomplete format
+// e.g., "0459cd73_[title]_prompt..." -> "0459cd73"
+func ExtractIDFromCompletion(s string) string {
+	if idx := strings.Index(s, "_"); idx > 0 {
+		return s[:idx]
+	}
+	return s
+}
+
 // FormatConvCompletion formats a conversation entry for shell completion
 func FormatConvCompletion(e ConvEntry) string {
 	sanitize := func(s string) string {

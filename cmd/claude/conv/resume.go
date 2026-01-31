@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 	"time"
 
 	"github.com/GiGurra/boa/pkg/boa"
@@ -49,10 +48,7 @@ func RunResume(params *ResumeParams, stdout, stderr *os.File) int {
 	var projectPath string
 
 	// Extract just the ID from autocomplete format (e.g., "0459cd73_[tofu_claude]_prompt..." -> "0459cd73")
-	convID := params.ConvID
-	if idx := strings.Index(convID, "_"); idx > 0 {
-		convID = convID[:idx]
-	}
+	convID := clcommon.ExtractIDFromCompletion(params.ConvID)
 
 	if params.Global {
 		// Search all projects
