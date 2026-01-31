@@ -186,21 +186,21 @@ func RenderTable(stdout *os.File, entries []SessionEntry, showProject, long bool
 	if showProject {
 		header = append(header, "Project")
 	}
-	header = append(header, "Prompt")
+	header = append(header, "Prompt/Title")
 	if long {
 		header = append(header, "Branch", "Msgs")
 	}
-	header = append(header, "Created", "Modified")
+	header = append(header, "Modified")
 	if matchCounts != nil {
 		header = append(header, "Matches")
 	}
 	t.AppendHeader(header)
 
 	// Calculate fixed column widths
-	// ID=8, Created=16, Modified=16, borders/padding ~20
-	fixedWidth := 8 + 16 + 16 + 20
+	// ID=8, Modified=16, borders/padding ~20
+	fixedWidth := 8 + 16 + 20
 	if showProject {
-		fixedWidth += 30 // Project column
+		fixedWidth += 43 // Project column
 	}
 	if long {
 		fixedWidth += 15 + 6 // Branch + Msgs columns
@@ -209,13 +209,13 @@ func RenderTable(stdout *os.File, entries []SessionEntry, showProject, long bool
 		fixedWidth += 8 // Matches column
 	}
 
-	// Prompt gets remaining space
+	// Prompt/Title gets remaining space
 	promptWidth := termWidth - fixedWidth
-	if promptWidth < 20 {
-		promptWidth = 20
+	if promptWidth < 30 {
+		promptWidth = 30
 	}
-	if promptWidth > 80 {
-		promptWidth = 80
+	if promptWidth > 100 {
+		promptWidth = 100
 	}
 
 	// Add rows
@@ -235,12 +235,11 @@ func RenderTable(stdout *os.File, entries []SessionEntry, showProject, long bool
 		} else {
 			displayText = truncatePrompt(e.FirstPrompt, promptWidth)
 		}
-		created := formatDate(e.Created)
 		modified := formatDate(e.Modified)
 
 		row := table.Row{e.SessionID[:8]}
 		if showProject {
-			row = append(row, shortenPath(e.ProjectPath, 28))
+			row = append(row, shortenPath(e.ProjectPath, 41))
 		}
 		row = append(row, displayText)
 		if long {
@@ -250,7 +249,7 @@ func RenderTable(stdout *os.File, entries []SessionEntry, showProject, long bool
 			}
 			row = append(row, branch, e.MessageCount)
 		}
-		row = append(row, created, modified)
+		row = append(row, modified)
 		if matchCounts != nil {
 			row = append(row, matchCounts[i])
 		}
