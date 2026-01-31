@@ -71,10 +71,10 @@ func runList(params *ListParams) error {
 		if !params.All && state.Status == StatusExited {
 			continue
 		}
-		if !matchesStatusFilter(state.Status, showFilter) {
+		if !matchesShowFilter(state.Status, showFilter) {
 			continue
 		}
-		if matchesStatusFilter(state.Status, hideFilter) {
+		if matchesHideFilter(state.Status, hideFilter) {
 			continue
 		}
 		filtered = append(filtered, state)
@@ -227,10 +227,23 @@ func normalizeStatusFilter(show []string) []string {
 	return result
 }
 
-// matchesStatusFilter checks if a status matches the filter
-func matchesStatusFilter(status string, filter []string) bool {
+// matchesShowFilter checks if a status should be shown (empty = show all)
+func matchesShowFilter(status string, filter []string) bool {
 	if len(filter) == 0 {
-		return true
+		return true // no filter = show all
+	}
+	for _, f := range filter {
+		if f == status {
+			return true
+		}
+	}
+	return false
+}
+
+// matchesHideFilter checks if a status should be hidden (empty = hide none)
+func matchesHideFilter(status string, filter []string) bool {
+	if len(filter) == 0 {
+		return false // no filter = hide nothing
 	}
 	for _, f := range filter {
 		if f == status {
