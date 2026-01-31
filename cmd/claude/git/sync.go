@@ -393,14 +393,17 @@ func mergeProject(srcProject, dstProject string, params *SyncParams) error {
 
 // mergeSessionsIndex intelligently merges src sessions-index.json into dst
 // src = user's local projects, dst = sync dir (which has remote state after pull)
+// Canonicalizes paths in src entries before merging to avoid overwriting canonical paths
 func mergeSessionsIndex(srcProject, dstProject string) error {
-	srcIndexPath := filepath.Join(srcProject, "sessions-index.json")
+	// Load config for path canonicalization
+	config, _ := LoadConfig()
+
 	dstIndexPath := filepath.Join(dstProject, "sessions-index.json")
 
-	// Load src (local) index
-	var srcIndex conv.SessionsIndex
-	if data, err := os.ReadFile(srcIndexPath); err == nil {
-		json.Unmarshal(data, &srcIndex)
+	// Load src (local) index - include unindexed sessions
+	srcIndex, err := conv.LoadSessionsIndex(srcProject)
+	if err != nil {
+		srcIndex = &conv.SessionsIndex{Version: 1}
 	}
 
 	// Load dst (sync/remote) index
@@ -414,13 +417,19 @@ func mergeSessionsIndex(srcProject, dstProject string) error {
 	// Merge: union of entries, prefer newer modified timestamp
 	merged := make(map[string]conv.SessionEntry)
 
-	// Add all dst (remote) entries first
+	// Add all dst (remote) entries first - these already have canonical paths
 	for _, e := range dstIndex.Entries {
 		merged[e.SessionID] = e
 	}
 
-	// Merge src (local) entries - local wins on conflict if newer
+	// Merge src (local) entries - canonicalize paths before merging
 	for _, e := range srcIndex.Entries {
+		// Canonicalize paths in the entry
+		if config != nil {
+			e.ProjectPath = canonicalizePath(e.ProjectPath, config)
+			e.FullPath = canonicalizePath(e.FullPath, config)
+		}
+
 		if existing, ok := merged[e.SessionID]; ok {
 			// Both have this entry - keep the one with newer Modified timestamp
 			existingTime, _ := time.Parse(time.RFC3339, existing.Modified)
