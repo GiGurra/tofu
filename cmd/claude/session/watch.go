@@ -24,6 +24,14 @@ var (
 
 type tickMsg time.Time
 
+// Confirmation modes
+type confirmMode int
+
+const (
+	confirmNone confirmMode = iota
+	confirmKill
+)
+
 type model struct {
 	sessions     []*SessionState
 	cursor       int
@@ -32,14 +40,18 @@ type model struct {
 	shouldAttach string // session ID to attach to after quitting
 	includeAll   bool
 	sort         SortState
+	statusFilter []string    // which statuses to show (empty = all)
+	confirmMode  confirmMode // current confirmation dialog
+	filterMenu   bool        // showing filter menu
 }
 
-func initialModel(includeAll bool) model {
+func initialModel(includeAll bool, statusFilter []string) model {
 	return model{
-		sessions:   []*SessionState{},
-		cursor:     0,
-		includeAll: includeAll,
-		sort:       SortState{Column: SortNone},
+		sessions:     []*SessionState{},
+		cursor:       0,
+		includeAll:   includeAll,
+		sort:         SortState{Column: SortNone},
+		statusFilter: statusFilter,
 	}
 }
 
@@ -65,6 +77,10 @@ func (m model) refreshSessions() model {
 		if !m.includeAll && state.Status == StatusExited {
 			continue
 		}
+		// Apply status filter
+		if !m.matchesStatusFilter(state.Status) {
+			continue
+		}
 		filtered = append(filtered, state)
 	}
 
@@ -83,9 +99,84 @@ func (m model) refreshSessions() model {
 	return m
 }
 
+// matchesStatusFilter checks if a status matches the current filter
+func (m model) matchesStatusFilter(status string) bool {
+	if len(m.statusFilter) == 0 {
+		return true // no filter = show all
+	}
+	for _, f := range m.statusFilter {
+		if f == "all" {
+			return true
+		}
+		if f == status {
+			return true
+		}
+		// Handle grouped filters
+		if f == "attention" && (status == StatusAwaitingPermission || status == StatusAwaitingInput) {
+			return true
+		}
+	}
+	return false
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// Handle confirmation dialogs first
+		if m.confirmMode != confirmNone {
+			switch msg.String() {
+			case "y", "Y":
+				if m.confirmMode == confirmKill && len(m.sessions) > 0 && m.cursor < len(m.sessions) {
+					state := m.sessions[m.cursor]
+					_ = killSession(state)
+					m.confirmMode = confirmNone
+					m = m.refreshSessions()
+				}
+			case "n", "N", "esc", "q":
+				m.confirmMode = confirmNone
+			}
+			return m, nil
+		}
+
+		// Handle filter menu
+		if m.filterMenu {
+			switch msg.String() {
+			case "esc", "f", "q":
+				m.filterMenu = false
+			case "a":
+				m.statusFilter = nil // all
+				m.filterMenu = false
+				m = m.refreshSessions()
+			case "i":
+				m.statusFilter = []string{StatusIdle}
+				m.filterMenu = false
+				m = m.refreshSessions()
+			case "w":
+				m.statusFilter = []string{StatusWorking}
+				m.filterMenu = false
+				m = m.refreshSessions()
+			case "p":
+				m.statusFilter = []string{StatusAwaitingPermission}
+				m.filterMenu = false
+				m = m.refreshSessions()
+			case "n":
+				m.statusFilter = []string{StatusAwaitingInput}
+				m.filterMenu = false
+				m = m.refreshSessions()
+			case "t":
+				m.statusFilter = []string{StatusAwaitingPermission, StatusAwaitingInput}
+				m.filterMenu = false
+				m = m.refreshSessions()
+			case "e":
+				m.statusFilter = []string{StatusExited}
+				m.includeAll = true
+				m.filterMenu = false
+				m = m.refreshSessions()
+			}
+			return m, nil
+		}
+
+		// Normal mode
 		switch msg.String() {
 		case "q", "ctrl+c", "esc":
 			return m, tea.Quit
@@ -102,6 +193,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.shouldAttach = m.sessions[m.cursor].TmuxSession
 				return m, tea.Quit
 			}
+		case "delete", "backspace", "x":
+			if len(m.sessions) > 0 && m.cursor < len(m.sessions) {
+				m.confirmMode = confirmKill
+			}
+		case "f":
+			m.filterMenu = true
 		case "r":
 			// Force refresh
 			m = m.refreshSessions()
@@ -134,14 +231,31 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+var (
+	confirmStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("196"))
+	menuStyle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("214"))
+	filterBadge  = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
+)
+
 func (m model) View() string {
+	// Filter menu overlay
+	if m.filterMenu {
+		return m.renderFilterMenu()
+	}
+
+	// Show empty state
 	if len(m.sessions) == 0 {
-		return "\n  No active sessions\n\n  Press 'q' to quit\n"
+		msg := "\n  No active sessions"
+		if len(m.statusFilter) > 0 {
+			msg += fmt.Sprintf(" (filter: %s)", strings.Join(m.statusFilter, ", "))
+		}
+		msg += "\n\n  Press 'f' to change filter, 'q' to quit\n"
+		return msg
 	}
 
 	var b strings.Builder
 
-	// Header with sort indicators
+	// Header with sort indicators and filter badge
 	b.WriteString("\n")
 	idHdr := "ID" + m.sort.Indicator(SortID)
 	dirHdr := "DIRECTORY" + m.sort.Indicator(SortDirectory)
@@ -150,7 +264,13 @@ func (m model) View() string {
 	updatedHdr := "UPDATED" + m.sort.Indicator(SortUpdated)
 	header := fmt.Sprintf("  %-12s %-35s %-22s %-10s %s", idHdr, dirHdr, statusHdr, ageHdr, updatedHdr)
 	b.WriteString(headerStyle.Render(header))
+
+	// Show filter badge
+	if len(m.statusFilter) > 0 {
+		b.WriteString(filterBadge.Render(fmt.Sprintf("  [%s]", strings.Join(m.statusFilter, ", "))))
+	}
 	b.WriteString("\n")
+
 	width := m.width
 	if width < 10 {
 		width = 90 // default width
@@ -180,11 +300,36 @@ func (m model) View() string {
 		b.WriteString("\n")
 	}
 
-	// Help
-	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("  ↑/↓ navigate • enter attach • 1-5 sort • r refresh • q quit"))
-	b.WriteString("\n")
+	// Confirmation dialog
+	if m.confirmMode == confirmKill && m.cursor < len(m.sessions) {
+		b.WriteString("\n")
+		b.WriteString(confirmStyle.Render(fmt.Sprintf("  Kill session %s? [y/n]", m.sessions[m.cursor].ID)))
+		b.WriteString("\n")
+	} else {
+		// Help
+		b.WriteString("\n")
+		b.WriteString(helpStyle.Render("  ↑/↓ navigate • enter attach • del kill • f filter • 1-5 sort • r refresh • q quit"))
+		b.WriteString("\n")
+	}
 
+	return b.String()
+}
+
+func (m model) renderFilterMenu() string {
+	var b strings.Builder
+	b.WriteString("\n")
+	b.WriteString(menuStyle.Render("  Filter by status:"))
+	b.WriteString("\n\n")
+	b.WriteString("  [a] All (no filter)\n")
+	b.WriteString("  [i] Idle\n")
+	b.WriteString("  [w] Working\n")
+	b.WriteString("  [p] Awaiting permission\n")
+	b.WriteString("  [n] Awaiting input\n")
+	b.WriteString("  [t] Needs attention (permission + input)\n")
+	b.WriteString("  [e] Exited\n")
+	b.WriteString("\n")
+	b.WriteString(helpStyle.Render("  Press key to select, esc to cancel"))
+	b.WriteString("\n")
 	return b.String()
 }
 
@@ -210,29 +355,35 @@ func min(a, b int) int {
 	return b
 }
 
+// WatchState holds state that persists between attach cycles
+type WatchState struct {
+	Sort         SortState
+	StatusFilter []string
+}
+
 // RunInteractive starts the interactive session viewer
-// Returns the tmux session name to attach to (if any) and the final sort state
-func RunInteractive(includeAll bool, initialSort SortState) (string, SortState, error) {
-	m := initialModel(includeAll)
-	m.sort = initialSort
+// Returns the tmux session name to attach to (if any) and the final watch state
+func RunInteractive(includeAll bool, state WatchState) (string, WatchState, error) {
+	m := initialModel(includeAll, state.StatusFilter)
+	m.sort = state.Sort
 	m = m.refreshSessions()
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	finalModel, err := p.Run()
 	if err != nil {
-		return "", initialSort, err
+		return "", state, err
 	}
 
 	fm := finalModel.(model)
-	return fm.shouldAttach, fm.sort, nil
+	return fm.shouldAttach, WatchState{Sort: fm.sort, StatusFilter: fm.statusFilter}, nil
 }
 
 // RunWatchMode runs the interactive watch mode with attach support
-func RunWatchMode(includeAll bool, initialSort SortState) error {
-	currentSort := initialSort
+func RunWatchMode(includeAll bool, initialSort SortState, initialFilter []string) error {
+	state := WatchState{Sort: initialSort, StatusFilter: initialFilter}
 	for {
-		tmuxSession, newSort, err := RunInteractive(includeAll, currentSort)
-		currentSort = newSort // Preserve sort state between attach cycles
+		tmuxSession, newState, err := RunInteractive(includeAll, state)
+		state = newState // Preserve state between attach cycles
 		if err != nil {
 			return err
 		}

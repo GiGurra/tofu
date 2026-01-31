@@ -15,12 +15,13 @@ import (
 )
 
 type ListParams struct {
-	JSON  bool   `long:"json" help:"Output as JSON"`
-	All   bool   `short:"a" long:"all" help:"Include exited sessions"`
-	Watch bool   `short:"w" long:"watch" help:"Interactive watch mode with auto-refresh"`
-	Sort  string `short:"s" long:"sort" optional:"true" help:"Sort by column" alts:"id,directory,status,age,updated"`
-	Asc   bool   `long:"asc" help:"Sort ascending (default for id/directory/status)"`
-	Desc  bool   `long:"desc" help:"Sort descending (default for updated)"`
+	JSON  bool     `long:"json" help:"Output as JSON"`
+	All   bool     `short:"a" long:"all" help:"Include exited sessions"`
+	Watch bool     `short:"w" long:"watch" help:"Interactive watch mode with auto-refresh"`
+	Sort  string   `short:"s" long:"sort" optional:"true" help:"Sort by column" alts:"id,directory,status,age,updated"`
+	Asc   bool     `long:"asc" help:"Sort ascending (default for id/directory/status)"`
+	Desc  bool     `long:"desc" help:"Sort descending (default for updated)"`
+	Show  []string `long:"show" optional:"true" help:"Filter by status" alts:"all,idle,working,awaiting_permission,awaiting_input,exited"`
 }
 
 func ListCmd() *cobra.Command {
@@ -42,9 +43,12 @@ func runList(params *ListParams) error {
 	// Parse sort options
 	sortState := parseSortParams(params.Sort, params.Asc, params.Desc)
 
+	// Normalize status filter
+	statusFilter := normalizeStatusFilter(params.Show)
+
 	// Interactive watch mode
 	if params.Watch {
-		return RunWatchMode(params.All, sortState)
+		return RunWatchMode(params.All, sortState, statusFilter)
 	}
 
 	states, err := ListSessionStates()
@@ -63,6 +67,9 @@ func runList(params *ListParams) error {
 	for _, state := range states {
 		RefreshSessionStatus(state)
 		if !params.All && state.Status == StatusExited {
+			continue
+		}
+		if !matchesStatusFilter(state.Status, statusFilter) {
 			continue
 		}
 		filtered = append(filtered, state)
@@ -182,4 +189,48 @@ func parseSortParams(sortBy string, asc, desc bool) SortState {
 	}
 
 	return SortState{Column: col, Direction: dir}
+}
+
+// normalizeStatusFilter converts user-friendly names to internal status constants
+func normalizeStatusFilter(show []string) []string {
+	if len(show) == 0 {
+		return nil
+	}
+
+	var result []string
+	for _, s := range show {
+		switch s {
+		case "all":
+			return nil // no filter
+		case "idle":
+			result = append(result, StatusIdle)
+		case "working":
+			result = append(result, StatusWorking)
+		case "awaiting_permission", "permission":
+			result = append(result, StatusAwaitingPermission)
+		case "awaiting_input", "input":
+			result = append(result, StatusAwaitingInput)
+		case "attention":
+			result = append(result, StatusAwaitingPermission, StatusAwaitingInput)
+		case "exited":
+			result = append(result, StatusExited)
+		default:
+			// Allow passing internal status names directly
+			result = append(result, s)
+		}
+	}
+	return result
+}
+
+// matchesStatusFilter checks if a status matches the filter
+func matchesStatusFilter(status string, filter []string) bool {
+	if len(filter) == 0 {
+		return true
+	}
+	for _, f := range filter {
+		if f == status {
+			return true
+		}
+	}
+	return false
 }
