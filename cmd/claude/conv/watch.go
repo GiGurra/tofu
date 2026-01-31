@@ -335,6 +335,20 @@ func (m watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			case "enter":
 				m.searchFocused = false
+			case "up":
+				// Exit search and navigate up
+				m.searchFocused = false
+				if m.cursor > 0 {
+					m.cursor--
+					m = m.ensureCursorVisible()
+				}
+			case "down":
+				// Exit search and navigate down
+				m.searchFocused = false
+				if m.cursor < len(m.filtered)-1 {
+					m.cursor++
+					m = m.ensureCursorVisible()
+				}
 			case "backspace":
 				if len(m.searchInput) > 0 {
 					m.searchInput = m.searchInput[:len(m.searchInput)-1]
