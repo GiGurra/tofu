@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/GiGurra/boa/pkg/boa"
+	clcommon "github.com/gigurra/tofu/cmd/claude/common"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -30,7 +31,7 @@ func CpCmd() *cobra.Command {
 		ValidArgsFunc: func(p *CpParams, cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			if len(args) == 0 {
 				global, _ := cmd.Flags().GetBool("global")
-				return getConversationCompletions(global), cobra.ShellCompDirectiveKeepOrder | cobra.ShellCompDirectiveNoFileComp
+				return clcommon.GetConversationCompletions(global), cobra.ShellCompDirectiveKeepOrder | cobra.ShellCompDirectiveNoFileComp
 			}
 			return nil, cobra.ShellCompDirectiveDefault
 		},

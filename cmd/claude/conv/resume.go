@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/GiGurra/boa/pkg/boa"
+	clcommon "github.com/gigurra/tofu/cmd/claude/common"
 	"github.com/gigurra/tofu/cmd/claude/session"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
@@ -33,7 +33,7 @@ func ResumeCmd() *cobra.Command {
 			}
 			// Check if -g flag is set (p.Global may not be populated during completion)
 			global, _ := cmd.Flags().GetBool("global")
-			return getConversationCompletions(global), cobra.ShellCompDirectiveKeepOrder | cobra.ShellCompDirectiveNoFileComp
+			return clcommon.GetConversationCompletions(global), cobra.ShellCompDirectiveKeepOrder | cobra.ShellCompDirectiveNoFileComp
 		},
 		RunFunc: func(params *ResumeParams, cmd *cobra.Command, args []string) {
 			exitCode := RunResume(params, os.Stdout, os.Stderr)
@@ -42,93 +42,6 @@ func ResumeCmd() *cobra.Command {
 			}
 		},
 	}.ToCobra()
-}
-
-func getConversationCompletions(global bool) []string {
-	var entries []SessionEntry
-
-	if global {
-		projectsDir := ClaudeProjectsDir()
-		dirEntries, err := os.ReadDir(projectsDir)
-		if err != nil {
-			return nil
-		}
-
-		for _, dirEntry := range dirEntries {
-			if !dirEntry.IsDir() {
-				continue
-			}
-			projPath := projectsDir + "/" + dirEntry.Name()
-			index, err := LoadSessionsIndex(projPath)
-			if err != nil {
-				continue
-			}
-			entries = append(entries, index.Entries...)
-		}
-	} else {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return nil
-		}
-
-		claudeProjectPath := GetClaudeProjectPath(cwd)
-		index, err := LoadSessionsIndex(claudeProjectPath)
-		if err != nil {
-			return nil
-		}
-
-		entries = index.Entries
-	}
-
-	// Sort by modified date descending (most recent first)
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].Modified > entries[j].Modified
-	})
-
-	// Format completions
-	results := make([]string, len(entries))
-	for i, e := range entries {
-		results[i] = formatCompletion(e)
-	}
-
-	return results
-}
-
-func formatCompletion(e SessionEntry) string {
-	// Format: <ID>_[name_]prompt__cr_datetime__u_datetime
-	sanitize := func(s string) string {
-		s = strings.ReplaceAll(s, "\t", "__")
-		s = strings.ReplaceAll(s, " ", "_")
-		s = strings.ReplaceAll(s, "\n", "_")
-		s = strings.ReplaceAll(s, "\r", "")
-		return s
-	}
-
-	id := e.SessionID[:8]
-
-	// Use HasTitle/DisplayTitle for backwards compatible title display
-	var namePart string
-	if e.HasTitle() {
-		namePart = "[" + sanitize(e.DisplayTitle()) + "]_"
-	}
-
-	prompt := sanitize(e.FirstPrompt)
-	if len(prompt) > 40 {
-		prompt = prompt[:37] + "..."
-	}
-
-	created := formatDateShort(e.Created)
-	modified := formatDateShort(e.Modified)
-
-	return fmt.Sprintf("%s_%s%s__cr_%s__u_%s", id, namePart, prompt, created, modified)
-}
-
-func formatDateShort(isoDate string) string {
-	if len(isoDate) < 16 {
-		return isoDate
-	}
-	// Extract YYYY-MM-DD_HH:MM from ISO format
-	return strings.ReplaceAll(isoDate[:16], "T", "_")
 }
 
 func RunResume(params *ResumeParams, stdout, stderr *os.File) int {

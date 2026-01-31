@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/GiGurra/boa/pkg/boa"
+	clcommon "github.com/gigurra/tofu/cmd/claude/common"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
 )
@@ -19,7 +20,7 @@ type NewParams struct {
 }
 
 func NewCmd() *cobra.Command {
-	return boa.CmdT[NewParams]{
+	cmd := boa.CmdT[NewParams]{
 		Use:         "new",
 		Short:       "Start a new Claude Code session",
 		Long:        "Start a new Claude Code session in a tmux session. Attaches by default (Ctrl+B D to detach).",
@@ -31,6 +32,13 @@ func NewCmd() *cobra.Command {
 			}
 		},
 	}.ToCobra()
+
+	// Register completion for --resume flag
+	cmd.RegisterFlagCompletionFunc("resume", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return clcommon.GetConversationCompletions(true), cobra.ShellCompDirectiveKeepOrder | cobra.ShellCompDirectiveNoFileComp
+	})
+
+	return cmd
 }
 
 func runNew(params *NewParams) error {
