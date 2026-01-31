@@ -51,9 +51,10 @@ type HookInput struct {
 
 func runStatusCallback(params *StatusCallbackParams) error {
 	// Get tofu session ID from environment
+	// If not set, silently succeed - this session wasn't started via tofu
 	tofuSessionID := os.Getenv("TOFU_SESSION_ID")
 	if tofuSessionID == "" {
-		return fmt.Errorf("TOFU_SESSION_ID not set")
+		return nil
 	}
 
 	// Validate status
