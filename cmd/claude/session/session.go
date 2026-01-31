@@ -26,6 +26,7 @@ type SessionState struct {
 	StatusDetail string    `json:"statusDetail,omitempty"`
 	Created      time.Time `json:"created"`
 	Updated      time.Time `json:"updated"`
+	Attached     int       `json:"-"` // Number of attached clients (runtime only, not persisted)
 }
 
 // Status constants
@@ -261,6 +262,23 @@ func IsTmuxSessionAlive(sessionName string) bool {
 	return cmd.Run() == nil
 }
 
+// GetTmuxSessionAttachedCount returns the number of clients attached to a tmux session
+// Returns 0 if session doesn't exist or on error
+func GetTmuxSessionAttachedCount(sessionName string) int {
+	cmd := exec.Command("tmux", "display-message", "-t", sessionName, "-p", "#{session_attached}")
+	output, err := cmd.Output()
+	if err != nil {
+		return 0
+	}
+	count, _ := strconv.Atoi(strings.TrimSpace(string(output)))
+	return count
+}
+
+// IsTmuxSessionAttached checks if a tmux session has any clients attached
+func IsTmuxSessionAttached(sessionName string) bool {
+	return GetTmuxSessionAttachedCount(sessionName) > 0
+}
+
 // CheckTmuxInstalled verifies tmux is available
 func CheckTmuxInstalled() error {
 	_, err := exec.LookPath("tmux")
@@ -295,6 +313,9 @@ func FormatDuration(d time.Duration) string {
 func RefreshSessionStatus(state *SessionState) {
 	if !IsTmuxSessionAlive(state.TmuxSession) {
 		state.Status = StatusExited
+		state.Attached = 0
+	} else {
+		state.Attached = GetTmuxSessionAttachedCount(state.TmuxSession)
 	}
 }
 

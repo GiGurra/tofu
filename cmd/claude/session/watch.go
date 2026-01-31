@@ -30,6 +30,7 @@ type confirmMode int
 const (
 	confirmNone confirmMode = iota
 	confirmKill
+	confirmAttachForce // Session already attached, confirm force attach
 )
 
 // Filter options for the checkbox menu
@@ -47,20 +48,21 @@ var filterOptions = []struct {
 }
 
 type model struct {
-	sessions     []*SessionState
-	cursor       int
-	width        int
-	height       int
-	shouldAttach string // session ID to attach to after quitting
-	includeAll   bool
-	sort         SortState
-	statusFilter []string    // which statuses to show (empty = all)
-	hideFilter   []string    // which statuses to hide
-	confirmMode  confirmMode // current confirmation dialog
-	filterMenu   bool        // showing filter menu
-	filterCursor int         // cursor position in filter menu
+	sessions      []*SessionState
+	cursor        int
+	width         int
+	height        int
+	shouldAttach  string // session ID to attach to after quitting
+	forceAttach   bool   // detach other clients when attaching
+	includeAll    bool
+	sort          SortState
+	statusFilter  []string        // which statuses to show (empty = all)
+	hideFilter    []string        // which statuses to hide
+	confirmMode   confirmMode     // current confirmation dialog
+	filterMenu    bool            // showing filter menu
+	filterCursor  int             // cursor position in filter menu
 	filterChecked map[string]bool // checked items in filter menu
-	helpView     bool        // showing help view
+	helpView      bool            // showing help view
 }
 
 func initialModel(includeAll bool, statusFilter, hideFilter []string) model {
@@ -166,11 +168,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.confirmMode != confirmNone {
 			switch msg.String() {
 			case "y", "Y":
-				if m.confirmMode == confirmKill && len(m.sessions) > 0 && m.cursor < len(m.sessions) {
-					state := m.sessions[m.cursor]
-					_ = killSession(state)
-					m.confirmMode = confirmNone
-					m = m.refreshSessions()
+				if len(m.sessions) > 0 && m.cursor < len(m.sessions) {
+					if m.confirmMode == confirmKill {
+						state := m.sessions[m.cursor]
+						_ = killSession(state)
+						m.confirmMode = confirmNone
+						m = m.refreshSessions()
+					} else if m.confirmMode == confirmAttachForce {
+						m.shouldAttach = m.sessions[m.cursor].TmuxSession
+						m.forceAttach = true
+						m.confirmMode = confirmNone
+						return m, tea.Quit
+					}
 				}
 			case "n", "N", "esc", "q":
 				m.confirmMode = confirmNone
@@ -250,8 +259,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "enter":
 			if len(m.sessions) > 0 && m.cursor < len(m.sessions) {
-				m.shouldAttach = m.sessions[m.cursor].TmuxSession
-				return m, tea.Quit
+				state := m.sessions[m.cursor]
+				if state.Attached > 0 {
+					// Session already has clients attached, ask for confirmation
+					m.confirmMode = confirmAttachForce
+				} else {
+					m.shouldAttach = state.TmuxSession
+					return m, tea.Quit
+				}
 			}
 		case "delete", "backspace", "x":
 			if len(m.sessions) > 0 && m.cursor < len(m.sessions) {
@@ -362,11 +377,17 @@ func (m model) View() string {
 			status = status + ": " + state.StatusDetail
 		}
 
+		// Add attached indicator
+		attachedMark := "  "
+		if state.Attached > 0 {
+			attachedMark = "⚡"
+		}
+
 		dir := shortenPathForTable(state.Cwd, 33)
 		age := FormatDuration(time.Since(state.Created))
 		updated := FormatDuration(time.Since(state.Updated))
 
-		row := fmt.Sprintf("  %-10s %-35s %-22s %-10s %s", state.ID, dir, status, age, updated)
+		row := fmt.Sprintf("%s %-10s %-35s %-22s %-10s %s", attachedMark, state.ID, dir, status, age, updated)
 
 		if i == m.cursor {
 			b.WriteString(selectedStyle.Render(row))
@@ -379,8 +400,15 @@ func (m model) View() string {
 
 	// Confirmation dialog or help hint
 	b.WriteString("\n")
-	if m.confirmMode == confirmKill && m.cursor < len(m.sessions) {
-		b.WriteString(confirmStyle.Render(fmt.Sprintf("  Kill session %s? [y/n]", m.sessions[m.cursor].ID)))
+	if m.cursor < len(m.sessions) {
+		switch m.confirmMode {
+		case confirmKill:
+			b.WriteString(confirmStyle.Render(fmt.Sprintf("  Kill session %s? [y/n]", m.sessions[m.cursor].ID)))
+		case confirmAttachForce:
+			b.WriteString(confirmStyle.Render(fmt.Sprintf("  Session %s already attached. Detach other clients? [y/n]", m.sessions[m.cursor].ID)))
+		default:
+			b.WriteString(helpStyle.Render("  h help • ↑/↓ navigate • enter attach • q quit"))
+		}
 	} else {
 		b.WriteString(helpStyle.Render("  h help • ↑/↓ navigate • enter attach • q quit"))
 	}
@@ -494,9 +522,15 @@ type WatchState struct {
 	HideFilter   []string
 }
 
+// AttachResult holds the result of selecting a session to attach
+type AttachResult struct {
+	TmuxSession string
+	ForceAttach bool // true if we should detach other clients
+}
+
 // RunInteractive starts the interactive session viewer
-// Returns the tmux session name to attach to (if any) and the final watch state
-func RunInteractive(includeAll bool, state WatchState) (string, WatchState, error) {
+// Returns the attach result (if any) and the final watch state
+func RunInteractive(includeAll bool, state WatchState) (AttachResult, WatchState, error) {
 	m := initialModel(includeAll, state.StatusFilter, state.HideFilter)
 	m.sort = state.Sort
 	m = m.refreshSessions()
@@ -504,30 +538,38 @@ func RunInteractive(includeAll bool, state WatchState) (string, WatchState, erro
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	finalModel, err := p.Run()
 	if err != nil {
-		return "", state, err
+		return AttachResult{}, state, err
 	}
 
 	fm := finalModel.(model)
-	return fm.shouldAttach, WatchState{Sort: fm.sort, StatusFilter: fm.statusFilter, HideFilter: fm.hideFilter}, nil
+	result := AttachResult{
+		TmuxSession: fm.shouldAttach,
+		ForceAttach: fm.forceAttach,
+	}
+	return result, WatchState{Sort: fm.sort, StatusFilter: fm.statusFilter, HideFilter: fm.hideFilter}, nil
 }
 
 // RunWatchMode runs the interactive watch mode with attach support
 func RunWatchMode(includeAll bool, initialSort SortState, initialFilter, initialHide []string) error {
 	state := WatchState{Sort: initialSort, StatusFilter: initialFilter, HideFilter: initialHide}
 	for {
-		tmuxSession, newState, err := RunInteractive(includeAll, state)
+		result, newState, err := RunInteractive(includeAll, state)
 		state = newState // Preserve state between attach cycles
 		if err != nil {
 			return err
 		}
 
-		if tmuxSession == "" {
+		if result.TmuxSession == "" {
 			// User quit without selecting
 			return nil
 		}
 
 		// Attach to the session
-		fmt.Printf("Attaching to %s... (Ctrl+B D to detach)\n", tmuxSession)
+		if result.ForceAttach {
+			fmt.Printf("Attaching to %s (detaching others)... (Ctrl+B D to detach)\n", result.TmuxSession)
+		} else {
+			fmt.Printf("Attaching to %s... (Ctrl+B D to detach)\n", result.TmuxSession)
+		}
 
 		tmuxPath, err := exec.LookPath("tmux")
 		if err != nil {
@@ -535,7 +577,12 @@ func RunWatchMode(includeAll bool, initialSort SortState, initialFilter, initial
 		}
 
 		// Run tmux attach as a subprocess (not exec, so we return here after detach)
-		cmd := exec.Command(tmuxPath, "attach-session", "-t", tmuxSession)
+		// Use -d flag to detach other clients if force attach was requested
+		args := []string{"attach-session", "-t", result.TmuxSession}
+		if result.ForceAttach {
+			args = []string{"attach-session", "-d", "-t", result.TmuxSession}
+		}
+		cmd := exec.Command(tmuxPath, args...)
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
