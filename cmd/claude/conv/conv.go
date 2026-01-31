@@ -103,6 +103,7 @@ func GetClaudeProjectPath(realPath string) string {
 
 // LoadSessionsIndex loads the sessions index from a Claude project directory
 // It also scans for unindexed .jsonl files and merges them, deduplicating by sessionId
+// Additionally, it re-scans entries with missing display data (no prompt, summary, or title)
 func LoadSessionsIndex(projectPath string) (*SessionsIndex, error) {
 	indexPath := filepath.Join(projectPath, "sessions-index.json")
 	data, err := os.ReadFile(indexPath)
@@ -117,6 +118,29 @@ func LoadSessionsIndex(projectPath string) (*SessionsIndex, error) {
 	} else {
 		if err := json.Unmarshal(data, &index); err != nil {
 			return nil, fmt.Errorf("failed to parse sessions index: %w", err)
+		}
+	}
+
+	// Re-scan entries with missing display data
+	for i := range index.Entries {
+		if index.Entries[i].DisplayTitle() == "" {
+			// Try to get data from the file
+			filePath := filepath.Join(projectPath, index.Entries[i].SessionID+".jsonl")
+			if scanned := parseJSONLSession(filePath, index.Entries[i].SessionID); scanned != nil {
+				// Update missing fields from scanned data
+				if scanned.Summary != "" && index.Entries[i].Summary == "" {
+					index.Entries[i].Summary = scanned.Summary
+				}
+				if scanned.FirstPrompt != "" && index.Entries[i].FirstPrompt == "" {
+					index.Entries[i].FirstPrompt = scanned.FirstPrompt
+				}
+				if scanned.ProjectPath != "" && index.Entries[i].ProjectPath == "" {
+					index.Entries[i].ProjectPath = scanned.ProjectPath
+				}
+				if scanned.GitBranch != "" && index.Entries[i].GitBranch == "" {
+					index.Entries[i].GitBranch = scanned.GitBranch
+				}
+			}
 		}
 	}
 
@@ -170,6 +194,7 @@ type jsonlMessage struct {
 	Timestamp string `json:"timestamp"`
 	Cwd       string `json:"cwd"`
 	GitBranch string `json:"gitBranch"`
+	Summary   string `json:"summary"` // For type="summary" messages
 	Message   struct {
 		Role    string `json:"role"`
 		Content any    `json:"content"` // Can be string or array
@@ -199,11 +224,12 @@ func parseJSONLSession(filePath, sessionID string) *SessionEntry {
 	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
 
 	var firstTimestamp string
-	var linesRead int
-	const maxLinesToRead = 50 // Scan more lines to handle resumed sessions with tool_results at start
 
-	for scanner.Scan() && linesRead < maxLinesToRead {
-		linesRead++
+	// Scan the entire file looking for:
+	// 1. Summary messages (keep the last one as it's most up-to-date)
+	// 2. First user message with actual text content
+	// Stop early once we have both a summary/title AND a firstPrompt
+	for scanner.Scan() {
 		line := scanner.Text()
 		if line == "" {
 			continue
@@ -219,6 +245,16 @@ func parseJSONLSession(filePath, sessionID string) *SessionEntry {
 			firstTimestamp = msg.Timestamp
 		}
 
+		// Capture summaries (keep the last one as it's most up-to-date)
+		if msg.Type == "summary" && msg.Summary != "" {
+			entry.Summary = msg.Summary
+			// If we already have a firstPrompt, we're done
+			if entry.FirstPrompt != "" {
+				break
+			}
+			continue
+		}
+
 		// Get project path and git branch from first message with cwd
 		if entry.ProjectPath == "" && msg.Cwd != "" {
 			entry.ProjectPath = msg.Cwd
@@ -228,7 +264,7 @@ func parseJSONLSession(filePath, sessionID string) *SessionEntry {
 		}
 
 		// Capture first user message with actual text content as the prompt
-		if msg.Type == "user" && msg.Message.Role == "user" {
+		if entry.FirstPrompt == "" && msg.Type == "user" && msg.Message.Role == "user" {
 			text := extractMessageContent(msg.Message.Content)
 			// Skip messages without text (e.g., tool_result blocks from resumed sessions)
 			// Also skip system-generated messages like "[Request interrupted by user...]"
@@ -237,7 +273,10 @@ func parseJSONLSession(filePath, sessionID string) *SessionEntry {
 				if msg.Timestamp != "" {
 					firstTimestamp = msg.Timestamp
 				}
-				break
+				// If we already have a summary, we're done
+				if entry.Summary != "" {
+					break
+				}
 			}
 		}
 	}
