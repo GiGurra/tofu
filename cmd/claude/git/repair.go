@@ -9,6 +9,7 @@ import (
 
 	"github.com/GiGurra/boa/pkg/boa"
 	"github.com/gigurra/tofu/cmd/claude/conv"
+	"github.com/gigurra/tofu/cmd/claude/syncutil"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
 )
@@ -257,9 +258,14 @@ func updateSessionPaths(dir string, config *SyncConfig, localHome string) (int, 
 // updateIndexFile updates projectPath fields in a sessions-index.json
 // If localHome is non-empty, paths are localized; otherwise they are canonicalized
 // Also rebuilds the index to include all .jsonl files (prevents unindexed files from adding old paths)
+// Filters out tombstoned sessions to respect deletions
 // Returns true if the file was modified
 func updateIndexFile(indexPath string, config *SyncConfig, localHome string) (bool, error) {
 	projectDir := filepath.Dir(indexPath)
+
+	// Load tombstones to filter out deleted sessions
+	tombstones, _ := syncutil.LoadTombstones(projectDir)
+	tombstonedIDs := tombstones.TombstonedSessionIDs()
 
 	// Load index using conv package (includes unindexed sessions)
 	index, err := conv.LoadSessionsIndex(projectDir)
@@ -267,7 +273,14 @@ func updateIndexFile(indexPath string, config *SyncConfig, localHome string) (bo
 		return false, err
 	}
 
+	// Filter out tombstoned sessions and update paths
+	filtered := make([]conv.SessionEntry, 0, len(index.Entries))
 	for i := range index.Entries {
+		// Skip tombstoned sessions
+		if tombstonedIDs[index.Entries[i].SessionID] {
+			continue
+		}
+
 		// Update projectPath
 		origPath := index.Entries[i].ProjectPath
 		if origPath != "" {
@@ -287,7 +300,10 @@ func updateIndexFile(indexPath string, config *SyncConfig, localHome string) (bo
 				index.Entries[i].FullPath = canonicalizePath(origFull, config)
 			}
 		}
+
+		filtered = append(filtered, index.Entries[i])
 	}
+	index.Entries = filtered
 
 	// Always write the complete index to prevent unindexed files from adding old paths back
 	newData, err := json.MarshalIndent(index, "", "  ")

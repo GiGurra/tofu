@@ -959,3 +959,69 @@ func TestFixProjectPathInconsistencies_MultipleEntries(t *testing.T) {
 		}
 	}
 }
+
+func TestUpdateIndexFile_FiltersTombstonedSessions(t *testing.T) {
+	tempDir := t.TempDir()
+	cleanup := setTestHome(t, tempDir)
+	defer cleanup()
+
+	projectDir := filepath.Join(tempDir, "-home-canonical-git-myproject")
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create sessions-index.json with two sessions
+	index := conv.SessionsIndex{
+		Version: 1,
+		Entries: []conv.SessionEntry{
+			{
+				SessionID:   "session-alive",
+				ProjectPath: "/home/canonical/git/myproject",
+			},
+			{
+				SessionID:   "session-deleted",
+				ProjectPath: "/home/canonical/git/myproject",
+			},
+		},
+	}
+	indexData, _ := json.MarshalIndent(index, "", "  ")
+	indexPath := filepath.Join(projectDir, "sessions-index.json")
+	if err := os.WriteFile(indexPath, indexData, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create deletions.json marking one session as tombstoned
+	deletions := `{
+		"version": 1,
+		"entries": [
+			{"sessionId": "session-deleted", "deletedAt": "2026-01-31T10:00:00Z", "deletedBy": "testhost"}
+		]
+	}`
+	if err := os.WriteFile(filepath.Join(projectDir, "deletions.json"), []byte(deletions), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run updateIndexFile
+	config := testConfig()
+	modified, err := updateIndexFile(indexPath, config, "")
+	if err != nil {
+		t.Fatalf("updateIndexFile failed: %v", err)
+	}
+
+	if !modified {
+		t.Error("expected index to be modified (tombstoned session filtered)")
+	}
+
+	// Load result and verify tombstoned session was removed
+	data, _ := os.ReadFile(indexPath)
+	var result conv.SessionsIndex
+	json.Unmarshal(data, &result)
+
+	if len(result.Entries) != 1 {
+		t.Errorf("expected 1 entry after filtering, got %d", len(result.Entries))
+	}
+
+	if result.Entries[0].SessionID != "session-alive" {
+		t.Errorf("expected session-alive to remain, got %s", result.Entries[0].SessionID)
+	}
+}

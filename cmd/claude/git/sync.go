@@ -463,6 +463,11 @@ func mergeProject(srcProject, dstProject string, params *SyncParams) error {
 	// Get set of tombstoned session IDs
 	tombstonedIDs := syncTombstones.TombstonedSessionIDs()
 
+	// Delete tombstoned files from sync directory
+	if len(tombstonedIDs) > 0 {
+		deleteTombstonedFiles(dstProject, tombstonedIDs)
+	}
+
 	// Merge sessions-index.json
 	if err := mergeSessionsIndex(srcProject, dstProject); err != nil {
 		fmt.Printf("    Warning: index merge issue: %v\n", err)
@@ -542,6 +547,7 @@ func mergeSessionsIndex(srcProject, dstProject string) error {
 	if err != nil {
 		dstIndex = &conv.SessionsIndex{Version: 1}
 	}
+
 
 	// Merge: union of entries, prefer newer modified timestamp
 	// Skip tombstoned sessions

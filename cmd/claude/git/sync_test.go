@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/gigurra/tofu/cmd/claude/conv"
+	"github.com/gigurra/tofu/cmd/claude/syncutil"
 )
 
 // setTestHome sets the home directory for testing, handling cross-platform differences.
@@ -713,5 +714,62 @@ func TestUpdateUnprocessedSyncDirs(t *testing.T) {
 
 	if resultIndex.Entries[0].SessionID != sessionID {
 		t.Errorf("Expected session %s, got %s", sessionID, resultIndex.Entries[0].SessionID)
+	}
+}
+
+func TestMergeProject_DeletesTombstonedFiles(t *testing.T) {
+	tmpDir := t.TempDir()
+	cleanup := setTestHome(t, tmpDir)
+	defer cleanup()
+
+	// Setup config
+	configDir := filepath.Join(tmpDir, ".claude")
+	os.MkdirAll(configDir, 0755)
+	config := SyncConfig{
+		Homes: []string{"/home/canonical", "/home/local"},
+	}
+	configData, _ := json.MarshalIndent(config, "", "  ")
+	os.WriteFile(filepath.Join(configDir, "sync_config.json"), configData, 0644)
+
+	// Create local project
+	localProject := filepath.Join(tmpDir, "local-project")
+	os.MkdirAll(localProject, 0755)
+	localIndex := conv.SessionsIndex{Version: 1, Entries: []conv.SessionEntry{}}
+	localData, _ := json.MarshalIndent(localIndex, "", "  ")
+	os.WriteFile(filepath.Join(localProject, "sessions-index.json"), localData, 0644)
+
+	// Create sync project with a file that should be deleted
+	syncProject := filepath.Join(tmpDir, "sync-project")
+	os.MkdirAll(syncProject, 0755)
+
+	sessionID := "01234567-89ab-cdef-0123-456789abcdef"
+	jsonlPath := filepath.Join(syncProject, sessionID+".jsonl")
+	os.WriteFile(jsonlPath, []byte(`{"test":"data"}`), 0644)
+
+	// Create deletions.json marking the session as tombstoned
+	deletions := syncutil.Deletions{
+		Version: 1,
+		Entries: []syncutil.Tombstone{
+			{SessionID: sessionID, DeletedAt: "2026-01-31T10:00:00Z", DeletedBy: "testhost"},
+		},
+	}
+	deletionsData, _ := json.MarshalIndent(deletions, "", "  ")
+	os.WriteFile(filepath.Join(syncProject, "deletions.json"), deletionsData, 0644)
+
+	// Create sessions-index.json (empty since file is tombstoned)
+	syncIndex := conv.SessionsIndex{Version: 1, Entries: []conv.SessionEntry{}}
+	syncData, _ := json.MarshalIndent(syncIndex, "", "  ")
+	os.WriteFile(filepath.Join(syncProject, "sessions-index.json"), syncData, 0644)
+
+	// Run mergeProject
+	params := &SyncParams{}
+	err := mergeProject(localProject, syncProject, params)
+	if err != nil {
+		t.Fatalf("mergeProject failed: %v", err)
+	}
+
+	// The tombstoned file should be deleted
+	if _, err := os.Stat(jsonlPath); !os.IsNotExist(err) {
+		t.Errorf("Expected tombstoned file to be deleted, but it still exists")
 	}
 }
