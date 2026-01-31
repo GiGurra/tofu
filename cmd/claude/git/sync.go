@@ -526,12 +526,11 @@ func mergeSessionsIndex(srcProject, dstProject string) error {
 		srcIndex = &conv.SessionsIndex{Version: 1}
 	}
 
-	// Load dst (sync/remote) index
-	var dstIndex conv.SessionsIndex
-	if data, err := os.ReadFile(dstIndexPath); err == nil {
-		json.Unmarshal(data, &dstIndex)
-	} else {
-		dstIndex = conv.SessionsIndex{Version: 1}
+	// Load dst (sync/remote) index - also include unindexed sessions
+	// (there may be .jsonl files that exist in sync but aren't in the index)
+	dstIndex, err := conv.LoadSessionsIndex(dstProject)
+	if err != nil {
+		dstIndex = &conv.SessionsIndex{Version: 1}
 	}
 
 	// Merge: union of entries, prefer newer modified timestamp
