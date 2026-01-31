@@ -31,6 +31,7 @@ type model struct {
 	height       int
 	shouldAttach string // session ID to attach to after quitting
 	includeAll   bool
+	sort         SortState
 }
 
 func initialModel(includeAll bool) model {
@@ -38,6 +39,7 @@ func initialModel(includeAll bool) model {
 		sessions:   []*SessionState{},
 		cursor:     0,
 		includeAll: includeAll,
+		sort:       SortState{Column: SortNone},
 	}
 }
 
@@ -66,6 +68,8 @@ func (m model) refreshSessions() model {
 		filtered = append(filtered, state)
 	}
 
+	// Apply sorting
+	SortSessions(filtered, m.sort)
 	m.sessions = filtered
 
 	// Keep cursor in bounds
@@ -101,6 +105,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "r":
 			// Force refresh
 			m = m.refreshSessions()
+		case "f1", "1":
+			m.sort.Toggle(SortID)
+			m = m.refreshSessions()
+		case "f2", "2":
+			m.sort.Toggle(SortDirectory)
+			m = m.refreshSessions()
+		case "f3", "3":
+			m.sort.Toggle(SortStatus)
+			m = m.refreshSessions()
+		case "f4", "4":
+			m.sort.Toggle(SortUpdated)
+			m = m.refreshSessions()
 		}
 
 	case tea.WindowSizeMsg:
@@ -122,9 +138,13 @@ func (m model) View() string {
 
 	var b strings.Builder
 
-	// Header
+	// Header with sort indicators
 	b.WriteString("\n")
-	header := fmt.Sprintf("  %-10s %-40s %-25s %s", "ID", "DIRECTORY", "STATUS", "UPDATED")
+	idHdr := "ID" + m.sort.Indicator(SortID)
+	dirHdr := "DIRECTORY" + m.sort.Indicator(SortDirectory)
+	statusHdr := "STATUS" + m.sort.Indicator(SortStatus)
+	updatedHdr := "UPDATED" + m.sort.Indicator(SortUpdated)
+	header := fmt.Sprintf("  %-12s %-42s %-27s %s", idHdr, dirHdr, statusHdr, updatedHdr)
 	b.WriteString(headerStyle.Render(header))
 	b.WriteString("\n")
 	width := m.width
@@ -157,7 +177,7 @@ func (m model) View() string {
 
 	// Help
 	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("  ↑/↓ navigate • enter attach • r refresh • q quit"))
+	b.WriteString(helpStyle.Render("  ↑/↓ navigate • enter attach • 1-4 sort • r refresh • q quit"))
 	b.WriteString("\n")
 
 	return b.String()
@@ -186,25 +206,28 @@ func min(a, b int) int {
 }
 
 // RunInteractive starts the interactive session viewer
-// Returns the tmux session name to attach to (if any)
-func RunInteractive(includeAll bool) (string, error) {
+// Returns the tmux session name to attach to (if any) and the final sort state
+func RunInteractive(includeAll bool, initialSort SortState) (string, SortState, error) {
 	m := initialModel(includeAll)
+	m.sort = initialSort
 	m = m.refreshSessions()
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	finalModel, err := p.Run()
 	if err != nil {
-		return "", err
+		return "", initialSort, err
 	}
 
 	fm := finalModel.(model)
-	return fm.shouldAttach, nil
+	return fm.shouldAttach, fm.sort, nil
 }
 
 // RunWatchMode runs the interactive watch mode with attach support
-func RunWatchMode(includeAll bool) error {
+func RunWatchMode(includeAll bool, initialSort SortState) error {
+	currentSort := initialSort
 	for {
-		tmuxSession, err := RunInteractive(includeAll)
+		tmuxSession, newSort, err := RunInteractive(includeAll, currentSort)
+		currentSort = newSort // Preserve sort state between attach cycles
 		if err != nil {
 			return err
 		}

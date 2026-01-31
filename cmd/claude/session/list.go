@@ -15,9 +15,12 @@ import (
 )
 
 type ListParams struct {
-	JSON  bool `long:"json" help:"Output as JSON"`
-	All   bool `short:"a" long:"all" help:"Include exited sessions"`
-	Watch bool `short:"w" long:"watch" help:"Interactive watch mode with auto-refresh"`
+	JSON  bool   `long:"json" help:"Output as JSON"`
+	All   bool   `short:"a" long:"all" help:"Include exited sessions"`
+	Watch bool   `short:"w" long:"watch" help:"Interactive watch mode with auto-refresh"`
+	Sort  string `short:"s" long:"sort" optional:"true" help:"Sort by column" alts:"id,directory,status,updated"`
+	Asc   bool   `long:"asc" help:"Sort ascending (default for id/directory/status)"`
+	Desc  bool   `long:"desc" help:"Sort descending (default for updated)"`
 }
 
 func ListCmd() *cobra.Command {
@@ -36,9 +39,12 @@ func ListCmd() *cobra.Command {
 }
 
 func runList(params *ListParams) error {
+	// Parse sort options
+	sortState := parseSortParams(params.Sort, params.Asc, params.Desc)
+
 	// Interactive watch mode
 	if params.Watch {
-		return RunWatchMode(params.All)
+		return RunWatchMode(params.All, sortState)
 	}
 
 	states, err := ListSessionStates()
@@ -67,6 +73,9 @@ func runList(params *ListParams) error {
 		fmt.Println("\nStart a new session with: tofu claude session new")
 		return nil
 	}
+
+	// Apply sorting
+	SortSessions(filtered, sortState)
 
 	if params.JSON {
 		data, err := json.MarshalIndent(filtered, "", "  ")
@@ -140,3 +149,34 @@ func getStatusColorFunc(status string) func(a ...interface{}) string {
 	}
 }
 
+func parseSortParams(sortBy string, asc, desc bool) SortState {
+	var col SortColumn
+	switch sortBy {
+	case "id":
+		col = SortID
+	case "directory", "dir":
+		col = SortDirectory
+	case "status":
+		col = SortStatus
+	case "updated", "time":
+		col = SortUpdated
+	default:
+		col = SortNone
+	}
+
+	// Default direction depends on column
+	// Updated defaults to descending (most recent first)
+	// Others default to ascending
+	var dir SortDirection
+	if asc {
+		dir = SortAsc
+	} else if desc {
+		dir = SortDesc
+	} else if col == SortUpdated {
+		dir = SortDesc // Smart default for time
+	} else {
+		dir = SortAsc
+	}
+
+	return SortState{Column: col, Direction: dir}
+}

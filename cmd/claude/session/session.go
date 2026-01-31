@@ -36,6 +36,113 @@ const (
 	StatusExited            = "exited"
 )
 
+// SortColumn represents which column to sort by
+type SortColumn int
+
+const (
+	SortNone SortColumn = iota
+	SortID
+	SortDirectory
+	SortStatus
+	SortUpdated
+)
+
+// SortDirection represents ascending or descending
+type SortDirection int
+
+const (
+	SortAsc SortDirection = iota
+	SortDesc
+)
+
+// SortState tracks current sort settings
+type SortState struct {
+	Column    SortColumn
+	Direction SortDirection
+}
+
+// NextState cycles through: none -> asc -> desc -> none
+func (s *SortState) Toggle(col SortColumn) {
+	if s.Column != col {
+		// New column: start with ascending
+		s.Column = col
+		s.Direction = SortAsc
+	} else if s.Direction == SortAsc {
+		// Same column, was asc: switch to desc
+		s.Direction = SortDesc
+	} else {
+		// Same column, was desc: reset to none
+		s.Column = SortNone
+	}
+}
+
+// SortIndicator returns a display indicator for the column header
+func (s *SortState) Indicator(col SortColumn) string {
+	if s.Column != col {
+		return ""
+	}
+	if s.Direction == SortAsc {
+		return " ▲"
+	}
+	return " ▼"
+}
+
+// SortSessions sorts sessions according to the current sort state
+func SortSessions(sessions []*SessionState, state SortState) {
+	if state.Column == SortNone || len(sessions) < 2 {
+		return
+	}
+
+	// Simple bubble sort for small lists
+	for i := 0; i < len(sessions)-1; i++ {
+		for j := 0; j < len(sessions)-i-1; j++ {
+			if shouldSwap(sessions[j], sessions[j+1], state) {
+				sessions[j], sessions[j+1] = sessions[j+1], sessions[j]
+			}
+		}
+	}
+}
+
+func shouldSwap(a, b *SessionState, state SortState) bool {
+	var less bool
+
+	switch state.Column {
+	case SortID:
+		less = a.ID < b.ID
+	case SortDirectory:
+		less = a.Cwd < b.Cwd
+	case SortStatus:
+		// Custom status priority: red (needs attention) first, then yellow, then rest
+		less = statusPriority(a.Status) < statusPriority(b.Status)
+	case SortUpdated:
+		less = a.Updated.Before(b.Updated)
+	default:
+		return false
+	}
+
+	if state.Direction == SortDesc {
+		return less // swap if a < b (to get descending)
+	}
+	return !less // swap if a > b (to get ascending)
+}
+
+// statusPriority returns sort priority for status (lower = shown first when ascending)
+// Red (needs attention) = 0, Yellow (idle) = 1, Green (working) = 2, Gray (exited) = 3
+func statusPriority(status string) int {
+	switch status {
+	case StatusAwaitingPermission, StatusAwaitingInput:
+		return 0 // Red - needs attention, show first
+	case StatusIdle:
+		return 1 // Yellow
+	case StatusWorking:
+		return 2 // Green
+	case StatusExited:
+		return 3 // Gray
+	default:
+		return 0 // Unknown = needs attention
+	}
+}
+
 func Cmd() *cobra.Command {
 	cmd := boa.CmdT[boa.NoParams]{
 		Use:   "session",
