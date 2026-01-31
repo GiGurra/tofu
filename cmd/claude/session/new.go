@@ -64,14 +64,16 @@ func runNew(params *NewParams) error {
 	}
 
 	// Extract just the ID from autocomplete format (e.g., "0459cd73_[title]_prompt..." -> "0459cd73")
-	resumeID := clcommon.ExtractIDFromCompletion(params.Resume)
+	shortID := clcommon.ExtractIDFromCompletion(params.Resume)
+	// Resolve to full UUID for claude --resume
+	fullConvID := clcommon.ResolveConvID(shortID)
 
-	// Generate session ID
-	// Priority: explicit label > conv ID (when resuming) > random
+	// Generate session ID (use short prefix for our tracking)
+	// Priority: explicit label > conv ID prefix (when resuming) > random
 	sessionID := GenerateSessionID()
-	if resumeID != "" {
+	if shortID != "" {
 		// Use conv ID prefix as session ID for easy association
-		sessionID = resumeID
+		sessionID = shortID
 		if len(sessionID) > 8 {
 			sessionID = sessionID[:8]
 		}
@@ -83,8 +85,8 @@ func runNew(params *NewParams) error {
 
 	// Build claude command
 	claudeArgs := []string{}
-	if resumeID != "" {
-		claudeArgs = append(claudeArgs, "--resume", resumeID)
+	if fullConvID != "" {
+		claudeArgs = append(claudeArgs, "--resume", fullConvID)
 	}
 
 	// Create tmux session with claude
@@ -115,7 +117,7 @@ func runNew(params *NewParams) error {
 		TmuxSession: tmuxSession,
 		PID:         pid,
 		Cwd:         cwd,
-		ConvID:      params.Resume,
+		ConvID:      fullConvID,
 		Status:      StatusRunning,
 		Created:     time.Now(),
 		Updated:     time.Now(),

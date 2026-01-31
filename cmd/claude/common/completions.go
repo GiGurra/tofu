@@ -122,6 +122,41 @@ func ExtractIDFromCompletion(s string) string {
 	return s
 }
 
+// ResolveConvID resolves a short conversation ID prefix to the full UUID
+// Returns the full ID if found, or the original input if not found
+func ResolveConvID(shortID string) string {
+	if shortID == "" {
+		return ""
+	}
+
+	projectsDir := ClaudeProjectsDir()
+	dirEntries, err := os.ReadDir(projectsDir)
+	if err != nil {
+		return shortID
+	}
+
+	for _, dirEntry := range dirEntries {
+		if !dirEntry.IsDir() {
+			continue
+		}
+		projPath := filepath.Join(projectsDir, dirEntry.Name())
+		entries := loadConvEntries(projPath)
+
+		for _, e := range entries {
+			// Exact match
+			if e.SessionID == shortID {
+				return e.SessionID
+			}
+			// Prefix match
+			if strings.HasPrefix(e.SessionID, shortID) {
+				return e.SessionID
+			}
+		}
+	}
+
+	return shortID // Return original if not found
+}
+
 // FormatConvCompletion formats a conversation entry for shell completion
 func FormatConvCompletion(e ConvEntry) string {
 	sanitize := func(s string) string {
