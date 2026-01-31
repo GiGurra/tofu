@@ -80,8 +80,9 @@ func runList(params *ListParams) error {
 	t.AppendHeader(table.Row{"ID", "Directory", "Status", "Updated"})
 
 	for _, state := range filtered {
-		updated := FormatDuration(time.Since(state.Updated))
-		status := formatStatusWithColor(state.Status, state.StatusDetail)
+		colorFunc := getStatusColorFunc(state.Status)
+		status := formatStatusWithColor(state.Status, state.StatusDetail, colorFunc)
+		updated := colorFunc(FormatDuration(time.Since(state.Updated)))
 
 		t.AppendRow(table.Row{
 			state.ID,
@@ -116,26 +117,25 @@ func shortenPathForTable(path string, maxLen int) string {
 	return "…" + path[len(path)-maxLen+1:]
 }
 
-func formatStatusWithColor(status, detail string) string {
+func getStatusColorFunc(status string) func(a ...interface{}) string {
+	switch status {
+	case StatusIdle:
+		return text.FgYellow.Sprint
+	case StatusWorking:
+		return text.FgGreen.Sprint
+	case StatusAwaitingPermission, StatusAwaitingInput:
+		return text.FgHiRed.Sprint
+	case StatusExited:
+		return text.FgHiBlack.Sprint
+	default:
+		return text.FgHiRed.Sprint // Unknown status = needs attention
+	}
+}
+
+func formatStatusWithColor(status, detail string, colorFunc func(a ...interface{}) string) string {
 	displayStatus := status
 	if detail != "" {
 		displayStatus = status + ": " + detail
 	}
-
-	var colorFunc func(a ...interface{}) string
-
-	switch status {
-	case StatusIdle:
-		colorFunc = text.FgYellow.Sprint
-	case StatusWorking:
-		colorFunc = text.FgGreen.Sprint
-	case StatusAwaitingPermission, StatusAwaitingInput:
-		colorFunc = text.FgHiRed.Sprint
-	case StatusExited:
-		colorFunc = text.FgHiBlack.Sprint
-	default:
-		colorFunc = text.FgHiRed.Sprint // Unknown status = needs attention
-	}
-
 	return colorFunc(displayStatus)
 }
