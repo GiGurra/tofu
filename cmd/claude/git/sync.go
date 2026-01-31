@@ -80,6 +80,12 @@ func runSync(params *SyncParams) error {
 		return fmt.Errorf("failed to merge local changes: %w", err)
 	}
 
+	// Also update sync dirs that don't have local counterparts
+	// This ensures unindexed files are included in the index
+	if !params.DryRun {
+		updateUnprocessedSyncDirs(projectsDir, syncDir)
+	}
+
 	// Clean up old tombstones (>30 days)
 	if !params.DryRun {
 		cleanupOldTombstonesInSync(syncDir)
@@ -381,14 +387,13 @@ func isTombstonedFile(name string, tombstonedIDs map[string]bool) bool {
 }
 
 // copyAndLocalizeIndex copies a sessions-index.json while localizing paths
+// It also scans for unindexed .jsonl files in the source directory
 func copyAndLocalizeIndex(srcPath, dstPath string, config *SyncConfig, localHome string) error {
-	data, err := os.ReadFile(srcPath)
-	if err != nil {
-		return err
-	}
+	srcDir := filepath.Dir(srcPath)
 
-	var index conv.SessionsIndex
-	if err := json.Unmarshal(data, &index); err != nil {
+	// Load index using conv package - this includes unindexed sessions
+	index, err := conv.LoadSessionsIndex(srcDir)
+	if err != nil {
 		return err
 	}
 
@@ -401,6 +406,11 @@ func copyAndLocalizeIndex(srcPath, dstPath string, config *SyncConfig, localHome
 			index.Entries[i].FullPath = config.LocalizePath(index.Entries[i].FullPath, localHome)
 		}
 	}
+
+	// Sort by sessionId for stable ordering
+	sort.Slice(index.Entries, func(i, j int) bool {
+		return index.Entries[i].SessionID < index.Entries[j].SessionID
+	})
 
 	// Write localized index
 	newData, err := json.MarshalIndent(index, "", "  ")
@@ -727,5 +737,69 @@ func cleanupOldTombstonesInSync(syncDir string) {
 
 	if totalCleaned > 0 {
 		fmt.Printf("  Cleaned up %d old tombstones\n", totalCleaned)
+	}
+}
+
+// updateUnprocessedSyncDirs updates sessions-index.json for sync directories
+// that don't have local counterparts. This ensures unindexed .jsonl files
+// are included in the index before committing.
+func updateUnprocessedSyncDirs(projectsDir, syncDir string) {
+	config, _ := LoadConfig()
+
+	// Build set of local project dirs (canonical names)
+	localDirs := make(map[string]bool)
+	if entries, err := os.ReadDir(projectsDir); err == nil {
+		for _, e := range entries {
+			if e.IsDir() {
+				canonicalName := config.CanonicalizeProjectDir(e.Name())
+				localDirs[canonicalName] = true
+			}
+		}
+	}
+
+	// Process sync dirs that don't have local counterparts
+	syncEntries, err := os.ReadDir(syncDir)
+	if err != nil {
+		return
+	}
+
+	for _, entry := range syncEntries {
+		if !entry.IsDir() || entry.Name() == ".git" {
+			continue
+		}
+
+		// Skip if this sync dir has a local counterpart
+		if localDirs[entry.Name()] {
+			continue
+		}
+
+		projectDir := filepath.Join(syncDir, entry.Name())
+
+		// Load index (includes unindexed sessions)
+		index, err := conv.LoadSessionsIndex(projectDir)
+		if err != nil {
+			continue
+		}
+
+		// Canonicalize paths
+		if config != nil {
+			for i := range index.Entries {
+				index.Entries[i].ProjectPath = canonicalizePath(index.Entries[i].ProjectPath, config)
+				index.Entries[i].FullPath = canonicalizePath(index.Entries[i].FullPath, config)
+			}
+		}
+
+		// Sort by sessionId for stable ordering
+		sort.Slice(index.Entries, func(i, j int) bool {
+			return index.Entries[i].SessionID < index.Entries[j].SessionID
+		})
+
+		// Save updated index
+		indexPath := filepath.Join(projectDir, "sessions-index.json")
+		data, err := json.MarshalIndent(index, "", "  ")
+		if err != nil {
+			continue
+		}
+		os.WriteFile(indexPath, data, 0644)
 	}
 }

@@ -304,17 +304,28 @@ func TestFindLocalEquivalent_PrefersCanonicalIfExists(t *testing.T) {
 
 func TestCopyAndLocalizeIndex(t *testing.T) {
 	tmpDir := t.TempDir()
-	srcPath := filepath.Join(tmpDir, "src-index.json")
-	dstPath := filepath.Join(tmpDir, "dst-index.json")
+	srcDir := filepath.Join(tmpDir, "src-project")
+	dstDir := filepath.Join(tmpDir, "dst-project")
+	os.MkdirAll(srcDir, 0755)
+	os.MkdirAll(dstDir, 0755)
+
+	srcPath := filepath.Join(srcDir, "sessions-index.json")
+	dstPath := filepath.Join(dstDir, "sessions-index.json")
+
+	// Create a dummy .jsonl file so LoadSessionsIndex finds it
+	sessionID := "01234567-89ab-cdef-0123-456789abcdef"
+	jsonlPath := filepath.Join(srcDir, sessionID+".jsonl")
+	jsonlContent := `{"type":"user","sessionId":"` + sessionID + `","timestamp":"2026-01-31T10:00:00Z","cwd":"/home/canonical/git/myproject","message":{"role":"user","content":"test"}}`
+	os.WriteFile(jsonlPath, []byte(jsonlContent), 0644)
 
 	// Create source index with canonical paths
 	srcIndex := conv.SessionsIndex{
 		Version: 1,
 		Entries: []conv.SessionEntry{
 			{
-				SessionID:   "session-1",
+				SessionID:   sessionID,
 				ProjectPath: "/home/canonical/git/myproject",
-				FullPath:    "/home/canonical/.claude/projects/-home-canonical-git-myproject/session-1.jsonl",
+				FullPath:    "/home/canonical/.claude/projects/-home-canonical-git-myproject/" + sessionID + ".jsonl",
 			},
 		},
 	}
@@ -343,7 +354,7 @@ func TestCopyAndLocalizeIndex(t *testing.T) {
 	}
 
 	// FullPath should be fully localized (both home prefix AND embedded project dir)
-	expectedFullPath := "/home/local/.claude/projects/-home-local-projects-myproject/session-1.jsonl"
+	expectedFullPath := "/home/local/.claude/projects/-home-local-projects-myproject/" + sessionID + ".jsonl"
 	if entry.FullPath != expectedFullPath {
 		t.Errorf("FullPath not localized: got %q, want %q", entry.FullPath, expectedFullPath)
 	}
@@ -351,19 +362,30 @@ func TestCopyAndLocalizeIndex(t *testing.T) {
 
 func TestCopyAndLocalizeIndex_AlreadyLocal(t *testing.T) {
 	tmpDir := t.TempDir()
-	srcPath := filepath.Join(tmpDir, "src-index.json")
-	dstPath := filepath.Join(tmpDir, "dst-index.json")
+	srcDir := filepath.Join(tmpDir, "src-project")
+	dstDir := filepath.Join(tmpDir, "dst-project")
+	os.MkdirAll(srcDir, 0755)
+	os.MkdirAll(dstDir, 0755)
+
+	srcPath := filepath.Join(srcDir, "sessions-index.json")
+	dstPath := filepath.Join(dstDir, "sessions-index.json")
 
 	config := &SyncConfig{
 		Homes: []string{syncTestCanonicalHome, syncTestLocalHome},
 	}
+
+	// Create a dummy .jsonl file so LoadSessionsIndex finds it
+	sessionID := "01234567-89ab-cdef-0123-456789abcdef"
+	jsonlPath := filepath.Join(srcDir, sessionID+".jsonl")
+	jsonlContent := `{"type":"user","sessionId":"` + sessionID + `","timestamp":"2026-01-31T10:00:00Z","cwd":"/home/canonical/git/myproject","message":{"role":"user","content":"test"}}`
+	os.WriteFile(jsonlPath, []byte(jsonlContent), 0644)
 
 	// Source already has canonical paths
 	srcIndex := conv.SessionsIndex{
 		Version: 1,
 		Entries: []conv.SessionEntry{
 			{
-				SessionID:   "session-1",
+				SessionID:   sessionID,
 				ProjectPath: "/home/canonical/git/myproject",
 			},
 		},
@@ -381,6 +403,10 @@ func TestCopyAndLocalizeIndex_AlreadyLocal(t *testing.T) {
 	resultData, _ := os.ReadFile(dstPath)
 	var result conv.SessionsIndex
 	json.Unmarshal(resultData, &result)
+
+	if len(result.Entries) != 1 {
+		t.Fatalf("Expected 1 entry, got %d", len(result.Entries))
+	}
 
 	entry := result.Entries[0]
 	// Should stay as canonical since we're on the canonical machine
@@ -622,5 +648,70 @@ func TestHandleConversationConflict_KeepRemoteFlag(t *testing.T) {
 	result, _ := os.ReadFile(remotePath)
 	if string(result) != "remote\n" {
 		t.Errorf("Expected remote to stay unchanged with --keep-remote")
+	}
+}
+
+func TestUpdateUnprocessedSyncDirs(t *testing.T) {
+	tmpDir := t.TempDir()
+	cleanup := setTestHome(t, tmpDir)
+	defer cleanup()
+
+	// Setup config
+	configDir := filepath.Join(tmpDir, ".claude")
+	os.MkdirAll(configDir, 0755)
+	config := SyncConfig{
+		Homes: []string{"/home/canonical", "/home/local"},
+	}
+	configData, _ := json.MarshalIndent(config, "", "  ")
+	os.WriteFile(filepath.Join(configDir, "sync_config.json"), configData, 0644)
+
+	// Create projects dir (local) with one project
+	projectsDir := filepath.Join(tmpDir, ".claude", "projects")
+	localProject := filepath.Join(projectsDir, "-home-local-git-myproject")
+	os.MkdirAll(localProject, 0755)
+
+	// Create sync dir with two projects:
+	// 1. One that has a local counterpart (will be processed by mergeLocalToSync)
+	// 2. One that has NO local counterpart (should be processed by updateUnprocessedSyncDirs)
+	syncDir := filepath.Join(tmpDir, ".claude", "projects_sync")
+
+	// Sync project with local counterpart
+	syncProject1 := filepath.Join(syncDir, "-home-canonical-git-myproject")
+	os.MkdirAll(syncProject1, 0755)
+
+	// Sync project WITHOUT local counterpart - has an unindexed .jsonl file
+	syncProject2 := filepath.Join(syncDir, "-home-canonical-git-otherproject")
+	os.MkdirAll(syncProject2, 0755)
+
+	// Create an unindexed .jsonl file in the sync-only project
+	sessionID := "01234567-89ab-cdef-0123-456789abcdef"
+	jsonlPath := filepath.Join(syncProject2, sessionID+".jsonl")
+	jsonlContent := `{"type":"user","sessionId":"` + sessionID + `","timestamp":"2026-01-31T10:00:00Z","cwd":"/home/canonical/git/otherproject","message":{"role":"user","content":"test"}}`
+	os.WriteFile(jsonlPath, []byte(jsonlContent), 0644)
+
+	// Create an empty sessions-index.json (the .jsonl is unindexed)
+	emptyIndex := conv.SessionsIndex{Version: 1, Entries: []conv.SessionEntry{}}
+	emptyData, _ := json.MarshalIndent(emptyIndex, "", "  ")
+	os.WriteFile(filepath.Join(syncProject2, "sessions-index.json"), emptyData, 0644)
+
+	// Run updateUnprocessedSyncDirs
+	updateUnprocessedSyncDirs(projectsDir, syncDir)
+
+	// The sync-only project's index should now include the unindexed session
+	indexPath := filepath.Join(syncProject2, "sessions-index.json")
+	indexData, err := os.ReadFile(indexPath)
+	if err != nil {
+		t.Fatalf("Failed to read updated index: %v", err)
+	}
+
+	var resultIndex conv.SessionsIndex
+	json.Unmarshal(indexData, &resultIndex)
+
+	if len(resultIndex.Entries) != 1 {
+		t.Fatalf("Expected 1 entry after updateUnprocessedSyncDirs, got %d", len(resultIndex.Entries))
+	}
+
+	if resultIndex.Entries[0].SessionID != sessionID {
+		t.Errorf("Expected session %s, got %s", sessionID, resultIndex.Entries[0].SessionID)
 	}
 }
