@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/GiGurra/boa/pkg/boa"
+	"github.com/gigurra/tofu/cmd/claude/conv"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
 )
@@ -69,6 +70,9 @@ func runStatus(_ *StatusParams) error {
 	if len(output) == 0 {
 		fmt.Printf("No pending changes to sync.\n")
 	} else {
+		// Build a map of UUID -> title from sessions indices
+		titles := loadConversationTitles(projectsDir)
+
 		// Parse and group changes by conversation UUID
 		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
 		conversations := make(map[string]int) // uuid -> file count
@@ -95,10 +99,17 @@ func runStatus(_ *StatusParams) error {
 		if len(conversations) > 0 {
 			fmt.Printf("Conversations with pending changes (%d):\n", len(conversations))
 			for uuid, count := range conversations {
-				if count == 1 {
-					fmt.Printf("  %s\n", uuid)
+				title := titles[uuid]
+				if title == "" {
+					// Show short UUID when no title available
+					title = uuid[:8]
 				} else {
-					fmt.Printf("  %s (%d files)\n", uuid, count)
+					title = truncateTitle(title, 60)
+				}
+				if count == 1 {
+					fmt.Printf("  %s\n", title)
+				} else {
+					fmt.Printf("  %s (%d files)\n", title, count)
 				}
 			}
 		}
@@ -138,4 +149,43 @@ func extractConversationUUID(path string) string {
 		}
 	}
 	return ""
+}
+
+// loadConversationTitles loads all conversation titles from sessions indices
+func loadConversationTitles(projectsDir string) map[string]string {
+	titles := make(map[string]string)
+
+	projects, err := os.ReadDir(projectsDir)
+	if err != nil {
+		return titles
+	}
+
+	for _, project := range projects {
+		if !project.IsDir() {
+			continue
+		}
+
+		projectPath := filepath.Join(projectsDir, project.Name())
+		index, err := conv.LoadSessionsIndex(projectPath)
+		if err != nil {
+			continue
+		}
+
+		for _, entry := range index.Entries {
+			title := entry.DisplayTitle()
+			if title != "" {
+				titles[entry.SessionID] = title
+			}
+		}
+	}
+
+	return titles
+}
+
+// truncateTitle truncates a title to a maximum length
+func truncateTitle(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen-3] + "..."
 }
