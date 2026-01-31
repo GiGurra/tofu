@@ -164,11 +164,15 @@ func sortEntries(entries []SessionEntry, sortBy string, asc bool) {
 
 // getTerminalWidth returns the terminal width, or a default if unavailable
 func getTerminalWidth() int {
-	width, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil || width <= 0 {
-		return 120 // default
+	// Try stdout first
+	if width, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil && width > 0 {
+		return width
 	}
-	return width
+	// Try stderr (remains a TTY when stdout is piped)
+	if width, _, err := term.GetSize(int(os.Stderr.Fd())); err == nil && width > 0 {
+		return width
+	}
+	return 120 // default
 }
 
 // RenderTable renders a table of conversation entries
