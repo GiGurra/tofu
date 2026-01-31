@@ -81,14 +81,16 @@ func runList(params *ListParams) error {
 
 	for _, state := range filtered {
 		colorFunc := getStatusColorFunc(state.Status)
-		status := formatStatusWithColor(state.Status, state.StatusDetail, colorFunc)
-		updated := colorFunc(FormatDuration(time.Since(state.Updated)))
+		status := state.Status
+		if state.StatusDetail != "" {
+			status = status + ": " + state.StatusDetail
+		}
 
 		t.AppendRow(table.Row{
-			state.ID,
-			shortenPathForTable(state.Cwd, 40),
-			status,
-			updated,
+			colorFunc(state.ID),
+			colorFunc(shortenPathForTable(state.Cwd, 40)),
+			colorFunc(status),
+			colorFunc(FormatDuration(time.Since(state.Updated))),
 		})
 	}
 
@@ -132,10 +134,3 @@ func getStatusColorFunc(status string) func(a ...interface{}) string {
 	}
 }
 
-func formatStatusWithColor(status, detail string, colorFunc func(a ...interface{}) string) string {
-	displayStatus := status
-	if detail != "" {
-		displayStatus = status + ": " + detail
-	}
-	return colorFunc(displayStatus)
-}
