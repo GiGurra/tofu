@@ -6,6 +6,7 @@ import (
 	"os/exec"
 
 	"github.com/GiGurra/boa/pkg/boa"
+	clcommon "github.com/gigurra/tofu/cmd/claude/common"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
 )
@@ -40,8 +41,11 @@ func runKill(params *KillParams) error {
 		return fmt.Errorf("session ID required")
 	}
 
+	// Extract just the ID from completion format
+	sessionID := clcommon.ExtractIDFromCompletion(params.ID)
+
 	// Find matching session
-	state, err := findSession(params.ID)
+	state, err := findSession(sessionID)
 	if err != nil {
 		return err
 	}
