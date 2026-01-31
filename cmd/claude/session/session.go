@@ -37,7 +37,7 @@ const (
 )
 
 func Cmd() *cobra.Command {
-	return boa.CmdT[boa.NoParams]{
+	cmd := boa.CmdT[boa.NoParams]{
 		Use:   "session",
 		Short: "Manage Claude Code sessions (tmux-based)",
 		Long:  "Multiplex and manage multiple Claude Code sessions with detach/reattach support.",
@@ -50,6 +50,8 @@ func Cmd() *cobra.Command {
 			StatusCallbackCmd(),
 		},
 	}.ToCobra()
+	cmd.Aliases = []string{"sessions"}
+	return cmd
 }
 
 // SessionsDir returns the directory where session state files are stored

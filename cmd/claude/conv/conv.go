@@ -54,7 +54,7 @@ func (e *SessionEntry) HasTitle() bool {
 }
 
 func Cmd() *cobra.Command {
-	return boa.CmdT[boa.NoParams]{
+	cmd := boa.CmdT[boa.NoParams]{
 		Use:   "conv",
 		Short: "Manage Claude Code conversations",
 		SubCmds: []*cobra.Command{
@@ -68,6 +68,8 @@ func Cmd() *cobra.Command {
 			PruneEmptyCmd(),
 		},
 	}.ToCobra()
+	cmd.Aliases = []string{"convs", "conversation", "conversations"}
+	return cmd
 }
 
 // ClaudeProjectsDir returns the Claude projects directory path
