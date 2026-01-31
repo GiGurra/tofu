@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/GiGurra/boa/pkg/boa"
+	"github.com/gigurra/tofu/cmd/claude/syncutil"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
 )
@@ -128,6 +129,8 @@ func RunPruneEmpty(params *PruneEmptyParams, stdout, stderr *os.File, stdin *os.
 
 	// Delete conversations
 	deleted := 0
+	syncInitialized := syncutil.IsInitialized()
+
 	for projectPath, convs := range byProject {
 		// Load index for this project (to remove indexed entries)
 		index, _ := loadSessionsIndexOnly(projectPath)
@@ -144,6 +147,14 @@ func RunPruneEmpty(params *PruneEmptyParams, stdout, stderr *os.File, stdin *os.
 			// Remove from index if present
 			if index != nil && conv.IsIndexed {
 				RemoveSessionByID(index, conv.SessionID)
+			}
+
+			// Add tombstone if sync is initialized
+			if syncInitialized {
+				if err := AddTombstoneForProject(projectPath, conv.SessionID); err != nil {
+					fmt.Fprintf(stderr, "Warning: failed to add tombstone for %s: %v\n", conv.SessionID[:8], err)
+					// Don't fail - tombstone is best-effort
+				}
 			}
 
 			deleted++
