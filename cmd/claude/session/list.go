@@ -21,7 +21,8 @@ type ListParams struct {
 	Sort  string   `short:"s" long:"sort" optional:"true" help:"Sort by column" alts:"id,directory,status,age,updated"`
 	Asc   bool     `long:"asc" help:"Sort ascending (default for id/directory/status)"`
 	Desc  bool     `long:"desc" help:"Sort descending (default for updated)"`
-	Show  []string `long:"show" optional:"true" help:"Filter by status" alts:"all,idle,working,awaiting_permission,awaiting_input,exited"`
+	Show  []string `long:"show" optional:"true" help:"Only show these statuses" alts:"all,idle,working,awaiting_permission,awaiting_input,exited"`
+	Hide  []string `long:"hide" optional:"true" help:"Hide these statuses" alts:"idle,working,awaiting_permission,awaiting_input,exited"`
 }
 
 func ListCmd() *cobra.Command {
@@ -43,12 +44,13 @@ func runList(params *ListParams) error {
 	// Parse sort options
 	sortState := parseSortParams(params.Sort, params.Asc, params.Desc)
 
-	// Normalize status filter
-	statusFilter := normalizeStatusFilter(params.Show)
+	// Normalize status filters
+	showFilter := normalizeStatusFilter(params.Show)
+	hideFilter := normalizeStatusFilter(params.Hide)
 
 	// Interactive watch mode
 	if params.Watch {
-		return RunWatchMode(params.All, sortState, statusFilter)
+		return RunWatchMode(params.All, sortState, showFilter, hideFilter)
 	}
 
 	states, err := ListSessionStates()
@@ -69,7 +71,10 @@ func runList(params *ListParams) error {
 		if !params.All && state.Status == StatusExited {
 			continue
 		}
-		if !matchesStatusFilter(state.Status, statusFilter) {
+		if !matchesStatusFilter(state.Status, showFilter) {
+			continue
+		}
+		if matchesStatusFilter(state.Status, hideFilter) {
 			continue
 		}
 		filtered = append(filtered, state)

@@ -41,17 +41,20 @@ type model struct {
 	includeAll   bool
 	sort         SortState
 	statusFilter []string    // which statuses to show (empty = all)
+	hideFilter   []string    // which statuses to hide
 	confirmMode  confirmMode // current confirmation dialog
 	filterMenu   bool        // showing filter menu
+	helpView     bool        // showing help view
 }
 
-func initialModel(includeAll bool, statusFilter []string) model {
+func initialModel(includeAll bool, statusFilter, hideFilter []string) model {
 	return model{
 		sessions:     []*SessionState{},
 		cursor:       0,
 		includeAll:   includeAll,
 		sort:         SortState{Column: SortNone},
 		statusFilter: statusFilter,
+		hideFilter:   hideFilter,
 	}
 }
 
@@ -77,8 +80,12 @@ func (m model) refreshSessions() model {
 		if !m.includeAll && state.Status == StatusExited {
 			continue
 		}
-		// Apply status filter
-		if !m.matchesStatusFilter(state.Status) {
+		// Apply status filter (show)
+		if !m.matchesShowFilter(state.Status) {
+			continue
+		}
+		// Apply hide filter
+		if m.matchesHideFilter(state.Status) {
 			continue
 		}
 		filtered = append(filtered, state)
@@ -99,8 +106,8 @@ func (m model) refreshSessions() model {
 	return m
 }
 
-// matchesStatusFilter checks if a status matches the current filter
-func (m model) matchesStatusFilter(status string) bool {
+// matchesShowFilter checks if a status matches the show filter
+func (m model) matchesShowFilter(status string) bool {
 	if len(m.statusFilter) == 0 {
 		return true // no filter = show all
 	}
@@ -108,6 +115,23 @@ func (m model) matchesStatusFilter(status string) bool {
 		if f == "all" {
 			return true
 		}
+		if f == status {
+			return true
+		}
+		// Handle grouped filters
+		if f == "attention" && (status == StatusAwaitingPermission || status == StatusAwaitingInput) {
+			return true
+		}
+	}
+	return false
+}
+
+// matchesHideFilter checks if a status should be hidden
+func (m model) matchesHideFilter(status string) bool {
+	if len(m.hideFilter) == 0 {
+		return false // no filter = hide nothing
+	}
+	for _, f := range m.hideFilter {
 		if f == status {
 			return true
 		}
@@ -135,6 +159,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "n", "N", "esc", "q":
 				m.confirmMode = confirmNone
 			}
+			return m, nil
+		}
+
+		// Handle help view
+		if m.helpView {
+			m.helpView = false
 			return m, nil
 		}
 
@@ -199,6 +229,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "f":
 			m.filterMenu = true
+		case "h", "?":
+			m.helpView = true
 		case "r":
 			// Force refresh
 			m = m.refreshSessions()
@@ -238,6 +270,11 @@ var (
 )
 
 func (m model) View() string {
+	// Help view overlay
+	if m.helpView {
+		return m.renderHelpView()
+	}
+
 	// Filter menu overlay
 	if m.filterMenu {
 		return m.renderFilterMenu()
@@ -300,17 +337,14 @@ func (m model) View() string {
 		b.WriteString("\n")
 	}
 
-	// Confirmation dialog
+	// Confirmation dialog or help hint
+	b.WriteString("\n")
 	if m.confirmMode == confirmKill && m.cursor < len(m.sessions) {
-		b.WriteString("\n")
 		b.WriteString(confirmStyle.Render(fmt.Sprintf("  Kill session %s? [y/n]", m.sessions[m.cursor].ID)))
-		b.WriteString("\n")
 	} else {
-		// Help
-		b.WriteString("\n")
-		b.WriteString(helpStyle.Render("  ↑/↓ navigate • enter attach • del kill • f filter • 1-5 sort • r refresh • q quit"))
-		b.WriteString("\n")
+		b.WriteString(helpStyle.Render("  h help • ↑/↓ navigate • enter attach • q quit"))
 	}
+	b.WriteString("\n")
 
 	return b.String()
 }
@@ -329,6 +363,46 @@ func (m model) renderFilterMenu() string {
 	b.WriteString("  [e] Exited\n")
 	b.WriteString("\n")
 	b.WriteString(helpStyle.Render("  Press key to select, esc to cancel"))
+	b.WriteString("\n")
+	return b.String()
+}
+
+func (m model) renderHelpView() string {
+	var b strings.Builder
+	b.WriteString("\n")
+	b.WriteString(menuStyle.Render("  Session Watch - Keyboard Shortcuts"))
+	b.WriteString("\n\n")
+
+	b.WriteString(headerStyle.Render("  Navigation"))
+	b.WriteString("\n")
+	b.WriteString("    ↑/k       Move cursor up\n")
+	b.WriteString("    ↓/j       Move cursor down\n")
+	b.WriteString("    enter     Attach to selected session\n")
+	b.WriteString("    q/esc     Quit watch mode\n")
+	b.WriteString("\n")
+
+	b.WriteString(headerStyle.Render("  Actions"))
+	b.WriteString("\n")
+	b.WriteString("    del/x     Kill selected session (with confirmation)\n")
+	b.WriteString("    r         Refresh session list\n")
+	b.WriteString("\n")
+
+	b.WriteString(headerStyle.Render("  Filtering"))
+	b.WriteString("\n")
+	b.WriteString("    f         Open filter menu\n")
+	b.WriteString("\n")
+
+	b.WriteString(headerStyle.Render("  Sorting"))
+	b.WriteString("\n")
+	b.WriteString("    1/F1      Sort by ID\n")
+	b.WriteString("    2/F2      Sort by Directory\n")
+	b.WriteString("    3/F3      Sort by Status\n")
+	b.WriteString("    4/F4      Sort by Age\n")
+	b.WriteString("    5/F5      Sort by Updated\n")
+	b.WriteString("              (press again to toggle asc/desc/off)\n")
+	b.WriteString("\n")
+
+	b.WriteString(helpStyle.Render("  Press any key to close"))
 	b.WriteString("\n")
 	return b.String()
 }
@@ -359,12 +433,13 @@ func min(a, b int) int {
 type WatchState struct {
 	Sort         SortState
 	StatusFilter []string
+	HideFilter   []string
 }
 
 // RunInteractive starts the interactive session viewer
 // Returns the tmux session name to attach to (if any) and the final watch state
 func RunInteractive(includeAll bool, state WatchState) (string, WatchState, error) {
-	m := initialModel(includeAll, state.StatusFilter)
+	m := initialModel(includeAll, state.StatusFilter, state.HideFilter)
 	m.sort = state.Sort
 	m = m.refreshSessions()
 
@@ -375,12 +450,12 @@ func RunInteractive(includeAll bool, state WatchState) (string, WatchState, erro
 	}
 
 	fm := finalModel.(model)
-	return fm.shouldAttach, WatchState{Sort: fm.sort, StatusFilter: fm.statusFilter}, nil
+	return fm.shouldAttach, WatchState{Sort: fm.sort, StatusFilter: fm.statusFilter, HideFilter: fm.hideFilter}, nil
 }
 
 // RunWatchMode runs the interactive watch mode with attach support
-func RunWatchMode(includeAll bool, initialSort SortState, initialFilter []string) error {
-	state := WatchState{Sort: initialSort, StatusFilter: initialFilter}
+func RunWatchMode(includeAll bool, initialSort SortState, initialFilter, initialHide []string) error {
+	state := WatchState{Sort: initialSort, StatusFilter: initialFilter, HideFilter: initialHide}
 	for {
 		tmuxSession, newState, err := RunInteractive(includeAll, state)
 		state = newState // Preserve state between attach cycles
