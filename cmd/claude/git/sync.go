@@ -538,17 +538,20 @@ func mergeSessionsIndex(srcProject, dstProject string) error {
 	// Skip tombstoned sessions
 	merged := make(map[string]conv.SessionEntry)
 
-	// Add all dst (remote) entries first - these already have canonical paths
-	// Skip tombstoned sessions
+	// Add all dst (remote) entries first, canonicalizing paths
+	// (paths should already be canonical, but canonicalize to ensure consistency)
 	for _, e := range dstIndex.Entries {
 		if tombstonedIDs[e.SessionID] {
 			continue // Session was deleted, don't include
+		}
+		if config != nil {
+			e.ProjectPath = canonicalizePath(e.ProjectPath, config)
+			e.FullPath = canonicalizePath(e.FullPath, config)
 		}
 		merged[e.SessionID] = e
 	}
 
 	// Merge src (local) entries - canonicalize paths before merging
-	// Skip tombstoned sessions
 	for _, e := range srcIndex.Entries {
 		if tombstonedIDs[e.SessionID] {
 			continue // Session was deleted, don't include
