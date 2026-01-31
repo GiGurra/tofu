@@ -43,3 +43,7 @@
 - [x] `calendar` - Terminal calendar with today highlighted
 - [x] `stopwatch` - Simple stopwatch with lap times
 - [x] `typing` - Typing speed test
+
+## Claude Session Management
+
+- [ ] Auto git worktrees - When creating multiple sessions in the same repo, automatically use git worktrees to avoid conflicts

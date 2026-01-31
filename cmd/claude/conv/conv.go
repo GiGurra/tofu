@@ -200,7 +200,7 @@ func parseJSONLSession(filePath, sessionID string) *SessionEntry {
 
 	var firstTimestamp string
 	var linesRead int
-	const maxLinesToRead = 10 // Only read first few lines to find the first user message
+	const maxLinesToRead = 50 // Scan more lines to handle resumed sessions with tool_results at start
 
 	for scanner.Scan() && linesRead < maxLinesToRead {
 		linesRead++
@@ -227,13 +227,18 @@ func parseJSONLSession(filePath, sessionID string) *SessionEntry {
 			entry.GitBranch = msg.GitBranch
 		}
 
-		// Capture first user message as the prompt and stop
+		// Capture first user message with actual text content as the prompt
 		if msg.Type == "user" && msg.Message.Role == "user" {
-			entry.FirstPrompt = extractMessageContent(msg.Message.Content)
-			if msg.Timestamp != "" {
-				firstTimestamp = msg.Timestamp
+			text := extractMessageContent(msg.Message.Content)
+			// Skip messages without text (e.g., tool_result blocks from resumed sessions)
+			// Also skip system-generated messages like "[Request interrupted by user...]"
+			if text != "" && !strings.HasPrefix(text, "[Request interrupted") {
+				entry.FirstPrompt = text
+				if msg.Timestamp != "" {
+					firstTimestamp = msg.Timestamp
+				}
+				break
 			}
-			break
 		}
 	}
 
