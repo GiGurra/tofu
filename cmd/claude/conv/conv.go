@@ -65,6 +65,7 @@ func Cmd() *cobra.Command {
 			CpCmd(),
 			MvCmd(),
 			DeleteCmd(),
+			PruneEmptyCmd(),
 		},
 	}.ToCobra()
 }
