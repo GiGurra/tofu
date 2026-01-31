@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -216,4 +217,33 @@ func ParsePIDFromTmux(sessionName string) int {
 	}
 	pid, _ := strconv.Atoi(string(output[:len(output)-1])) // trim newline
 	return pid
+}
+
+// getSessionCompletions returns completions for session IDs
+// If includeExited is true, includes exited sessions (for kill command)
+func getSessionCompletions(includeExited bool) []string {
+	states, err := ListSessionStates()
+	if err != nil || len(states) == 0 {
+		return nil
+	}
+
+	var completions []string
+	for _, state := range states {
+		RefreshSessionStatus(state)
+		if !includeExited && state.Status == StatusExited {
+			continue
+		}
+
+		// Format: ID_status_directory
+		dir := state.Cwd
+		if len(dir) > 30 {
+			dir = "…" + dir[len(dir)-29:]
+		}
+		dir = strings.ReplaceAll(dir, " ", "_")
+
+		completion := fmt.Sprintf("%s_%s_%s", state.ID, state.Status, dir)
+		completions = append(completions, completion)
+	}
+
+	return completions
 }

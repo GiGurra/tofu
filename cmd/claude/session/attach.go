@@ -22,6 +22,12 @@ func AttachCmd() *cobra.Command {
 		Short:       "Attach to a Claude Code session",
 		Long:        "Attach to an existing Claude Code session. Use Ctrl+B D to detach.",
 		ParamEnrich: common.DefaultParamEnricher(),
+		ValidArgsFunc: func(p *AttachParams, cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) > 0 {
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+			return getSessionCompletions(false), cobra.ShellCompDirectiveKeepOrder | cobra.ShellCompDirectiveNoFileComp
+		},
 		RunFunc: func(params *AttachParams, cmd *cobra.Command, args []string) {
 			if err := runAttach(params); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)

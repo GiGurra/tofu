@@ -20,6 +20,12 @@ func KillCmd() *cobra.Command {
 		Use:         "kill <id>",
 		Short:       "Kill a Claude Code session",
 		ParamEnrich: common.DefaultParamEnricher(),
+		ValidArgsFunc: func(p *KillParams, cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) > 0 {
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+			return getSessionCompletions(true), cobra.ShellCompDirectiveKeepOrder | cobra.ShellCompDirectiveNoFileComp
+		},
 		RunFunc: func(params *KillParams, cmd *cobra.Command, args []string) {
 			if err := runKill(params); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
