@@ -9,6 +9,7 @@ import (
 	"github.com/GiGurra/boa/pkg/boa"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/jedib0t/go-pretty/v6/text"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -21,7 +22,7 @@ type ListParams struct {
 func ListCmd() *cobra.Command {
 	return boa.CmdT[ListParams]{
 		Use:         "ls",
-		Aliases:     []string{"list"},
+		Aliases:     []string{"list", "status"},
 		Short:       "List Claude Code sessions",
 		ParamEnrich: common.DefaultParamEnricher(),
 		RunFunc: func(params *ListParams, cmd *cobra.Command, args []string) {
@@ -80,10 +81,7 @@ func runList(params *ListParams) error {
 
 	for _, state := range filtered {
 		updated := FormatDuration(time.Since(state.Updated))
-		status := state.Status
-		if state.StatusDetail != "" {
-			status = status + ": " + state.StatusDetail
-		}
+		status := formatStatusWithColor(state.Status, state.StatusDetail)
 
 		t.AppendRow(table.Row{
 			state.ID,
@@ -116,4 +114,28 @@ func shortenPathForTable(path string, maxLen int) string {
 		return path
 	}
 	return "…" + path[len(path)-maxLen+1:]
+}
+
+func formatStatusWithColor(status, detail string) string {
+	displayStatus := status
+	if detail != "" {
+		displayStatus = status + ": " + detail
+	}
+
+	var colorFunc func(a ...interface{}) string
+
+	switch status {
+	case StatusIdle:
+		colorFunc = text.FgYellow.Sprint
+	case StatusWorking:
+		colorFunc = text.FgGreen.Sprint
+	case StatusAwaitingPermission, StatusAwaitingInput:
+		colorFunc = text.FgHiRed.Sprint
+	case StatusExited:
+		colorFunc = text.FgHiBlack.Sprint
+	default:
+		colorFunc = text.FgHiRed.Sprint // Unknown status = needs attention
+	}
+
+	return colorFunc(displayStatus)
 }
