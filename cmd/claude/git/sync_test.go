@@ -472,3 +472,155 @@ func TestRoundTrip_LocalToSyncToLocal(t *testing.T) {
 		t.Errorf("Local should have local path: got %q, want %q", localResult.Entries[0].ProjectPath, expectedPath)
 	}
 }
+
+func TestHasPrefix(t *testing.T) {
+	tests := []struct {
+		name     string
+		data     []byte
+		prefix   []byte
+		expected bool
+	}{
+		{"exact match", []byte("hello"), []byte("hello"), true},
+		{"prefix match", []byte("hello world"), []byte("hello"), true},
+		{"no match", []byte("hello"), []byte("world"), false},
+		{"prefix longer than data", []byte("hi"), []byte("hello"), false},
+		{"empty prefix", []byte("hello"), []byte(""), true},
+		{"empty data empty prefix", []byte(""), []byte(""), true},
+		{"empty data non-empty prefix", []byte(""), []byte("x"), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := hasPrefix(tt.data, tt.prefix)
+			if result != tt.expected {
+				t.Errorf("hasPrefix(%q, %q) = %v, want %v", tt.data, tt.prefix, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestCountLinesBytes(t *testing.T) {
+	tests := []struct {
+		name     string
+		data     []byte
+		expected int
+	}{
+		{"empty", []byte(""), 0},
+		{"no newlines", []byte("hello"), 0},
+		{"one line", []byte("hello\n"), 1},
+		{"two lines", []byte("hello\nworld\n"), 2},
+		{"trailing no newline", []byte("hello\nworld"), 1},
+		{"only newlines", []byte("\n\n\n"), 3},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := countLinesBytes(tt.data)
+			if result != tt.expected {
+				t.Errorf("countLinesBytes(%q) = %d, want %d", tt.data, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestHandleConversationConflict_LocalExtends(t *testing.T) {
+	tmpDir := t.TempDir()
+	localPath := filepath.Join(tmpDir, "local.jsonl")
+	remotePath := filepath.Join(tmpDir, "remote.jsonl")
+
+	// Remote has 2 messages
+	remoteContent := `{"msg": "first"}
+{"msg": "second"}
+`
+	// Local has same 2 messages plus a third
+	localContent := `{"msg": "first"}
+{"msg": "second"}
+{"msg": "third"}
+`
+	os.WriteFile(remotePath, []byte(remoteContent), 0644)
+	os.WriteFile(localPath, []byte(localContent), 0644)
+
+	params := &SyncParams{}
+	err := handleConversationConflict(localPath, remotePath, "test.jsonl", params)
+	if err != nil {
+		t.Fatalf("handleConversationConflict failed: %v", err)
+	}
+
+	// Remote should now have local content (local extends remote)
+	result, _ := os.ReadFile(remotePath)
+	if string(result) != localContent {
+		t.Errorf("Expected remote to be updated with local content")
+	}
+}
+
+func TestHandleConversationConflict_RemoteExtends(t *testing.T) {
+	tmpDir := t.TempDir()
+	localPath := filepath.Join(tmpDir, "local.jsonl")
+	remotePath := filepath.Join(tmpDir, "remote.jsonl")
+
+	// Local has 2 messages
+	localContent := `{"msg": "first"}
+{"msg": "second"}
+`
+	// Remote has same 2 messages plus a third
+	remoteContent := `{"msg": "first"}
+{"msg": "second"}
+{"msg": "third"}
+`
+	os.WriteFile(remotePath, []byte(remoteContent), 0644)
+	os.WriteFile(localPath, []byte(localContent), 0644)
+
+	params := &SyncParams{}
+	err := handleConversationConflict(localPath, remotePath, "test.jsonl", params)
+	if err != nil {
+		t.Fatalf("handleConversationConflict failed: %v", err)
+	}
+
+	// Remote should stay as is (remote extends local)
+	result, _ := os.ReadFile(remotePath)
+	if string(result) != remoteContent {
+		t.Errorf("Expected remote to stay unchanged")
+	}
+}
+
+func TestHandleConversationConflict_KeepLocalFlag(t *testing.T) {
+	tmpDir := t.TempDir()
+	localPath := filepath.Join(tmpDir, "local.jsonl")
+	remotePath := filepath.Join(tmpDir, "remote.jsonl")
+
+	// Different content that doesn't extend
+	os.WriteFile(remotePath, []byte("remote\n"), 0644)
+	os.WriteFile(localPath, []byte("local\n"), 0644)
+
+	params := &SyncParams{KeepLocal: true}
+	err := handleConversationConflict(localPath, remotePath, "test.jsonl", params)
+	if err != nil {
+		t.Fatalf("handleConversationConflict failed: %v", err)
+	}
+
+	result, _ := os.ReadFile(remotePath)
+	if string(result) != "local\n" {
+		t.Errorf("Expected remote to have local content with --keep-local")
+	}
+}
+
+func TestHandleConversationConflict_KeepRemoteFlag(t *testing.T) {
+	tmpDir := t.TempDir()
+	localPath := filepath.Join(tmpDir, "local.jsonl")
+	remotePath := filepath.Join(tmpDir, "remote.jsonl")
+
+	// Different content that doesn't extend
+	os.WriteFile(remotePath, []byte("remote\n"), 0644)
+	os.WriteFile(localPath, []byte("local\n"), 0644)
+
+	params := &SyncParams{KeepRemote: true}
+	err := handleConversationConflict(localPath, remotePath, "test.jsonl", params)
+	if err != nil {
+		t.Fatalf("handleConversationConflict failed: %v", err)
+	}
+
+	result, _ := os.ReadFile(remotePath)
+	if string(result) != "remote\n" {
+		t.Errorf("Expected remote to stay unchanged with --keep-remote")
+	}
+}

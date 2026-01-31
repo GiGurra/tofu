@@ -606,28 +606,35 @@ func handleConversationConflict(srcPath, dstPath, filename string, params *SyncP
 		return nil // dst already has remote state
 	}
 
-	// Count messages in each
-	localLines := countLines(srcPath)
-	remoteLines := countLines(dstPath)
+	// Read both files
+	localData, err := os.ReadFile(srcPath)
+	if err != nil {
+		return err
+	}
+	remoteData, err := os.ReadFile(dstPath)
+	if err != nil {
+		return err
+	}
 
-	// Auto-resolve based on message count
-	// Conversations only grow (messages are appended), so:
-	// - More local messages = local was updated, remote wasn't
-	// - More remote messages = remote was updated, local wasn't
-	// - Same count but different content = true conflict (rare)
-	if localLines > remoteLines {
-		fmt.Printf("    Auto-resolved %s: local has more messages (%d > %d)\n", filename, localLines, remoteLines)
+	localLines := countLinesBytes(localData)
+	remoteLines := countLinesBytes(remoteData)
+
+	// Auto-resolve: if one is a prefix of the other, the longer one wins
+	// This handles the normal case where messages are only appended
+	if len(localData) > len(remoteData) && hasPrefix(localData, remoteData) {
+		fmt.Printf("    Auto-resolved %s: local extends remote (%d > %d messages)\n", filename, localLines, remoteLines)
 		return conv.CopyFile(srcPath, dstPath)
 	}
-	if remoteLines > localLines {
-		fmt.Printf("    Auto-resolved %s: remote has more messages (%d > %d)\n", filename, remoteLines, localLines)
+	if len(remoteData) > len(localData) && hasPrefix(remoteData, localData) {
+		fmt.Printf("    Auto-resolved %s: remote extends local (%d > %d messages)\n", filename, remoteLines, localLines)
 		return nil // dst already has remote state
 	}
 
-	// Same message count but different content - ask user
+	// Content diverged - ask user
 	fmt.Printf("\n    Conflict: %s\n", filename)
 	fmt.Printf("      Local:  %d messages\n", localLines)
-	fmt.Printf("      Remote: %d messages (same count, different content)\n", remoteLines)
+	fmt.Printf("      Remote: %d messages\n", remoteLines)
+	fmt.Printf("      (content has diverged, not a simple append)\n")
 	fmt.Printf("    Keep which version? [l]ocal / [r]emote / [s]kip: ")
 
 	reader := bufio.NewReader(os.Stdin)
@@ -647,6 +654,30 @@ func handleConversationConflict(srcPath, dstPath, filename string, params *SyncP
 	}
 }
 
+// hasPrefix checks if data starts with prefix
+func hasPrefix(data, prefix []byte) bool {
+	if len(prefix) > len(data) {
+		return false
+	}
+	for i := range prefix {
+		if data[i] != prefix[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// countLinesBytes counts newlines in a byte slice
+func countLinesBytes(data []byte) int {
+	count := 0
+	for _, b := range data {
+		if b == '\n' {
+			count++
+		}
+	}
+	return count
+}
+
 // filesEqual checks if two files have the same content
 func filesEqual(path1, path2 string) bool {
 	data1, err1 := os.ReadFile(path1)
@@ -663,21 +694,6 @@ func filesEqual(path1, path2 string) bool {
 		}
 	}
 	return true
-}
-
-// countLines counts lines in a file (approximate message count for JSONL)
-func countLines(path string) int {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return 0
-	}
-	count := 0
-	for _, b := range data {
-		if b == '\n' {
-			count++
-		}
-	}
-	return count
 }
 
 // cleanupOldTombstonesInSync removes tombstones older than 30 days from all projects in sync dir
