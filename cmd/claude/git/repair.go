@@ -57,20 +57,24 @@ func runRepair(params *RepairParams) error {
 		return nil
 	}
 
-	fmt.Printf("Config: homes=%v, dirs=%d groups\n\n", config.Homes, len(config.Dirs))
+	// Get local home for path localization
+	localHome, _ := os.UserHomeDir()
 
-	// Repair local projects directory
+	fmt.Printf("Config: homes=%v, dirs=%d groups\n", config.Homes, len(config.Dirs))
+	fmt.Printf("Local home: %s\n\n", localHome)
+
+	// Repair local projects directory (localize paths to this machine)
 	fmt.Printf("=== Repairing local projects (%s) ===\n\n", projectsDir)
-	localCount, err := repairDirectory(projectsDir, config, params.DryRun)
+	localCount, err := repairDirectory(projectsDir, config, params.DryRun, localHome)
 	if err != nil {
 		fmt.Printf("Warning: local repair failed: %v\n", err)
 	}
 
-	// Repair sync directory (if initialized)
+	// Repair sync directory (canonicalize paths)
 	syncCount := 0
 	if IsInitialized() {
 		fmt.Printf("\n=== Repairing sync directory (%s) ===\n\n", syncDir)
-		syncCount, err = repairDirectory(syncDir, config, params.DryRun)
+		syncCount, err = repairDirectory(syncDir, config, params.DryRun, "")
 		if err != nil {
 			fmt.Printf("Warning: sync repair failed: %v\n", err)
 		}
@@ -92,7 +96,8 @@ func runRepair(params *RepairParams) error {
 }
 
 // repairDirectory repairs a single directory by merging equivalent project dirs
-func repairDirectory(dir string, config *SyncConfig, dryRun bool) (int, error) {
+// If localHome is non-empty, paths are localized to that home; otherwise they are canonicalized
+func repairDirectory(dir string, config *SyncConfig, dryRun bool, localHome string) (int, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -166,21 +171,27 @@ func repairDirectory(dir string, config *SyncConfig, dryRun bool) (int, error) {
 		fmt.Println()
 	}
 
-	// Always canonicalize projectPath in all sessions-index.json files
+	// Update paths in all sessions-index.json files
+	// If localHome is set, localize paths; otherwise canonicalize
 	if !dryRun {
-		pathsFixed, err := canonicalizeSessionPaths(dir, config)
+		pathsFixed, err := updateSessionPaths(dir, config, localHome)
 		if err != nil {
-			fmt.Printf("Warning: failed to canonicalize session paths: %v\n", err)
+			fmt.Printf("Warning: failed to update session paths: %v\n", err)
 		} else if pathsFixed > 0 {
-			fmt.Printf("Canonicalized paths in %d session index files\n", pathsFixed)
+			if localHome != "" {
+				fmt.Printf("Localized paths in %d session index files\n", pathsFixed)
+			} else {
+				fmt.Printf("Canonicalized paths in %d session index files\n", pathsFixed)
+			}
 		}
 	}
 
 	return mergeCount, nil
 }
 
-// canonicalizeSessionPaths updates projectPath in all sessions-index.json files
-func canonicalizeSessionPaths(dir string, config *SyncConfig) (int, error) {
+// updateSessionPaths updates projectPath in all sessions-index.json files
+// If localHome is non-empty, paths are localized; otherwise they are canonicalized
+func updateSessionPaths(dir string, config *SyncConfig, localHome string) (int, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return 0, err
@@ -193,7 +204,7 @@ func canonicalizeSessionPaths(dir string, config *SyncConfig) (int, error) {
 		}
 
 		indexPath := filepath.Join(dir, entry.Name(), "sessions-index.json")
-		wasFixed, err := canonicalizeIndexFile(indexPath, config)
+		wasFixed, err := updateIndexFile(indexPath, config, localHome)
 		if err != nil {
 			// Just warn, don't fail
 			continue
@@ -206,10 +217,11 @@ func canonicalizeSessionPaths(dir string, config *SyncConfig) (int, error) {
 	return fixed, nil
 }
 
-// canonicalizeIndexFile updates projectPath fields in a sessions-index.json
+// updateIndexFile updates projectPath fields in a sessions-index.json
+// If localHome is non-empty, paths are localized; otherwise they are canonicalized
 // Also rebuilds the index to include all .jsonl files (prevents unindexed files from adding old paths)
 // Returns true if the file was modified
-func canonicalizeIndexFile(indexPath string, config *SyncConfig) (bool, error) {
+func updateIndexFile(indexPath string, config *SyncConfig, localHome string) (bool, error) {
 	projectDir := filepath.Dir(indexPath)
 
 	// Load index using conv package (includes unindexed sessions)
@@ -219,16 +231,24 @@ func canonicalizeIndexFile(indexPath string, config *SyncConfig) (bool, error) {
 	}
 
 	for i := range index.Entries {
-		// Canonicalize projectPath
+		// Update projectPath
 		origPath := index.Entries[i].ProjectPath
 		if origPath != "" {
-			index.Entries[i].ProjectPath = canonicalizePath(origPath, config)
+			if localHome != "" {
+				index.Entries[i].ProjectPath = config.LocalizePath(origPath, localHome)
+			} else {
+				index.Entries[i].ProjectPath = canonicalizePath(origPath, config)
+			}
 		}
 
-		// Canonicalize fullPath
+		// Update fullPath
 		origFull := index.Entries[i].FullPath
 		if origFull != "" {
-			index.Entries[i].FullPath = canonicalizePath(origFull, config)
+			if localHome != "" {
+				index.Entries[i].FullPath = config.LocalizePath(origFull, localHome)
+			} else {
+				index.Entries[i].FullPath = canonicalizePath(origFull, config)
+			}
 		}
 	}
 
@@ -248,6 +268,7 @@ func canonicalizeIndexFile(indexPath string, config *SyncConfig) (bool, error) {
 }
 
 // canonicalizePath converts a filesystem path to its canonical form
+// It also canonicalizes embedded project directory names in fullPath-style paths
 func canonicalizePath(path string, config *SyncConfig) string {
 	// Apply dirs mappings first
 	for _, group := range config.Dirs {
@@ -274,6 +295,43 @@ func canonicalizePath(path string, config *SyncConfig) string {
 		}
 	}
 
+	// Also canonicalize embedded project directory names (e.g., in fullPath)
+	// Look for patterns like /.claude/projects/-path-style-dir/
+	path = canonicalizeEmbeddedProjectDir(path, config)
+
+	return path
+}
+
+// canonicalizeEmbeddedProjectDir finds and canonicalizes project dir names embedded in paths
+// e.g., /home/gigur/.claude/projects/-Users-johkjo-git-personal-tofu/session.jsonl
+// becomes /home/gigur/.claude/projects/-home-gigur-git-tofu/session.jsonl
+func canonicalizeEmbeddedProjectDir(path string, config *SyncConfig) string {
+	// Look for .claude/projects/ pattern
+	projectsMarker := ".claude/projects/"
+	idx := strings.Index(path, projectsMarker)
+	if idx == -1 {
+		return path
+	}
+
+	// Find the project dir name (starts after projects/, ends at next /)
+	start := idx + len(projectsMarker)
+	end := strings.Index(path[start:], "/")
+	if end == -1 {
+		// Project dir is the last component
+		projectDir := path[start:]
+		canonicalDir := config.CanonicalizeProjectDir(projectDir)
+		if projectDir != canonicalDir {
+			return path[:start] + canonicalDir
+		}
+		return path
+	}
+
+	// Extract, canonicalize, and replace
+	projectDir := path[start : start+end]
+	canonicalDir := config.CanonicalizeProjectDir(projectDir)
+	if projectDir != canonicalDir {
+		return path[:start] + canonicalDir + path[start+end:]
+	}
 	return path
 }
 
