@@ -4,10 +4,30 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/gigurra/tofu/cmd/claude/conv"
 )
+
+// setTestHome sets the home directory for testing, handling cross-platform differences.
+// Returns a cleanup function that restores the original values.
+func setTestHome(_ *testing.T, tmpDir string) func() {
+	origHome := os.Getenv("HOME")
+	origUserProfile := os.Getenv("USERPROFILE")
+
+	os.Setenv("HOME", tmpDir)
+	if runtime.GOOS == "windows" {
+		os.Setenv("USERPROFILE", tmpDir)
+	}
+
+	return func() {
+		os.Setenv("HOME", origHome)
+		if runtime.GOOS == "windows" {
+			os.Setenv("USERPROFILE", origUserProfile)
+		}
+	}
+}
 
 // Test path constants - same as in repair_test.go
 // These are just string values for testing path transformations, not actual filesystem paths.
@@ -38,9 +58,8 @@ func TestMergeSessionsIndex_CanonicalizesSourcePaths(t *testing.T) {
 	os.MkdirAll(configDir, 0755)
 
 	// Temporarily override the config path for testing
-	origHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	cleanup := setTestHome(t, tmpDir)
+	defer cleanup()
 
 	config := SyncConfig{
 		Homes: []string{syncTestCanonicalHome, syncTestLocalHome},
@@ -107,9 +126,8 @@ func TestMergeSessionsIndex_PreservesExistingCanonicalPaths(t *testing.T) {
 	// Create config
 	configDir := filepath.Join(tmpDir, ".claude")
 	os.MkdirAll(configDir, 0755)
-	origHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	cleanup := setTestHome(t, tmpDir)
+	defer cleanup()
 
 	config := SyncConfig{
 		Homes: []string{syncTestCanonicalHome, syncTestLocalHome},
@@ -178,9 +196,8 @@ func TestMergeSessionsIndex_NewerLocalWins(t *testing.T) {
 	// Create config
 	configDir := filepath.Join(tmpDir, ".claude")
 	os.MkdirAll(configDir, 0755)
-	origHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	cleanup := setTestHome(t, tmpDir)
+	defer cleanup()
 
 	config := SyncConfig{
 		Homes: []string{syncTestCanonicalHome, syncTestLocalHome},
@@ -382,9 +399,8 @@ func TestRoundTrip_LocalToSyncToLocal(t *testing.T) {
 	// Setup config
 	configDir := filepath.Join(tmpDir, ".claude")
 	os.MkdirAll(configDir, 0755)
-	origHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	cleanup := setTestHome(t, tmpDir)
+	defer cleanup()
 
 	config := SyncConfig{
 		Homes: []string{syncTestCanonicalHome, syncTestLocalHome},
