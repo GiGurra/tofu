@@ -56,12 +56,11 @@ tofu claude git sync [flags]
 | `--dry-run` | Show what would be synced without making changes |
 
 **Sync process:**
-1. Copy local conversations to sync directory
-2. Fetch remote changes
-3. Merge remote changes (intelligent index merging)
-4. Commit local changes
-5. Push to remote
-6. Copy merged results back to local
+1. Pull remote changes into sync directory
+2. Merge local conversations into sync (with path canonicalization)
+3. Commit changes
+4. Push to remote
+5. Copy merged results back to local (with path de-canonicalization)
 
 ### git status
 
@@ -76,6 +75,40 @@ Shows:
 - Remote repository URL
 - Uncommitted changes
 - Last sync time
+
+### git repair
+
+Merge duplicate project directories caused by different paths across machines.
+
+```bash
+tofu claude git repair [--dry-run]
+```
+
+Uses `~/.claude/sync_config.json` to identify equivalent paths and merge them.
+
+## Cross-Machine Path Mapping
+
+Different machines have different paths (e.g., `/home/gigur` vs `/Users/johkjo`). Configure `~/.claude/sync_config.json` to map equivalent paths:
+
+```json
+{
+  "homes": ["/home/gigur", "/Users/johkjo"],
+  "dirs": [
+    ["/home/gigur/git", "/Users/johkjo/git/personal"]
+  ]
+}
+```
+
+**Fields:**
+- `homes`: List of equivalent home directories. First entry is canonical.
+- `dirs`: Groups of equivalent directories. First entry in each group is canonical.
+
+**How it works:**
+- When syncing local → sync: paths are canonicalized
+- When syncing sync → local: paths are mapped to local equivalents
+- The `repair` command merges any duplicate project dirs
+
+**Example:** On Mac, `/Users/johkjo/git/personal/tofu` becomes `-home-gigur-git-tofu` in the sync repo.
 
 ## Merge Strategy
 
