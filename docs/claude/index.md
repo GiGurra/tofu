@@ -80,6 +80,7 @@ Session watch also supports:
 
 - [Session Management](sessions.md) - Detailed session commands
 - [Conversation Management](conversations.md) - Detailed conversation commands
+- [Git Sync](git-sync.md) - Sync conversations across devices
 
 ## Recording a Demo
 
