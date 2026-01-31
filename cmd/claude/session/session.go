@@ -217,7 +217,11 @@ func DeleteSessionState(id string) error {
 }
 
 // ListSessionStates returns all session states
+// Also performs automatic cleanup of old exited sessions
 func ListSessionStates() ([]*SessionState, error) {
+	// Auto-cleanup old exited sessions (older than 1 hour)
+	_ = CleanupOldExitedSessions(1 * time.Hour)
+
 	dir := SessionsDir()
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -240,6 +244,41 @@ func ListSessionStates() ([]*SessionState, error) {
 		states = append(states, state)
 	}
 	return states, nil
+}
+
+// CleanupOldExitedSessions removes exited session states older than maxAge
+func CleanupOldExitedSessions(maxAge time.Duration) error {
+	dir := SessionsDir()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	cutoff := time.Now().Add(-maxAge)
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+			continue
+		}
+		id := entry.Name()[:len(entry.Name())-5]
+		state, err := LoadSessionState(id)
+		if err != nil {
+			// Can't load, maybe corrupted - delete it
+			_ = DeleteSessionState(id)
+			continue
+		}
+
+		// Refresh status to ensure we have current state
+		RefreshSessionStatus(state)
+
+		// Delete if exited and older than cutoff
+		if state.Status == StatusExited && state.Updated.Before(cutoff) {
+			_ = DeleteSessionState(id)
+		}
+	}
+	return nil
 }
 
 // IsProcessAlive checks if a process with the given PID is still running
