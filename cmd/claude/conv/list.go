@@ -24,6 +24,7 @@ type ListParams struct {
 	Long   bool   `short:"l" help:"Show detailed output"`
 	Limit  int    `short:"n" help:"Limit number of results (0 = no limit)" default:"0"`
 	JSON   bool   `long:"json" help:"Output as JSON"`
+	Count  bool   `short:"c" long:"count" help:"Only output the count of conversations"`
 	Since  string `long:"since" optional:"true" help:"Only include conversations modified after this time (e.g., 2024-01-15, 1h30m, 7d)"`
 	Before string `long:"before" optional:"true" help:"Only include conversations modified before this time (e.g., 2024-01-15, 1h30m, 7d)"`
 }
@@ -101,6 +102,12 @@ func RunList(params *ListParams, stdout, stderr *os.File) int {
 	if err != nil {
 		fmt.Fprintf(stderr, "%v\n", err)
 		return 1
+	}
+
+	// Count output (before limit is applied)
+	if params.Count {
+		fmt.Fprintf(stdout, "%d\n", len(allEntries))
+		return 0
 	}
 
 	if len(allEntries) == 0 {

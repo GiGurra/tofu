@@ -26,6 +26,7 @@ type SearchParams struct {
 	Asc           bool   `long:"asc" help:"Sort ascending (default is descending)"`
 	Limit         int    `short:"n" help:"Limit number of results (0 = no limit)" default:"0"`
 	JSON          bool   `long:"json" help:"Output as JSON"`
+	Count         bool   `short:"c" long:"count" help:"Only output the count of matching conversations"`
 	Since         string `long:"since" optional:"true" help:"Only include conversations modified after this time (e.g., 2024-01-15, 1h30m, 7d)"`
 	Before        string `long:"before" optional:"true" help:"Only include conversations modified before this time (e.g., 2024-01-15, 1h30m, 7d)"`
 }
@@ -132,6 +133,12 @@ func RunSearch(params *SearchParams, stdout, stderr *os.File) int {
 				})
 			}
 		}
+	}
+
+	// Count output (before limit is applied)
+	if params.Count {
+		fmt.Fprintf(stdout, "%d\n", len(results))
+		return 0
 	}
 
 	if len(results) == 0 {
