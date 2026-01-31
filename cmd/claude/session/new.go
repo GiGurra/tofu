@@ -36,7 +36,9 @@ func NewCmd() *cobra.Command {
 
 	// Register completion for --resume flag
 	cmd.RegisterFlagCompletionFunc("resume", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return clcommon.GetConversationCompletions(true), cobra.ShellCompDirectiveKeepOrder | cobra.ShellCompDirectiveNoFileComp
+		// Check if -g flag is set (params may not be populated during completion)
+		global, _ := cmd.Flags().GetBool("global")
+		return clcommon.GetConversationCompletions(global), cobra.ShellCompDirectiveKeepOrder | cobra.ShellCompDirectiveNoFileComp
 	})
 
 	return cmd
