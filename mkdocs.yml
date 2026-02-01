@@ -41,6 +41,7 @@ nav:
     - Overview: claude/index.md
     - Session Management: claude/sessions.md
     - Conversation Management: claude/conversations.md
+    - Notifications: claude/notifications.md
     - Git Sync: claude/git-sync.md
   - File Operations:
     - cat: commands/cat.md
