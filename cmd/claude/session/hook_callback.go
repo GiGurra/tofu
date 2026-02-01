@@ -23,6 +23,8 @@ type HookCallbackInput struct {
 	Prompt           string `json:"prompt,omitempty"`
 	StopHookActive   bool   `json:"stop_hook_active,omitempty"`
 	ToolName         string `json:"tool_name,omitempty"`
+	AgentType        string `json:"agent_type,omitempty"`
+	AgentID          string `json:"agent_id,omitempty"`
 }
 
 func HookCallbackCmd() *cobra.Command {
@@ -80,10 +82,25 @@ func runHookCallback() error {
 		newStatus = StatusWorking
 		statusDetail = "UserPromptSubmit"
 
+	case "PreToolUse":
+		// Tool is about to execute
+		newStatus = StatusWorking
+		statusDetail = input.ToolName
+
 	case "PostToolUse", "PostToolUseFailure":
 		// Tool completed (success or failure) - back to working
 		newStatus = StatusWorking
 		statusDetail = input.ToolName
+
+	case "SubagentStart":
+		// Subagent spawned
+		newStatus = StatusWorking
+		statusDetail = "subagent:" + input.AgentType
+
+	case "SubagentStop":
+		// Subagent finished
+		newStatus = StatusWorking
+		statusDetail = input.AgentType
 
 	case "Stop":
 		newStatus = StatusIdle

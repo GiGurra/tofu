@@ -52,6 +52,13 @@ var RequiredHooks = map[string][]HookMatcher{
 			},
 		},
 	},
+	"PreToolUse": {
+		{
+			Hooks: []HookConfig{
+				{Type: "command", Command: TofuHookCommand},
+			},
+		},
+	},
 	"PostToolUse": {
 		{
 			Hooks: []HookConfig{
@@ -60,6 +67,20 @@ var RequiredHooks = map[string][]HookMatcher{
 		},
 	},
 	"PostToolUseFailure": {
+		{
+			Hooks: []HookConfig{
+				{Type: "command", Command: TofuHookCommand},
+			},
+		},
+	},
+	"SubagentStart": {
+		{
+			Hooks: []HookConfig{
+				{Type: "command", Command: TofuHookCommand},
+			},
+		},
+	},
+	"SubagentStop": {
 		{
 			Hooks: []HookConfig{
 				{Type: "command", Command: TofuHookCommand},
