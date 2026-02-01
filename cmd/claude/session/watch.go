@@ -659,7 +659,7 @@ func (m model) View() string {
 		table.Column{Header: "STATUS" + m.sort.Indicator(SortStatus), MinWidth: 15, Weight: 0.3, Truncate: true}, // Status (flexible)
 		table.Column{Header: "UPDATED" + m.sort.Indicator(SortUpdated), Width: 10},                     // Updated
 	)
-	tbl.Padding = 1
+	tbl.Padding = 3
 	tbl.SetTerminalWidth(tableWidth)
 	tbl.HeaderStyle = headerStyle
 	tbl.SelectedStyle = selectedStyle
@@ -692,7 +692,7 @@ func (m model) View() string {
 		}
 
 		// Get title/prompt from conversation if available
-		title := convindex.GetConvTitle(state.ConvID, state.Cwd)
+		title := convindex.GetConvTitleAndPrompt(state.ConvID, state.Cwd)
 		if title == "" {
 			title = "-"
 		}

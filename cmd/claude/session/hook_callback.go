@@ -174,9 +174,10 @@ func runHookCallback() error {
 	return nil
 }
 
-// getConvTitle looks up the conversation title from Claude's session index.
+// getConvTitle looks up the conversation title and prompt from Claude's session index.
+// Returns formatted string like "[title]: prompt" for richer notification content.
 func getConvTitle(convID, cwd string) string {
-	return convindex.GetConvTitle(convID, cwd)
+	return convindex.GetConvTitleAndPrompt(convID, cwd)
 }
 
 // getOrCreateSessionState finds existing session or creates a new one

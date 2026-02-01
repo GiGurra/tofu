@@ -127,6 +127,41 @@ func GetConvTitle(convID, cwd string) string {
 	return cleanTitle(parseFirstPromptFromJSONL(projectPath, convID))
 }
 
+// GetConvTitleAndPrompt returns both the title (CustomTitle or Summary) and the first prompt.
+// Returns formatted string like "[title]: prompt" or just "prompt" if no title.
+func GetConvTitleAndPrompt(convID, cwd string) string {
+	if convID == "" || cwd == "" {
+		return ""
+	}
+
+	projectPath := GetClaudeProjectPath(cwd)
+
+	// Try index first
+	index, _ := LoadSessionsIndexFast(projectPath)
+	if index != nil {
+		if entry := FindSessionByID(index, convID); entry != nil {
+			title := ""
+			if entry.CustomTitle != "" {
+				title = entry.CustomTitle
+			} else if entry.Summary != "" {
+				title = entry.Summary
+			}
+
+			prompt := cleanTitle(entry.FirstPrompt)
+			if title != "" && prompt != "" {
+				return "[" + cleanTitle(title) + "]: " + prompt
+			} else if title != "" {
+				return cleanTitle(title)
+			} else if prompt != "" {
+				return prompt
+			}
+		}
+	}
+
+	// Fallback: parse .jsonl file directly for unindexed conversations
+	return cleanTitle(parseFirstPromptFromJSONL(projectPath, convID))
+}
+
 // cleanTitle removes XML-like tags and truncates the title for display.
 func cleanTitle(title string) string {
 	if title == "" {
