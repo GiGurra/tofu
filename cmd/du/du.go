@@ -29,10 +29,22 @@ type Params struct {
 }
 
 type DirNode struct {
-	Path      string
-	LevelSize int64
-	ChildDirs []*DirNode
-	TotalSize int64 // calculated later
+	Path       string
+	LevelSize  int64
+	ChildDirs  []*DirNode
+	ChildFiles []FileNode // files at this level (only used when --all)
+	TotalSize  int64      // calculated later
+}
+
+type FileNode struct {
+	Path string
+	Size int64
+}
+
+// Entry represents a flattened entry (file or directory) for global sorting
+type Entry struct {
+	Path string
+	Size int64
 }
 
 func Cmd() *cobra.Command {
@@ -75,61 +87,93 @@ func Run(params *Params) error {
 	for _, path := range params.Paths {
 		// Streaming mode: print as we go, no tree building
 		if params.Sort == "none" {
+			onFile := func(filePath string, depth int, size int64) {
+				if maxDepth == -1 || depth <= maxDepth {
+					printSize(size, blockSize, params.Human, filePath)
+				}
+			}
 			onFinish := func(nodePath string, depth int, totalSize int64) {
 				if maxDepth == -1 || depth <= maxDepth {
 					printSize(totalSize, blockSize, params.Human, nodePath)
 				}
 			}
-			_, err := walkDir(path, apparentSize, onFinish)
+			var fileCallback func(string, int, int64)
+			if params.All {
+				fileCallback = onFile
+			}
+			_, err := walkDir(path, apparentSize, params.All, onFinish, fileCallback)
 			if err != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "du: error reading '%s': %v\n", path, err)
 			}
 			continue
 		}
 
-		// Tree mode: build tree, sort, then print
-		rootNode, err := walkDir(path, apparentSize, nil)
+		// Tree mode: build tree, then print
+		rootNode, err := walkDir(path, apparentSize, params.All, nil, nil)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "du: error reading '%s': %v\n", path, err)
 			continue
 		}
 		pruneNodesToMaxDepth(rootNode, maxDepth, 0)
-		sortNodes(rootNode, params.Sort, params.Reverse)
-		printNodes(rootNode, blockSize, params.Human)
+
+		if params.Sort == "size" {
+			// For size sorting, flatten into a list for global sort
+			entries := flattenTree(rootNode, params.All)
+			sortEntries(entries, params.Sort, params.Reverse)
+			for _, e := range entries {
+				printSize(e.Size, blockSize, params.Human, e.Path)
+			}
+		} else {
+			// For name sorting or no explicit sort, use hierarchical output
+			printNodes(rootNode, blockSize, params.Human, params.All)
+		}
 	}
 
 	return nil
 }
 
-func sortNodes(node *DirNode, sortBy string, reverse bool) {
-	// Sort the results
-	if sortBy == "size" {
+// flattenTree converts the tree structure into a flat list of entries for global sorting
+func flattenTree(node *DirNode, includeFiles bool) []Entry {
+	var entries []Entry
+	flattenTreeRecursive(node, includeFiles, &entries)
+	return entries
+}
 
-		slices.SortFunc(node.ChildDirs, func(i, j *DirNode) int {
-			if reverse {
-				return int(j.TotalSize - i.TotalSize)
-			}
-			return int(i.TotalSize - j.TotalSize)
-		})
-
-		for _, child := range node.ChildDirs {
-			sortNodes(child, sortBy, reverse)
-		}
-
-	} else if sortBy == "name" {
-		slices.SortFunc(node.ChildDirs, func(i, j *DirNode) int {
-			if reverse {
-				return strings.Compare(j.Path, i.Path)
-			}
-
-			return strings.Compare(i.Path, j.Path)
-		})
-
-		for _, child := range node.ChildDirs {
-			sortNodes(child, sortBy, reverse)
+func flattenTreeRecursive(node *DirNode, includeFiles bool, entries *[]Entry) {
+	// Add files at this level
+	if includeFiles {
+		for _, f := range node.ChildFiles {
+			*entries = append(*entries, Entry{Path: f.Path, Size: f.Size})
 		}
 	}
 
+	// Recursively add child directories
+	for _, child := range node.ChildDirs {
+		flattenTreeRecursive(child, includeFiles, entries)
+	}
+
+	// Add this directory itself
+	*entries = append(*entries, Entry{Path: node.Path, Size: node.TotalSize})
+}
+
+// sortEntries sorts a flat list of entries by the given criteria
+func sortEntries(entries []Entry, sortBy string, reverse bool) {
+	switch sortBy {
+	case "size":
+		slices.SortFunc(entries, func(i, j Entry) int {
+			if reverse {
+				return int(j.Size - i.Size)
+			}
+			return int(i.Size - j.Size)
+		})
+	case "name":
+		slices.SortFunc(entries, func(i, j Entry) int {
+			if reverse {
+				return strings.Compare(j.Path, i.Path)
+			}
+			return strings.Compare(i.Path, j.Path)
+		})
+	}
 }
 
 func pruneNodesToMaxDepth(node *DirNode, maxDepth int, currentDepth int) {
@@ -145,7 +189,9 @@ func pruneNodesToMaxDepth(node *DirNode, maxDepth int, currentDepth int) {
 // walkDir walks a directory tree and either builds a tree structure (when onFinish is nil)
 // or streams output via the callback (when onFinish is provided).
 // In streaming mode, onFinish is called with (path, depth, totalSize) for each directory.
-func walkDir(rootPath string, apparentSize bool, onFinish func(path string, depth int, totalSize int64)) (*DirNode, error) {
+// When all is true and onFile is provided (streaming), onFile is called for each file with depth.
+// When all is true and onFile is nil (tree mode), files are stored in ChildFiles.
+func walkDir(rootPath string, apparentSize bool, all bool, onFinish func(path string, depth int, totalSize int64), onFile func(path string, depth int, size int64)) (*DirNode, error) {
 	// Normalize path to handle trailing slashes (e.g., "./" -> ".")
 	rootPath = filepath.Clean(rootPath)
 	streaming := onFinish != nil
@@ -257,7 +303,19 @@ func walkDir(rootPath string, apparentSize bool, onFinish func(path string, dept
 				_, _ = fmt.Fprintf(os.Stderr, "du: cannot access info for '%s': %v\n", path, err)
 				return nil
 			}
-			parent.node.LevelSize += getFileSize(fileInfo)
+			fileSize := getFileSize(fileInfo)
+			parent.node.LevelSize += fileSize
+
+			// Handle --all flag: track or stream file entries
+			if all {
+				if onFile != nil {
+					// Streaming mode: print file immediately with parent's depth
+					onFile(path, parent.depth, fileSize)
+				} else {
+					// Tree mode: store file for later printing
+					parent.node.ChildFiles = append(parent.node.ChildFiles, FileNode{Path: path, Size: fileSize})
+				}
+			}
 		}
 
 		return nil
@@ -284,10 +342,20 @@ func walkDir(rootPath string, apparentSize bool, onFinish func(path string, dept
 	return rootNode, nil
 }
 
-func printNodes(node *DirNode, blockSize int64, human bool) {
-	for _, child := range node.ChildDirs {
-		printNodes(child, blockSize, human)
+func printNodes(node *DirNode, blockSize int64, human bool, all bool) {
+	// Print files at this level first (if --all)
+	if all {
+		for _, f := range node.ChildFiles {
+			printSize(f.Size, blockSize, human, f.Path)
+		}
 	}
+
+	// Recursively print child directories
+	for _, child := range node.ChildDirs {
+		printNodes(child, blockSize, human, all)
+	}
+
+	// Print this directory's total last
 	printSize(node.TotalSize, blockSize, human, node.Path)
 }
 
@@ -306,6 +374,10 @@ func formatHumanReadable(bytes int64) string {
 
 	for _, unit := range units {
 		if value < 1024 {
+			// Match GNU du format: show decimal for values >= 10, or always for M and above
+			if value < 10 && unit != "B" {
+				return fmt.Sprintf("%.1f%s", value, unit)
+			}
 			return fmt.Sprintf("%.0f%s", math.Ceil(value), unit)
 		}
 		value /= 1024
