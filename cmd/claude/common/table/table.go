@@ -184,10 +184,10 @@ func (t *Table) RenderRows() string {
 
 		line := strings.Join(parts, separator)
 
-		// Apply styling
+		// Apply styling - selected row takes precedence, otherwise use row style
 		if actualIndex == t.SelectedIndex {
 			line = t.SelectedStyle.Render(line)
-		} else if row.Style.Value() != "" {
+		} else {
 			line = row.Style.Render(line)
 		}
 
