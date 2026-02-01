@@ -577,7 +577,7 @@ func (m watchModel) View() string {
 			} else if state.Attached > 0 {
 				sessionMark = wActiveStyle.Render("⚡")
 			} else {
-				sessionMark = " " + wDetachedStyle.Render("○")
+				sessionMark = " " + wDetachedStyle.Render("▷")
 			}
 		}
 
@@ -678,7 +678,7 @@ func (m watchModel) renderHelpView() string {
 	b.WriteString(wHeaderStyle.Render("  Indicators"))
 	b.WriteString("\n")
 	b.WriteString("    ⚡        Tmux session with attached clients\n")
-	b.WriteString("    ○         Tmux session, detached\n")
+	b.WriteString("    ▷         Tmux session, detached (can attach)\n")
 	b.WriteString("    ◉         Non-tmux session (in-terminal, can't attach)\n")
 	b.WriteString("\n")
 
