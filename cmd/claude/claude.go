@@ -9,7 +9,7 @@ import (
 	"github.com/gigurra/tofu/cmd/claude/git"
 	"github.com/gigurra/tofu/cmd/claude/session"
 	"github.com/gigurra/tofu/cmd/claude/setup"
-	"github.com/gigurra/tofu/cmd/claude/usage"
+	"github.com/gigurra/tofu/cmd/claude/stats"
 	"github.com/gigurra/tofu/cmd/claude/worktree"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
@@ -26,7 +26,7 @@ func Cmd() *cobra.Command {
 			session.Cmd(),
 			git.Cmd(),
 			worktree.Cmd(),
-			usage.Cmd(),
+			stats.Cmd(),
 			setup.Cmd(),
 		},
 		RunFunc: func(params *session.NewParams, cmd *cobra.Command, args []string) {

@@ -1,4 +1,4 @@
-package usage
+package stats
 
 import (
 	"encoding/json"
@@ -64,9 +64,9 @@ type Params struct {
 
 func Cmd() *cobra.Command {
 	return boa.CmdT[Params]{
-		Use:         "usage",
-		Short:       "Show Claude Code usage statistics",
-		Long:        "Display usage statistics from Claude Code including sessions, messages, tokens, and daily activity.",
+		Use:         "stats",
+		Short:       "Show Claude Code activity statistics",
+		Long:        "Display activity statistics from Claude Code including sessions, messages, tokens, and daily activity.",
 		ParamEnrich: common.DefaultParamEnricher(),
 		RunFunc: func(params *Params, cmd *cobra.Command, args []string) {
 			if err := runUsage(params); err != nil {
