@@ -157,6 +157,7 @@ func Cmd() *cobra.Command {
 			NewCmd(),
 			ListCmd(),
 			AttachCmd(),
+			FocusCmd(),
 			KillCmd(),
 			PruneCmd(),
 			InstallHooksCmd(),
