@@ -94,15 +94,9 @@ func runHookCallback() error {
 		newStatus = StatusWorking
 		statusDetail = input.ToolName
 
-	case "SubagentStart":
-		// Subagent spawned
-		newStatus = StatusWorking
-		statusDetail = "subagent:" + input.AgentType
-
-	case "SubagentStop":
-		// Subagent finished
-		newStatus = StatusWorking
-		statusDetail = input.AgentType
+	case "SubagentStart", "SubagentStop":
+		// Just log, don't update status (can fire after Stop and overwrite idle)
+		return nil
 
 	case "Stop":
 		newStatus = StatusIdle
