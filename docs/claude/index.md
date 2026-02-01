@@ -4,6 +4,15 @@ Powerful session and conversation management for [Claude Code](https://claude.ai
 
 ![Demo](demo.gif)
 
+## Supported Platforms
+
+| Platform | Status |
+|----------|--------|
+| macOS | ✅ Fully supported |
+| WSL (Windows Subsystem for Linux) | ✅ Fully supported |
+| Linux (native) | ⚠️ Implemented but untested |
+| Windows (native) | ❌ Not yet implemented |
+
 ## Features
 
 - 📺 **Session Management** - Run Claude in tmux sessions, attach/detach anytime

@@ -100,12 +100,14 @@ Notifications display:
 
 ## Platform Support
 
-| Platform | Notifications | Clickable | Focus Method |
-|----------|---------------|-----------|--------------|
-| macOS | `terminal-notifier` (preferred) or osascript | ✅ Yes | iTerm2/Terminal.app AppleScript |
-| Linux (native) | `dunstify` (clickable) or `notify-send` | ✅ With dunstify | xdotool |
-| WSL | PowerShell toast notifications | ✅ Yes | Windows Terminal focus |
-| Windows | Not yet implemented | - | - |
+| Platform | Status | Notifications | Clickable | Focus Method |
+|----------|--------|---------------|-----------|--------------|
+| macOS | ✅ Tested | `terminal-notifier` or osascript | ✅ Yes | iTerm2/Terminal.app AppleScript |
+| WSL | ✅ Tested | PowerShell toast notifications | ✅ Yes | Windows Terminal focus |
+| Linux (native) | ⚠️ Untested | `dunstify` or `notify-send` | With dunstify | xdotool |
+| Windows (native) | ❌ Not implemented | - | - | - |
+
+**Note:** Native Linux support uses standard tools (`dunstify`, `notify-send`, `xdotool`) but has not been tested on actual hardware. Feedback welcome!
 
 ## Prerequisites
 
