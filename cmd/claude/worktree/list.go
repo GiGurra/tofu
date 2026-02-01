@@ -136,16 +136,20 @@ func FindWorktreeByPath(pathQuery string) (*WorktreeInfo, error) {
 		}
 	}
 
+	// Normalize path for comparison (git uses forward slashes even on Windows)
+	normalizedQuery := filepath.ToSlash(pathQuery)
+
 	// Try exact match first
 	for _, wt := range worktrees {
-		if wt.Path == pathQuery {
+		if filepath.ToSlash(wt.Path) == normalizedQuery {
 			return &wt, nil
 		}
 	}
 
 	// Try suffix match (e.g., "tofu-feature" matches "/Users/.../tofu-feature")
 	for _, wt := range worktrees {
-		if strings.HasSuffix(wt.Path, "/"+pathQuery) || filepath.Base(wt.Path) == pathQuery {
+		wtPath := filepath.ToSlash(wt.Path)
+		if strings.HasSuffix(wtPath, "/"+pathQuery) || filepath.Base(wt.Path) == pathQuery {
 			return &wt, nil
 		}
 	}

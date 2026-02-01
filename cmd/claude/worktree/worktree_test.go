@@ -79,6 +79,12 @@ func withWorkingDir(t *testing.T, dir string, fn func()) {
 	fn()
 }
 
+// normalizePath converts path separators to forward slashes for consistent comparison
+// This is needed because git always outputs forward slashes, even on Windows
+func normalizePath(p string) string {
+	return filepath.ToSlash(p)
+}
+
 func TestGetGitInfo(t *testing.T) {
 	repoPath, _ := setupTestRepo(t)
 
@@ -88,7 +94,7 @@ func TestGetGitInfo(t *testing.T) {
 			t.Fatalf("GetGitInfo failed: %v", err)
 		}
 
-		if info.RepoRoot != repoPath {
+		if normalizePath(info.RepoRoot) != normalizePath(repoPath) {
 			t.Errorf("expected RepoRoot=%s, got %s", repoPath, info.RepoRoot)
 		}
 
@@ -195,7 +201,7 @@ func TestWorktreeAddAndRemove(t *testing.T) {
 		for _, wt := range worktrees {
 			if wt.Branch == "feature-test" {
 				found = true
-				if wt.Path != worktreePath {
+				if normalizePath(wt.Path) != normalizePath(worktreePath) {
 					t.Errorf("expected path=%s, got %s", worktreePath, wt.Path)
 				}
 			}
@@ -208,12 +214,12 @@ func TestWorktreeAddAndRemove(t *testing.T) {
 		wt, err := FindWorktreeByBranch("feature-test")
 		if err != nil {
 			t.Errorf("FindWorktreeByBranch failed: %v", err)
-		} else if wt.Path != worktreePath {
+		} else if normalizePath(wt.Path) != normalizePath(worktreePath) {
 			t.Errorf("FindWorktreeByBranch returned wrong path")
 		}
 
-		// Test FindWorktreeByPath
-		wt, err = FindWorktreeByPath(worktreePath)
+		// Test FindWorktreeByPath - use normalized path for lookup on Windows
+		wt, err = FindWorktreeByPath(normalizePath(worktreePath))
 		if err != nil {
 			t.Errorf("FindWorktreeByPath failed: %v", err)
 		} else if wt.Branch != "feature-test" {
@@ -299,7 +305,7 @@ func TestAddWorktreeWithExistingBranch(t *testing.T) {
 		wt, err := FindWorktreeByBranch("existing-branch")
 		if err != nil {
 			t.Errorf("FindWorktreeByBranch failed: %v", err)
-		} else if wt.Path != worktreePath {
+		} else if normalizePath(wt.Path) != normalizePath(worktreePath) {
 			t.Errorf("wrong path for existing branch worktree")
 		}
 	})
@@ -380,7 +386,7 @@ func TestAddWorktreeWithSlashInBranchName(t *testing.T) {
 		wt, err := FindWorktreeByBranch("feat/my-feature")
 		if err != nil {
 			t.Errorf("FindWorktreeByBranch failed: %v", err)
-		} else if wt.Path != expectedPath {
+		} else if normalizePath(wt.Path) != normalizePath(expectedPath) {
 			t.Errorf("expected path=%s, got %s", expectedPath, wt.Path)
 		}
 	})
