@@ -14,17 +14,20 @@ Powerful session and conversation management for [Claude Code](https://claude.ai
 
 ## Installation
 
-After installing tofu, install the Claude hooks for status tracking:
+After installing tofu, run the setup command:
 
 ```bash
 # Install tofu
 go install github.com/gigurra/tofu@latest
 
-# Install Claude hooks (enables status tracking)
-tofu claude session install-hooks
+# Set up Claude integration (hooks, notifications, protocol handler)
+tofu claude setup
 ```
 
-This adds hooks to `~/.claude/settings.json` that report Claude's status (working, idle, awaiting input) to tofu.
+This will:
+- Install hooks in `~/.claude/settings.json` for status tracking
+- Ask if you want to enable desktop notifications
+- Register the protocol handler for clickable notifications (WSL/Windows)
 
 ## Quick Start 🚀
 

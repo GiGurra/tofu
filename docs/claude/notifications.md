@@ -6,11 +6,30 @@ Get notified when Claude sessions need attention.
 
 Tofu can send OS notifications when Claude sessions transition to states that require user attention (idle, awaiting permission, awaiting input). This is useful when running multiple sessions or working in a different window.
 
-**Disabled by default** - requires explicit configuration to enable.
+**Disabled by default** - run `tofu claude setup` to enable.
 
-## Configuration
+## Quick Setup
 
-Create `~/.tofu/config.json`:
+The easiest way to enable notifications:
+
+```bash
+tofu claude setup
+```
+
+This will:
+1. Install Claude hooks for status tracking
+2. Register the protocol handler (WSL/Windows) for clickable notifications
+3. Ask if you want to enable notifications
+
+You can check your setup status anytime:
+
+```bash
+tofu claude setup --check
+```
+
+## Manual Configuration
+
+Alternatively, create `~/.tofu/config.json` manually:
 
 ```json
 {
@@ -88,21 +107,29 @@ Notifications display:
 | Windows | Toast notifications |
 | WSL | PowerShell toast notifications (automatic fallback) |
 
+## Clickable Notifications (WSL)
+
+On WSL, notifications are clickable - clicking them will focus the terminal window running that session. This requires the `tofu://` protocol handler to be registered, which `tofu claude setup` handles automatically.
+
+If clicking doesn't work:
+1. Run `tofu claude setup --check` to verify protocol handler is registered
+2. Run `tofu claude setup --force` to re-register the handler
+
 ## Troubleshooting
 
 ### Notifications not appearing
 
-1. Check that `~/.tofu/config.json` exists and has valid JSON
-2. Verify `"enabled": true` is set
-3. Ensure Claude hooks are installed: `tofu claude session install-hooks`
-4. Check that the session state transition matches your configured rules
+1. Run `tofu claude setup --check` to verify everything is configured
+2. Check that `~/.tofu/config.json` has `"enabled": true`
+3. Check that the session state transition matches your configured rules
 
 ### WSL-specific issues
 
-WSL requires PowerShell access for notifications. Tofu automatically falls back to PowerShell when running in WSL. If notifications still don't work:
+WSL requires PowerShell access for notifications. Tofu automatically uses PowerShell toast notifications when running in WSL. If notifications still don't work:
 
 1. Verify PowerShell is accessible: `ls /mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe`
 2. Check Windows notification settings allow toast notifications
+3. Run `tofu claude setup` to ensure hooks and protocol handler are configured
 
 ### Cooldown
 

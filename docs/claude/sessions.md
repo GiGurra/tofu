@@ -5,7 +5,7 @@ Run Claude Code in persistent tmux sessions with status tracking.
 ## Prerequisites
 
 - **tmux** - Required for session management
-- **Claude hooks** - For status tracking (install with `tofu claude session install-hooks`)
+- **Run setup** - For status tracking and notifications: `tofu claude setup`
 
 ## Commands
 
@@ -94,19 +94,6 @@ tofu claude session kill --idle
 # Force (no confirmation)
 tofu claude session kill -f <id>
 ```
-
-### session install-hooks
-
-Install Claude hooks for status tracking.
-
-```bash
-tofu claude session install-hooks
-```
-
-This modifies `~/.claude/settings.json` to add hooks that report:
-- When Claude starts/stops working
-- When Claude is waiting for permission or input
-- Session status changes
 
 ## Interactive Watch Mode
 
