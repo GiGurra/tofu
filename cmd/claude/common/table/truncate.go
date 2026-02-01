@@ -84,6 +84,27 @@ func ShortenPath(path string, maxLen int) string {
 	return TruncateWithEllipsis(filename, maxLen)
 }
 
+// TruncateFromStart truncates a string from the beginning, keeping the end.
+// Adds "…" prefix if truncated. Useful for paths where the end is more relevant.
+func TruncateFromStart(s string, maxLen int) string {
+	if maxLen <= 0 {
+		return ""
+	}
+
+	runeCount := utf8.RuneCountInString(s)
+	if runeCount <= maxLen {
+		return s
+	}
+
+	if maxLen == 1 {
+		return "…"
+	}
+
+	// Convert to runes to handle unicode correctly
+	runes := []rune(s)
+	return "…" + string(runes[runeCount-maxLen+1:])
+}
+
 // PadRight pads a string to the specified width with spaces on the right.
 // If the string is longer than width, it is truncated.
 func PadRight(s string, width int) string {

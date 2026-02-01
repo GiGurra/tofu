@@ -66,6 +66,32 @@ func TestShortenPath(t *testing.T) {
 	}
 }
 
+func TestTruncateFromStart(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		maxLen int
+		want   string
+	}{
+		{"empty string", "", 10, ""},
+		{"fits exactly", "hello", 5, "hello"},
+		{"fits with room", "hi", 5, "hi"},
+		{"needs truncation", "hello world", 5, "…orld"},
+		{"maxLen 1", "hello", 1, "…"},
+		{"maxLen 0", "hello", 0, ""},
+		{"path truncation", "/home/user/projects/myapp", 15, "…projects/myapp"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := TruncateFromStart(tt.input, tt.maxLen)
+			if got != tt.want {
+				t.Errorf("TruncateFromStart(%q, %d) = %q, want %q", tt.input, tt.maxLen, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestPadFunctions(t *testing.T) {
 	t.Run("PadRight", func(t *testing.T) {
 		tests := []struct {
