@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/GiGurra/boa/pkg/boa"
 	clcommon "github.com/gigurra/tofu/cmd/claude/common"
@@ -85,8 +86,11 @@ func RunAdd(branch, fromBranch, fromConv, path string, global, detached bool) er
 	worktreePath := path
 	if worktreePath == "" {
 		// Default: ../<repo>-<branch>
+		// Replace slashes in branch name to avoid creating subdirectories
+		safeBranch := strings.ReplaceAll(branch, "/", "--")
+		safeBranch = strings.ReplaceAll(safeBranch, "\\", "--")
 		parentDir := filepath.Dir(gitInfo.RepoRoot)
-		worktreePath = filepath.Join(parentDir, gitInfo.RepoName+"-"+branch)
+		worktreePath = filepath.Join(parentDir, gitInfo.RepoName+"-"+safeBranch)
 	}
 
 	// Make path absolute

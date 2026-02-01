@@ -354,3 +354,34 @@ func TestGetBranchCompletions(t *testing.T) {
 		}
 	})
 }
+
+func TestAddWorktreeWithSlashInBranchName(t *testing.T) {
+	repoPath, parentDir := setupTestRepo(t)
+
+	withWorkingDir(t, repoPath, func() {
+		// Branch with slash should create path with "--" instead
+		params := &AddParams{
+			Branch:   "feat/my-feature",
+			Detached: true,
+		}
+
+		err := runAdd(params)
+		if err != nil {
+			t.Fatalf("runAdd failed: %v", err)
+		}
+
+		// The path should be test-repo-feat--my-feature, not test-repo-feat/my-feature
+		expectedPath := filepath.Join(parentDir, "test-repo-feat--my-feature")
+		if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
+			t.Errorf("expected worktree at %s but it doesn't exist", expectedPath)
+		}
+
+		// Verify the branch name is preserved in git
+		wt, err := FindWorktreeByBranch("feat/my-feature")
+		if err != nil {
+			t.Errorf("FindWorktreeByBranch failed: %v", err)
+		} else if wt.Path != expectedPath {
+			t.Errorf("expected path=%s, got %s", expectedPath, wt.Path)
+		}
+	})
+}
