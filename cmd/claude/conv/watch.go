@@ -670,7 +670,7 @@ func (m watchModel) View() string {
 			table.Column{Header: "MODIFIED", Width: 16},                                             // Modified
 		)
 	}
-	tbl.Padding = 1
+	tbl.Padding = 3
 	tbl.SetTerminalWidth(tableWidth)
 	tbl.HeaderStyle = wHeaderStyle
 	tbl.SelectedStyle = wSelectedStyle
