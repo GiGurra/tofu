@@ -103,11 +103,13 @@ Notifications display:
 | Platform | Status | Notifications | Clickable | Focus Method |
 |----------|--------|---------------|-----------|--------------|
 | macOS | ✅ Tested | `terminal-notifier` or osascript | ✅ Yes | iTerm2/Terminal.app AppleScript |
-| WSL | ✅ Tested | PowerShell toast notifications | ✅ Yes | Windows Terminal focus |
+| WSL | ✅ Tested | PowerShell toast notifications | ✅ Yes | Windows Terminal focus* |
 | Linux (native) | ⚠️ Untested | `dunstify` or `notify-send` | With dunstify | xdotool |
 | Windows (native) | ❌ Not implemented | - | - | - |
 
-**Note:** Native Linux support uses standard tools (`dunstify`, `notify-send`, `xdotool`) but has not been tested on actual hardware. Feedback welcome!
+**Notes:**
+- \* WSL focus works best when the target session is the active tab. If it's in a background tab, clicking the notification will detach that tab and open a new window with the session.
+- Native Linux support uses standard tools (`dunstify`, `notify-send`, `xdotool`) but has not been tested on actual hardware. Feedback welcome!
 
 ## Prerequisites
 
@@ -145,7 +147,9 @@ Without these, notifications still work via `notify-send` but won't be clickable
 
 ### WSL
 
-On WSL, notifications use Windows Toast notifications via PowerShell. Clicking them will focus the terminal window. This requires the `tofu://` protocol handler to be registered, which `tofu claude setup` handles automatically.
+On WSL, notifications use Windows Toast notifications via PowerShell. Clicking them will focus the Windows Terminal window. This requires the `tofu://` protocol handler to be registered, which `tofu claude setup` handles automatically.
+
+**Note:** If the target session is in a background tab, clicking the notification will detach that tab from tmux and open a new Windows Terminal window with the session attached.
 
 If clicking doesn't work:
 1. Run `tofu claude setup --check` to verify protocol handler is registered
