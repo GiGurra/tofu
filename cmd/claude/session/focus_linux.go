@@ -6,89 +6,21 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
-	"sync"
+
+	"github.com/gigurra/tofu/cmd/claude/common/wsl"
 )
 
-var (
-	powershellPath     string
-	powershellPathOnce sync.Once
-)
-
-// findPowerShell locates powershell.exe by scanning /mnt for Windows drives.
-// It finds the highest version in WindowsPowerShell and caches the result.
+// findPowerShell returns the path to powershell.exe using the shared WSL utilities.
 func findPowerShell() string {
-	powershellPathOnce.Do(func() {
-		powershellPath = discoverPowerShellPath()
-		if powershellPath != "" {
-			debugLog("Found PowerShell at: %s", powershellPath)
-		} else {
-			debugLog("PowerShell not found")
-		}
-	})
-	return powershellPath
-}
-
-// discoverPowerShellPath scans for PowerShell in Windows drives mounted under /mnt.
-func discoverPowerShellPath() string {
-	// Look for drive letters in /mnt
-	entries, err := os.ReadDir("/mnt")
-	if err != nil {
-		return ""
+	path := wsl.FindPowerShell()
+	if path != "" {
+		debugLog("Found PowerShell at: %s", path)
+	} else {
+		debugLog("PowerShell not found")
 	}
-
-	for _, entry := range entries {
-		if !entry.IsDir() || len(entry.Name()) != 1 {
-			continue // Skip non-single-letter entries
-		}
-
-		drivePath := filepath.Join("/mnt", entry.Name())
-		windowsPath := filepath.Join(drivePath, "Windows")
-
-		// Check if this drive has Windows
-		if _, err := os.Stat(windowsPath); os.IsNotExist(err) {
-			continue
-		}
-
-		// Look for WindowsPowerShell
-		psBasePath := filepath.Join(windowsPath, "System32", "WindowsPowerShell")
-		if _, err := os.Stat(psBasePath); os.IsNotExist(err) {
-			continue
-		}
-
-		// Find version directories and pick the highest
-		versions, err := os.ReadDir(psBasePath)
-		if err != nil {
-			continue
-		}
-
-		var versionDirs []string
-		for _, v := range versions {
-			if v.IsDir() {
-				versionDirs = append(versionDirs, v.Name())
-			}
-		}
-
-		if len(versionDirs) == 0 {
-			continue
-		}
-
-		// Sort versions descending (highest first)
-		sort.Sort(sort.Reverse(sort.StringSlice(versionDirs)))
-
-		// Check each version for powershell.exe
-		for _, ver := range versionDirs {
-			psExe := filepath.Join(psBasePath, ver, "powershell.exe")
-			if _, err := os.Stat(psExe); err == nil {
-				return psExe
-			}
-		}
-	}
-
-	return ""
+	return path
 }
 
 // debugLog writes to the debug log file.
@@ -128,12 +60,7 @@ func GetOwnWindowTitle() string {
 
 // isWSL detects if we're running in Windows Subsystem for Linux.
 func isWSL() bool {
-	data, err := os.ReadFile("/proc/version")
-	if err != nil {
-		return false
-	}
-	lower := strings.ToLower(string(data))
-	return strings.Contains(lower, "microsoft") || strings.Contains(lower, "wsl")
+	return wsl.IsWSL()
 }
 
 // focusWSLWindow attempts to focus the terminal window hosting this WSL session.

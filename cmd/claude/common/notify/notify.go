@@ -13,6 +13,7 @@ import (
 	"github.com/gen2brain/beeep"
 	"github.com/gigurra/tofu/cmd/claude/common/config"
 	"github.com/gigurra/tofu/cmd/claude/common/terminal"
+	"github.com/gigurra/tofu/cmd/claude/common/wsl"
 )
 
 // stateDir returns the directory for notification state files.
@@ -133,11 +134,11 @@ func sendLinuxClickable(sessionID, title, body string) error {
 	return fmt.Errorf("no notification tool found")
 }
 
-// sendWSLClickable sends a Windows Toast notification with attach hint.
+// sendWSLClickable sends a Windows Toast notification that focuses the terminal on click.
+// Note: Requires 'tofu claude setup' to have been run to register the protocol handler.
+// If not registered, the notification still shows but clicking won't focus the terminal.
 func sendWSLClickable(sessionID, title, body string) error {
-	// Add hint about how to attach
-	bodyWithHint := body + "\n\nRun: tofu claude session attach " + shortID(sessionID)
-	return notifyWSL(title, bodyWithHint)
+	return notifyWSLClickable(title, body, sessionID)
 }
 
 // sendDarwinClickable sends a notification with click-to-attach on macOS.
@@ -161,16 +162,74 @@ func sendDarwinClickable(sessionID, title, body string) error {
 
 // isWSL detects if we're running in Windows Subsystem for Linux.
 func isWSL() bool {
-	data, err := os.ReadFile("/proc/version")
-	if err != nil {
-		return false
-	}
-	lower := strings.ToLower(string(data))
-	return strings.Contains(lower, "microsoft") || strings.Contains(lower, "wsl")
+	return wsl.IsWSL()
 }
 
-// notifyWSL sends a Windows Toast notification via PowerShell from WSL.
+// notifyWSLClickable sends a Windows Toast notification that runs a command on click.
+func notifyWSLClickable(title, body, sessionID string) error {
+	psPath := wsl.FindPowerShell()
+	if psPath == "" {
+		return fmt.Errorf("powershell not found")
+	}
+
+	// Escape for XML
+	title = escapeXML(title)
+	body = escapeXML(body)
+
+	// PowerShell script for clickable Windows Toast notification
+	// Uses protocol activation to trigger tofu://focus/SESSION_ID
+	// Uses Windows Terminal's AppUserModelID for a nicer notification appearance
+	script := fmt.Sprintf(`
+[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
+
+$template = @'
+<toast activationType="protocol" launch="tofu://focus/%s">
+  <visual>
+    <binding template="ToastGeneric">
+      <text>%s</text>
+      <text>%s</text>
+      <text placement="attribution">Click to focus terminal</text>
+    </binding>
+  </visual>
+</toast>
+'@
+
+$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
+$xml.LoadXml($template)
+$toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
+
+# Try to use Windows Terminal's AppUserModelID for nicer appearance
+$appId = 'Microsoft.WindowsTerminal_8wekyb3d8bbwe!App'
+try {
+    [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($appId).Show($toast)
+} catch {
+    # Fallback to generic notifier
+    [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Tofu').Show($toast)
+}
+`, sessionID, title, body)
+
+	cmd := exec.Command(psPath, "-NoProfile", "-NonInteractive", "-Command", script)
+	return cmd.Run()
+}
+
+// escapeXML escapes special characters for XML content.
+func escapeXML(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	s = strings.ReplaceAll(s, "'", "&apos;")
+	s = strings.ReplaceAll(s, "\"", "&quot;")
+	return s
+}
+
+// notifyWSL sends a Windows Toast notification via PowerShell from WSL (non-clickable fallback).
 func notifyWSL(title, body string) error {
+	psPath := wsl.FindPowerShell()
+	if psPath == "" {
+		return fmt.Errorf("powershell not found")
+	}
+
 	// Escape single quotes for PowerShell
 	title = strings.ReplaceAll(title, "'", "''")
 	body = strings.ReplaceAll(body, "'", "''")
@@ -195,8 +254,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Tofu').Show($toast)
 `, title, body)
 
-	cmd := exec.Command("/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
-		"-NoProfile", "-NonInteractive", "-Command", script)
+	cmd := exec.Command(psPath, "-NoProfile", "-NonInteractive", "-Command", script)
 	return cmd.Run()
 }
 

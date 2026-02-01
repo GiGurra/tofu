@@ -118,13 +118,56 @@ func GetConvTitle(convID, cwd string) string {
 	if index != nil {
 		if entry := FindSessionByID(index, convID); entry != nil {
 			if title := entry.DisplayTitle(); title != "" {
-				return title
+				return cleanTitle(title)
 			}
 		}
 	}
 
 	// Fallback: parse .jsonl file directly for unindexed conversations
-	return parseFirstPromptFromJSONL(projectPath, convID)
+	return cleanTitle(parseFirstPromptFromJSONL(projectPath, convID))
+}
+
+// cleanTitle removes XML-like tags and truncates the title for display.
+func cleanTitle(title string) string {
+	if title == "" {
+		return ""
+	}
+
+	// Remove XML-like tags (e.g., <local-command-caveat>...</local-command-caveat>)
+	result := stripXMLTags(title)
+
+	// Trim whitespace
+	result = strings.TrimSpace(result)
+
+	// Truncate to reasonable length for notifications
+	const maxLen = 80
+	if len(result) > maxLen {
+		result = result[:maxLen-3] + "..."
+	}
+
+	return result
+}
+
+// stripXMLTags removes XML-like tags from a string.
+func stripXMLTags(s string) string {
+	var result strings.Builder
+	inTag := false
+
+	for _, r := range s {
+		if r == '<' {
+			inTag = true
+			continue
+		}
+		if r == '>' {
+			inTag = false
+			continue
+		}
+		if !inTag {
+			result.WriteRune(r)
+		}
+	}
+
+	return result.String()
 }
 
 // jsonlMessage represents a message in the JSONL transcript
