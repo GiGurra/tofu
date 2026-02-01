@@ -58,11 +58,13 @@ var filterOptions = []struct {
 }
 
 type model struct {
-	allSessions   []*SessionState // all sessions before search filter
-	sessions      []*SessionState // sessions after search filter
-	cursor        int
-	width         int
-	height        int
+	allSessions    []*SessionState // all sessions before search filter
+	sessions       []*SessionState // sessions after search filter
+	cursor         int
+	width          int
+	height         int
+	viewportOffset int
+	viewportHeight int
 	shouldAttach  string // session ID to attach to after quitting
 	forceAttach   bool   // detach other clients when attaching
 	createNew     bool   // create a new session after quitting
@@ -335,6 +337,19 @@ func (m model) matchesHideFilter(status string) bool {
 	return false
 }
 
+// ensureCursorVisible adjusts viewport to keep cursor in view
+func (m *model) ensureCursorVisible() {
+	if m.viewportHeight <= 0 {
+		return
+	}
+	if m.cursor < m.viewportOffset {
+		m.viewportOffset = m.cursor
+	}
+	if m.cursor >= m.viewportOffset+m.viewportHeight {
+		m.viewportOffset = m.cursor - m.viewportHeight + 1
+	}
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -477,10 +492,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "up", "k":
 			if m.cursor > 0 {
 				m.cursor--
+				m.ensureCursorVisible()
 			}
 		case "down", "j":
 			if m.cursor < len(m.sessions)-1 {
 				m.cursor++
+				m.ensureCursorVisible()
 			}
 		case "enter":
 			if len(m.sessions) > 0 && m.cursor < len(m.sessions) {
@@ -542,6 +559,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.viewportHeight = max(msg.Height-10, 5) // Reserve space for header, footer, etc.
 
 	case tickMsg:
 		m = m.refreshSessions()
@@ -624,6 +642,8 @@ func (m model) View() string {
 	tbl.HeaderStyle = headerStyle
 	tbl.SelectedStyle = selectedStyle
 	tbl.SelectedIndex = m.cursor
+	tbl.ViewportOffset = m.viewportOffset
+	tbl.ViewportHeight = m.viewportHeight
 
 	// Add rows
 	for _, state := range m.sessions {
@@ -659,7 +679,7 @@ func (m model) View() string {
 	}
 
 	// Render table
-	b.WriteString(tbl.RenderWithScroll(nil))
+	b.WriteString(tbl.RenderWithScroll(&helpStyle))
 	b.WriteString("\n\n")
 	if m.cursor < len(m.sessions) {
 		switch m.confirmMode {
