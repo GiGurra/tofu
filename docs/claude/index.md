@@ -25,9 +25,11 @@ tofu claude setup
 ```
 
 This will:
+- Check that tmux is installed (required for session management)
 - Install hooks in `~/.claude/settings.json` for status tracking
+- Check for notification tools (terminal-notifier on macOS, dunstify/notify-send on Linux)
+- Register the protocol handler for clickable notifications (WSL)
 - Ask if you want to enable desktop notifications
-- Register the protocol handler for clickable notifications (WSL/Windows)
 
 ## Quick Start 🚀
 

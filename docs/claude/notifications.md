@@ -100,16 +100,50 @@ Notifications display:
 
 ## Platform Support
 
-| Platform | Method |
-|----------|--------|
-| Linux | `notify-send` via libnotify |
-| macOS | Native notification center |
-| Windows | Toast notifications |
-| WSL | PowerShell toast notifications (automatic fallback) |
+| Platform | Notifications | Clickable | Focus Method |
+|----------|---------------|-----------|--------------|
+| macOS | `terminal-notifier` (preferred) or osascript | ✅ Yes | iTerm2/Terminal.app AppleScript |
+| Linux (native) | `dunstify` (clickable) or `notify-send` | ✅ With dunstify | xdotool |
+| WSL | PowerShell toast notifications | ✅ Yes | Windows Terminal focus |
+| Windows | Not yet implemented | - | - |
 
-## Clickable Notifications (WSL)
+## Prerequisites
 
-On WSL, notifications are clickable - clicking them will focus the terminal window running that session. This requires the `tofu://` protocol handler to be registered, which `tofu claude setup` handles automatically.
+- **tmux** - Required for session management (checked by `tofu claude setup`)
+
+## Clickable Notifications
+
+Notifications are clickable on all supported platforms. Clicking a notification will focus the terminal window running that session.
+
+### macOS
+
+Requires `terminal-notifier` for clickable notifications:
+
+```bash
+brew install terminal-notifier
+```
+
+The setup command will offer to install this automatically if Homebrew is available.
+
+### Linux (native)
+
+For clickable notifications, install `dunstify` (part of dunst notification daemon):
+
+```bash
+sudo apt install dunst
+```
+
+For window focus when clicking notifications, install `xdotool`:
+
+```bash
+sudo apt install xdotool
+```
+
+Without these, notifications still work via `notify-send` but won't be clickable.
+
+### WSL
+
+On WSL, notifications use Windows Toast notifications via PowerShell. Clicking them will focus the terminal window. This requires the `tofu://` protocol handler to be registered, which `tofu claude setup` handles automatically.
 
 If clicking doesn't work:
 1. Run `tofu claude setup --check` to verify protocol handler is registered
