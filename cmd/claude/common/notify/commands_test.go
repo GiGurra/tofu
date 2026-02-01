@@ -1,6 +1,8 @@
 package notify
 
 import (
+	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -305,36 +307,43 @@ func TestFocusCommandString(t *testing.T) {
 		tofuPath  string
 		tmuxDir   string
 		sessionID string
-		want      string
+		wantFunc  func(tmuxDir string) string // dynamic expected value
 	}{
 		{
 			name:      "with tmux dir",
 			tofuPath:  "/usr/bin/tofu",
 			tmuxDir:   "/opt/homebrew/bin",
 			sessionID: "abc123",
-			want:      "PATH=/opt/homebrew/bin:$PATH /usr/bin/tofu claude session focus abc123",
+			wantFunc: func(tmuxDir string) string {
+				return fmt.Sprintf("PATH=%s:$PATH /usr/bin/tofu claude session focus abc123", filepath.Clean(tmuxDir))
+			},
 		},
 		{
 			name:      "without tmux dir",
 			tofuPath:  "/usr/bin/tofu",
 			tmuxDir:   "",
 			sessionID: "abc123",
-			want:      "/usr/bin/tofu claude session focus abc123",
+			wantFunc: func(_ string) string {
+				return "/usr/bin/tofu claude session focus abc123"
+			},
 		},
 		{
 			name:      "fallback tofu",
 			tofuPath:  "",
 			tmuxDir:   "",
 			sessionID: "xyz",
-			want:      "tofu claude session focus xyz",
+			wantFunc: func(_ string) string {
+				return "tofu claude session focus xyz"
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := FocusCommandString(tt.tofuPath, tt.tmuxDir, tt.sessionID)
-			if got != tt.want {
-				t.Errorf("FocusCommandString() = %q, want %q", got, tt.want)
+			want := tt.wantFunc(tt.tmuxDir)
+			if got != want {
+				t.Errorf("FocusCommandString() = %q, want %q", got, want)
 			}
 		})
 	}
