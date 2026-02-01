@@ -67,6 +67,13 @@ func Cmd() *cobra.Command {
 			DeleteCmd(),
 			PruneEmptyCmd(),
 		},
+		RunFunc: func(_ *boa.NoParams, _ *cobra.Command, _ []string) {
+			// Default to interactive watch mode (same as conv ls -w)
+			if err := RunConvWatchMode(false, "", ""); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+		},
 	}.ToCobra()
 	cmd.Aliases = []string{"convs", "conversation", "conversations"}
 	return cmd
