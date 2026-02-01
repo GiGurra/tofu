@@ -353,6 +353,14 @@ func (m *model) ensureCursorVisible() {
 	}
 }
 
+// triggerKill initiates kill confirmation for the selected session
+func (m model) triggerKill() model {
+	if len(m.sessions) > 0 && m.cursor < len(m.sessions) {
+		m.confirmMode = confirmKill
+	}
+	return m
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -527,10 +535,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, tea.Quit
 				}
 			}
-		case "delete", "backspace", "x":
-			if len(m.sessions) > 0 && m.cursor < len(m.sessions) {
-				m.confirmMode = confirmKill
-			}
+		case "delete", "backspace", "x", "ctrl+d":
+			// Note: ctrl+d is what macOS sends for forward delete key
+			m = m.triggerKill()
 		case "d", "D":
 			// Detach clients from session
 			if len(m.sessions) > 0 && m.cursor < len(m.sessions) {

@@ -327,6 +327,20 @@ func (m watchModel) ensureCursorVisible() watchModel {
 	return m
 }
 
+// triggerDelete initiates delete confirmation for the selected conversation
+func (m watchModel) triggerDelete() watchModel {
+	if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
+		conv := m.filtered[m.cursor]
+		if _, hasSession := m.activeSessions[conv.SessionID]; hasSession {
+			m.confirmMode = watchConfirmDeleteWithSession
+		} else {
+			m.confirmMode = watchConfirmDelete
+		}
+		m.statusMsg = ""
+	}
+	return m
+}
+
 // deleteConversation deletes a conversation's files and removes it from the index
 func (m watchModel) deleteConversation(conv *SessionEntry) error {
 	// Determine project path
@@ -624,17 +638,10 @@ func (m watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.worktreeFocused = true
 				m.worktreeInput = ""
 			}
-		case "delete", "backspace", "x":
+		case "delete", "backspace", "x", "ctrl+d":
 			// Delete conversation (with confirmation)
-			if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
-				conv := m.filtered[m.cursor]
-				if _, hasSession := m.activeSessions[conv.SessionID]; hasSession {
-					m.confirmMode = watchConfirmDeleteWithSession
-				} else {
-					m.confirmMode = watchConfirmDelete
-				}
-				m.statusMsg = ""
-			}
+			// Note: ctrl+d is what macOS sends for forward delete key
+			m = m.triggerDelete()
 		}
 
 	case tea.WindowSizeMsg:
