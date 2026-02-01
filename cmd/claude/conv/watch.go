@@ -657,7 +657,6 @@ func (m watchModel) View() string {
 			table.Column{Header: "ID", Width: 10},                                                   // ID
 			table.Column{Header: "PROJECT", MinWidth: 20, MaxWidth: 50, Weight: 0.45, Truncate: true, TruncateMode: table.TruncateStart}, // Project (flexible, lower weight)
 			table.Column{Header: "TITLE/PROMPT", MinWidth: 30, MaxWidth: 80, Truncate: true},        // Title (flexible)
-			table.Column{Header: "BRANCH", Width: 15, Truncate: true},                               // Branch
 			table.Column{Header: "MODIFIED", Width: 16},                                             // Modified
 		)
 	} else {
@@ -665,7 +664,6 @@ func (m watchModel) View() string {
 			table.Column{Header: "", Width: 2},                                                      // Session indicator
 			table.Column{Header: "ID", Width: 10},                                                   // ID
 			table.Column{Header: "TITLE/PROMPT", MinWidth: 30, MaxWidth: 80, Truncate: true},        // Title (flexible)
-			table.Column{Header: "BRANCH", Width: 15, Truncate: true},                               // Branch
 			table.Column{Header: "MODIFIED", Width: 16},                                             // Modified
 		)
 	}
@@ -706,11 +704,11 @@ func (m watchModel) View() string {
 
 		if m.global {
 			tbl.AddRow(table.Row{
-				Cells: []string{sessionMark, id, e.ProjectPath, title, e.GitBranch, modified},
+				Cells: []string{sessionMark, id, e.ProjectPath, title, modified},
 			})
 		} else {
 			tbl.AddRow(table.Row{
-				Cells: []string{sessionMark, id, title, e.GitBranch, modified},
+				Cells: []string{sessionMark, id, title, modified},
 			})
 		}
 	}

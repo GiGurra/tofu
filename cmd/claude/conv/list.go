@@ -202,7 +202,7 @@ func RenderTable(stdout *os.File, entries []SessionEntry, showProject, long bool
 	}
 	header = append(header, "Prompt/Title")
 	if long {
-		header = append(header, "Branch", "Msgs")
+		header = append(header, "Msgs")
 	}
 	header = append(header, "Modified")
 	if matchCounts != nil {
@@ -217,7 +217,7 @@ func RenderTable(stdout *os.File, entries []SessionEntry, showProject, long bool
 		fixedWidth += 43 // Project column
 	}
 	if long {
-		fixedWidth += 15 + 6 // Branch + Msgs columns
+		fixedWidth += 6 // Msgs column
 	}
 	if matchCounts != nil {
 		fixedWidth += 8 // Matches column
@@ -257,11 +257,7 @@ func RenderTable(stdout *os.File, entries []SessionEntry, showProject, long bool
 		}
 		row = append(row, displayText)
 		if long {
-			branch := e.GitBranch
-			if len(branch) > 15 {
-				branch = branch[:14] + "…"
-			}
-			row = append(row, branch, e.MessageCount)
+			row = append(row, e.MessageCount)
 		}
 		row = append(row, modified)
 		if matchCounts != nil {
