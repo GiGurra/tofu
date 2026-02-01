@@ -8,6 +8,7 @@ import (
 	"github.com/gigurra/tofu/cmd/claude/conv"
 	"github.com/gigurra/tofu/cmd/claude/git"
 	"github.com/gigurra/tofu/cmd/claude/session"
+	"github.com/gigurra/tofu/cmd/claude/setup"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
 )
@@ -22,6 +23,7 @@ func Cmd() *cobra.Command {
 			conv.Cmd(),
 			session.Cmd(),
 			git.Cmd(),
+			setup.Cmd(),
 		},
 		RunFunc: func(params *session.NewParams, cmd *cobra.Command, args []string) {
 			// Default to starting a new session

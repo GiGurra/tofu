@@ -4,6 +4,15 @@ Powerful session and conversation management for [Claude Code](https://claude.ai
 
 ![Demo](demo.gif)
 
+## Supported Platforms
+
+| Platform | Status |
+|----------|--------|
+| macOS | ✅ Fully supported |
+| WSL (Windows Subsystem for Linux) | ✅ Fully supported |
+| Linux (native) | ⚠️ Implemented but untested |
+| Windows (native) | ❌ Not yet implemented |
+
 ## Features
 
 - 📺 **Session Management** - Run Claude in tmux sessions, attach/detach anytime
@@ -14,17 +23,22 @@ Powerful session and conversation management for [Claude Code](https://claude.ai
 
 ## Installation
 
-After installing tofu, install the Claude hooks for status tracking:
+After installing tofu, run the setup command:
 
 ```bash
 # Install tofu
 go install github.com/gigurra/tofu@latest
 
-# Install Claude hooks (enables status tracking)
-tofu claude session install-hooks
+# Set up Claude integration (hooks, notifications, protocol handler)
+tofu claude setup
 ```
 
-This adds hooks to `~/.claude/settings.json` that report Claude's status (working, idle, awaiting input) to tofu.
+This will:
+- Check that tmux is installed (required for session management)
+- Install hooks in `~/.claude/settings.json` for status tracking
+- Check for notification tools (terminal-notifier on macOS, dunstify/notify-send on Linux)
+- Register the protocol handler for clickable notifications (WSL)
+- Ask if you want to enable desktop notifications
 
 ## Quick Start 🚀
 

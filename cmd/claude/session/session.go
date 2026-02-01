@@ -157,9 +157,9 @@ func Cmd() *cobra.Command {
 			NewCmd(),
 			ListCmd(),
 			AttachCmd(),
+			FocusCmd(),
 			KillCmd(),
 			PruneCmd(),
-			InstallHooksCmd(),
 			StatusCallbackCmd(),
 			HookCallbackCmd(),
 		},
@@ -317,6 +317,27 @@ func GetTmuxSessionAttachedCount(sessionName string) int {
 // IsTmuxSessionAttached checks if a tmux session has any clients attached
 func IsTmuxSessionAttached(sessionName string) bool {
 	return GetTmuxSessionAttachedCount(sessionName) > 0
+}
+
+// DetachSessionClients detaches all clients from a tmux session
+func DetachSessionClients(sessionName string) error {
+	// Get list of clients attached to this session
+	cmd := exec.Command("tmux", "list-clients", "-t", sessionName, "-F", "#{client_tty}")
+	output, err := cmd.Output()
+	if err != nil {
+		return err
+	}
+
+	// Detach each client
+	clients := strings.Split(strings.TrimSpace(string(output)), "\n")
+	for _, client := range clients {
+		if client == "" {
+			continue
+		}
+		// Detach this specific client
+		_ = exec.Command("tmux", "detach-client", "-t", client).Run()
+	}
+	return nil
 }
 
 // CheckTmuxInstalled verifies tmux is available

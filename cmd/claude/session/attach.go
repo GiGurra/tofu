@@ -3,9 +3,7 @@ package session
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
-	"syscall"
 
 	"github.com/GiGurra/boa/pkg/boa"
 	clcommon "github.com/gigurra/tofu/cmd/claude/common"
@@ -14,7 +12,8 @@ import (
 )
 
 type AttachParams struct {
-	ID string `pos:"true" help:"Session ID to attach to"`
+	ID    string `pos:"true" help:"Session ID to attach to"`
+	Force bool   `short:"f" long:"force" help:"Attach even if session already has clients attached"`
 }
 
 func AttachCmd() *cobra.Command {
@@ -59,8 +58,16 @@ func runAttach(params *AttachParams) error {
 		return fmt.Errorf("session %s has exited", state.ID)
 	}
 
+	// By default, don't attach if session already has clients (use --force to override)
+	if !params.Force && IsTmuxSessionAttached(state.TmuxSession) {
+		fmt.Printf("Session %s is already attached in another terminal\n", state.ID)
+		// Try to focus the terminal window
+		tryFocusAttachedSession(state.TmuxSession)
+		return nil
+	}
+
 	fmt.Printf("Attaching to session %s... (Ctrl+B D to detach)\n", state.ID)
-	return attachToSession(state.TmuxSession)
+	return AttachToSession(state.ID, state.TmuxSession, params.Force)
 }
 
 // AttachToTmuxSession attaches to a tmux session, replacing the current process
@@ -72,18 +79,26 @@ func AttachToTmuxSession(tmuxSession string) int {
 	return 0
 }
 
-// attachToSession attaches to a tmux session, replacing the current process
-func attachToSession(tmuxSession string) error {
-	tmuxPath, err := exec.LookPath("tmux")
-	if err != nil {
-		return fmt.Errorf("tmux not found: %w", err)
-	}
+// AttachToSession attaches to a tmux session.
+// Sets terminal title for window focus, then replaces process with tmux attach.
+// If forceAttach is true, detaches other clients before attaching (-d flag).
+func AttachToSession(sessionID, tmuxSession string, forceAttach bool) error {
+	// Set TOFU_SESSION_ID so focus functions can find our session
+	os.Setenv("TOFU_SESSION_ID", sessionID)
 
-	// Use syscall.Exec to replace current process with tmux attach
-	args := []string{"tmux", "attach-session", "-t", tmuxSession}
-	env := os.Environ()
+	// Set terminal title to include session ID (helps with window focus on WSL/Windows)
+	setTerminalTitle(fmt.Sprintf("tofu:%s", sessionID))
 
-	return syscall.Exec(tmuxPath, args, env)
+	// Attach to tmux session (replaces current process)
+	return attachToSessionWithFlags(tmuxSession, forceAttach)
+}
+
+// setTerminalTitle sets the terminal window/tab title using escape sequences.
+// This is used to identify our terminal window for focus operations.
+func setTerminalTitle(title string) {
+	// OSC 0 sets both icon and window title
+	// Format: ESC ] 0 ; <title> BEL
+	fmt.Printf("\033]0;%s\007", title)
 }
 
 // findSession finds a session by ID or prefix

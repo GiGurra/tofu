@@ -137,6 +137,11 @@ func runNew(params *NewParams) error {
 		return fmt.Errorf("failed to create tmux session: %w", err)
 	}
 
+	// Configure tmux to set window title with our session ID
+	// This ensures the title persists and is visible for window focus
+	exec.Command("tmux", "set-option", "-t", tmuxSession, "set-titles", "on").Run()
+	exec.Command("tmux", "set-option", "-t", tmuxSession, "set-titles-string", fmt.Sprintf("tofu:%s", sessionID)).Run()
+
 	// Get the PID of claude in the tmux session
 	pid := ParsePIDFromTmux(tmuxSession)
 
@@ -165,5 +170,5 @@ func runNew(params *NewParams) error {
 	}
 
 	fmt.Println("\nAttaching... (Ctrl+B D to detach)")
-	return attachToSession(tmuxSession)
+	return AttachToSession(sessionID, tmuxSession, false)
 }
