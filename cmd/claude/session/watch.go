@@ -898,7 +898,7 @@ func RunWatchMode(includeAll bool, initialSort SortState, initialFilter, initial
 				}
 				if newest != nil && newest.TmuxSession != "" {
 					fmt.Printf("Attaching to %s... (Ctrl+B D to detach)\n", newest.TmuxSession)
-					_ = AttachToSessionWithInbox(newest.ID, newest.TmuxSession, false)
+					_ = AttachToSession(newest.ID, newest.TmuxSession, false)
 				}
 			}
 			// After session ends or user detaches, continue back to watch
@@ -918,7 +918,7 @@ func RunWatchMode(includeAll bool, initialSort SortState, initialFilter, initial
 			fmt.Printf("Attaching to %s... (Ctrl+B D to detach)\n", result.TmuxSession)
 		}
 
-		err = AttachToSessionWithInbox(result.SessionID, result.TmuxSession, result.ForceAttach)
+		err = AttachToSession(result.SessionID, result.TmuxSession, result.ForceAttach)
 		if err != nil {
 			// Session might have ended, continue to interactive view
 			continue

@@ -866,7 +866,7 @@ func RunConvWatchMode(global bool, since, before string) error {
 					fmt.Printf("Attaching to %s... (Ctrl+B D to detach)\n", sessState.ID)
 				}
 
-				if err := session.AttachToSessionWithInbox(sessState.ID, sessState.TmuxSession, result.ForceAttach); err != nil {
+				if err := session.AttachToSession(sessState.ID, sessState.TmuxSession, result.ForceAttach); err != nil {
 					// Session may have exited, continue to watch mode
 					continue
 				}
@@ -939,7 +939,7 @@ func createSessionForConv(conv *SessionEntry) error {
 	fmt.Printf("Created session %s\n", sessionID)
 	fmt.Println("Attaching... (Ctrl+B D to detach)")
 
-	return session.AttachToSessionWithInbox(sessionID, tmuxSession, false)
+	return session.AttachToSession(sessionID, tmuxSession, false)
 }
 
 // findSessionForConv finds an existing session for a conversation ID

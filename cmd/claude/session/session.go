@@ -162,7 +162,6 @@ func Cmd() *cobra.Command {
 			InstallHooksCmd(),
 			StatusCallbackCmd(),
 			HookCallbackCmd(),
-			MsgCmd(),
 		},
 		RunFunc: func(_ *boa.NoParams, cmd *cobra.Command, args []string) {
 			// Default to interactive watch mode

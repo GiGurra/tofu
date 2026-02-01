@@ -3,13 +3,10 @@ package session
 import (
 	"fmt"
 	"os"
-	"os/exec"
-	"os/signal"
 	"strings"
 
 	"github.com/GiGurra/boa/pkg/boa"
 	clcommon "github.com/gigurra/tofu/cmd/claude/common"
-	"github.com/gigurra/tofu/cmd/claude/common/inbox"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
 )
@@ -64,13 +61,13 @@ func runAttach(params *AttachParams) error {
 	// By default, don't attach if session already has clients (use --force to override)
 	if !params.Force && IsTmuxSessionAttached(state.TmuxSession) {
 		fmt.Printf("Session %s is already attached in another terminal\n", state.ID)
-		// Try to focus the terminal window (best effort, usually doesn't work)
+		// Try to focus the terminal window
 		tryFocusAttachedSession(state.TmuxSession)
 		return nil
 	}
 
 	fmt.Printf("Attaching to session %s... (Ctrl+B D to detach)\n", state.ID)
-	return AttachToSessionWithInbox(state.ID, state.TmuxSession, params.Force)
+	return AttachToSession(state.ID, state.TmuxSession, params.Force)
 }
 
 // AttachToTmuxSession attaches to a tmux session, replacing the current process
@@ -82,56 +79,18 @@ func AttachToTmuxSession(tmuxSession string) int {
 	return 0
 }
 
-// AttachToSessionWithInbox attaches to a tmux session with an inbox watcher running.
-// The watcher processes messages (like focus requests) while we're attached.
+// AttachToSession attaches to a tmux session.
+// Sets terminal title for window focus, then replaces process with tmux attach.
 // If forceAttach is true, detaches other clients before attaching (-d flag).
-func AttachToSessionWithInbox(sessionID, tmuxSession string, forceAttach bool) error {
+func AttachToSession(sessionID, tmuxSession string, forceAttach bool) error {
 	// Set TOFU_SESSION_ID so focus functions can find our session
 	os.Setenv("TOFU_SESSION_ID", sessionID)
 
 	// Set terminal title to include session ID (helps with window focus on WSL/Windows)
 	setTerminalTitle(fmt.Sprintf("tofu:%s", sessionID))
 
-	// Start inbox watcher
-	watcher, err := inbox.NewWatcher(sessionID, func(msg inbox.Message) {
-		handleInboxMessage(msg)
-	})
-	if err != nil {
-		// Log but continue - attach should still work
-		if os.Getenv("TOFU_HOOK_DEBUG") == "true" {
-			fmt.Fprintf(os.Stderr, "[tofu] Warning: failed to start inbox watcher: %v\n", err)
-		}
-	} else {
-		watcher.StartAsync()
-		defer watcher.Stop()
-	}
-
-	// Run tmux attach as subprocess (not exec) so watcher goroutine stays alive
-	args := []string{"attach-session", "-t", tmuxSession}
-	if forceAttach {
-		args = []string{"attach-session", "-d", "-t", tmuxSession}
-	}
-	cmd := exec.Command("tmux", args...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	// Forward signals to tmux
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, tmuxSignals()...)
-	go func() {
-		for sig := range sigChan {
-			if cmd.Process != nil {
-				cmd.Process.Signal(sig)
-			}
-		}
-	}()
-
-	err = cmd.Run()
-	signal.Stop(sigChan)
-	close(sigChan)
-
-	return err
+	// Attach to tmux session (replaces current process)
+	return attachToSessionWithFlags(tmuxSession, forceAttach)
 }
 
 // setTerminalTitle sets the terminal window/tab title using escape sequences.
@@ -140,27 +99,6 @@ func setTerminalTitle(title string) {
 	// OSC 0 sets both icon and window title
 	// Format: ESC ] 0 ; <title> BEL
 	fmt.Printf("\033]0;%s\007", title)
-}
-
-// handleInboxMessage processes a message from the inbox.
-func handleInboxMessage(msg inbox.Message) {
-	debug := os.Getenv("TOFU_HOOK_DEBUG") == "true"
-
-	switch msg.Type {
-	case inbox.TypeFocus:
-		success := FocusOwnWindow()
-		if debug {
-			if success {
-				fmt.Fprintf(os.Stderr, "[tofu] Focused window via inbox message\n")
-			} else {
-				fmt.Fprintf(os.Stderr, "[tofu] Failed to focus window (title: %s)\n", GetOwnWindowTitle())
-			}
-		}
-	default:
-		if debug {
-			fmt.Fprintf(os.Stderr, "[tofu] Unknown inbox message type: %s\n", msg.Type)
-		}
-	}
 }
 
 // findSession finds a session by ID or prefix

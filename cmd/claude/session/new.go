@@ -170,5 +170,5 @@ func runNew(params *NewParams) error {
 	}
 
 	fmt.Println("\nAttaching... (Ctrl+B D to detach)")
-	return AttachToSessionWithInbox(sessionID, tmuxSession, false)
+	return AttachToSession(sessionID, tmuxSession, false)
 }
