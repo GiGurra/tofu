@@ -24,9 +24,6 @@ var (
 	wHelpStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 	wSearchStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
 	wConfirmStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("196"))
-	wActiveStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("46"))  // Green for attached tmux session
-	wDetachedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("46"))  // Green for detached tmux session
-	wNoTmuxStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("226")) // Yellow for non-tmux session
 )
 
 type watchTickMsg time.Time
@@ -692,16 +689,16 @@ func (m watchModel) View() string {
 
 	// Add rows for all filtered entries
 	for _, e := range m.filtered {
-		// Session indicator
+		// Session indicator (plain text - no ANSI styling in cells, it breaks width calc)
 		sessionMark := "  "
 		if state, ok := m.activeSessions[e.SessionID]; ok {
 			tmuxAlive := state.TmuxSession != "" && session.IsTmuxSessionAlive(state.TmuxSession)
 			if !tmuxAlive {
-				sessionMark = " " + wNoTmuxStyle.Render("◉")
+				sessionMark = " ◉" // Non-tmux or dead tmux
 			} else if state.Attached > 0 {
-				sessionMark = wActiveStyle.Render("⚡")
+				sessionMark = "⚡" // Tmux with attached clients
 			} else {
-				sessionMark = " " + wDetachedStyle.Render("▷")
+				sessionMark = " ▷" // Tmux detached
 			}
 		}
 
