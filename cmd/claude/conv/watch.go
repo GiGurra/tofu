@@ -632,7 +632,7 @@ func (m watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMsg = ""
 		case "h", "?":
 			m.helpView = true
-		case "W":
+		case "W", "w":
 			// Create worktree for selected conversation
 			if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
 				m.worktreeFocused = true
