@@ -506,6 +506,8 @@ func (m model) View() string {
 			attachedMark = " ◉" // Non-tmux or dead tmux (in-terminal, can't attach)
 		} else if state.Attached > 0 {
 			attachedMark = "⚡" // Tmux with attached clients
+		} else {
+			attachedMark = " ▷" // Tmux detached (can attach)
 		}
 
 		dir := shortenPathForTable(state.Cwd, 33)
@@ -625,8 +627,8 @@ func (m model) renderHelpView() string {
 	b.WriteString(headerStyle.Render("  Session Indicators"))
 	b.WriteString("\n")
 	b.WriteString("    ⚡        Tmux session with clients attached\n")
+	b.WriteString("    ▷         Tmux session, detached (can attach)\n")
 	b.WriteString("    ◉         Non-tmux session (in-terminal, can't attach)\n")
-	b.WriteString("    (blank)   Tmux session, detached\n")
 	b.WriteString("\n")
 
 	b.WriteString(helpStyle.Render("  Press any key to close"))

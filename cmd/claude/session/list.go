@@ -113,13 +113,15 @@ func runList(params *ListParams) error {
 			status = status + ": " + state.StatusDetail
 		}
 
-		// Determine indicator: ⚡ = attached tmux, ◉ = non-tmux/dead tmux, blank = detached tmux
+		// Determine indicator: ⚡ = attached tmux, ▷ = detached tmux, ◉ = non-tmux/dead tmux
 		indicator := "  "
 		tmuxAlive := state.TmuxSession != "" && IsTmuxSessionAlive(state.TmuxSession)
 		if !tmuxAlive {
 			indicator = " ◉"
 		} else if state.Attached > 0 {
 			indicator = "⚡"
+		} else {
+			indicator = " ▷"
 		}
 
 		t.AppendRow(table.Row{
