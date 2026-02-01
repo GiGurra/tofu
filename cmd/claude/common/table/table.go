@@ -95,6 +95,16 @@ func (t *Table) InvalidateWidths() {
 	t.calculatedWidths = nil
 }
 
+// GetColumnWidth returns the calculated width for a specific column index.
+// Useful for pre-truncating content before adding rows.
+func (t *Table) GetColumnWidth(index int) int {
+	widths := t.CalculateWidths()
+	if index < 0 || index >= len(widths) {
+		return 0
+	}
+	return widths[index]
+}
+
 // RenderHeader returns the formatted header row
 func (t *Table) RenderHeader() string {
 	widths := t.CalculateWidths()

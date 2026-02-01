@@ -648,47 +648,40 @@ func (m watchModel) View() string {
 		return b.String()
 	}
 
-	// Calculate dynamic title width based on terminal width
-	termWidth := m.width
-	if termWidth < 80 {
-		termWidth = 120
-	}
-
-	// Fixed column widths
-	var fixedWidth int
-	if m.global {
-		fixedWidth = 2 + 1 + 10 + 1 + 30 + 1 + 15 + 1 + 16 // icon(2) + padding + id(10) + padding + project(30) + padding + branch(15) + padding + modified(16)
-	} else {
-		fixedWidth = 2 + 1 + 10 + 1 + 15 + 1 + 16 // icon(2) + padding + id(10) + padding + branch(15) + padding + modified(16)
-	}
-	titleWidth := min(max(termWidth-fixedWidth-4, 30), 80) // clamp between 30 and 80
-
-	// Build table using table library
+	// Build table - use flexible column for TITLE/PROMPT
 	var tbl *table.Table
 	if m.global {
 		tbl = table.New(
-			table.Column{Header: "", Width: 2},                              // Session indicator
-			table.Column{Header: "ID", Width: 10},                           // ID
-			table.Column{Header: "PROJECT", Width: 30, Truncate: true},      // Project
-			table.Column{Header: "TITLE/PROMPT", Width: titleWidth, Truncate: true}, // Title
-			table.Column{Header: "BRANCH", Width: 15, Truncate: true},       // Branch
-			table.Column{Header: "MODIFIED", Width: 16},                     // Modified
+			table.Column{Header: "", Width: 2},                                                      // Session indicator
+			table.Column{Header: "ID", Width: 10},                                                   // ID
+			table.Column{Header: "PROJECT", Width: 30, Truncate: true},                              // Project
+			table.Column{Header: "TITLE/PROMPT", MinWidth: 30, MaxWidth: 80, Truncate: true},        // Title (flexible)
+			table.Column{Header: "BRANCH", Width: 15, Truncate: true},                               // Branch
+			table.Column{Header: "MODIFIED", Width: 16},                                             // Modified
 		)
 	} else {
 		tbl = table.New(
-			table.Column{Header: "", Width: 2},                              // Session indicator
-			table.Column{Header: "ID", Width: 10},                           // ID
-			table.Column{Header: "TITLE/PROMPT", Width: titleWidth, Truncate: true}, // Title
-			table.Column{Header: "BRANCH", Width: 15, Truncate: true},       // Branch
-			table.Column{Header: "MODIFIED", Width: 16},                     // Modified
+			table.Column{Header: "", Width: 2},                                                      // Session indicator
+			table.Column{Header: "ID", Width: 10},                                                   // ID
+			table.Column{Header: "TITLE/PROMPT", MinWidth: 30, MaxWidth: 80, Truncate: true},        // Title (flexible)
+			table.Column{Header: "BRANCH", Width: 15, Truncate: true},                               // Branch
+			table.Column{Header: "MODIFIED", Width: 16},                                             // Modified
 		)
 	}
 	tbl.Padding = 1
+	tbl.SetTerminalWidth(max(m.width, 80))
 	tbl.HeaderStyle = wHeaderStyle
 	tbl.SelectedStyle = wSelectedStyle
 	tbl.SelectedIndex = m.cursor
 	tbl.ViewportOffset = m.viewportOffset
 	tbl.ViewportHeight = m.viewportHeight
+
+	// Get calculated title column width for content truncation
+	titleColIndex := 2 // icon, id, title...
+	if m.global {
+		titleColIndex = 3 // icon, id, project, title...
+	}
+	titleWidth := tbl.GetColumnWidth(titleColIndex)
 
 	// Add rows for all filtered entries
 	for _, e := range m.filtered {
