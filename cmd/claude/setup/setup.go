@@ -55,13 +55,39 @@ func runSetup(params *Params) error {
 	} else {
 		fmt.Println("✗ tmux not found (required for session management)")
 		if runtime.GOOS == "darwin" {
-			fmt.Println("  Install with: brew install tmux")
+			if isBrewInstalled() {
+				if askYesNo("Install tmux via Homebrew?", true) {
+					fmt.Println("  Installing tmux...")
+					if err := installTmux(); err != nil {
+						fmt.Printf("  Failed to install: %v\n", err)
+						fmt.Println("  Try manually: brew install tmux")
+						fmt.Println("\nPlease install tmux and run setup again.")
+						return nil
+					}
+					fmt.Println("✓ tmux installed")
+				} else {
+					fmt.Println("  Skipped. Install manually: brew install tmux")
+					fmt.Println("\nPlease install tmux and run setup again.")
+					return nil
+				}
+			} else {
+				fmt.Println("  Homebrew not found. Install tmux manually:")
+				fmt.Println("  brew install tmux")
+				fmt.Println("\nPlease install tmux and run setup again.")
+				return nil
+			}
+		} else if runtime.GOOS == "linux" {
+			fmt.Println("  Install with your package manager:")
+			fmt.Println("    Ubuntu/Debian: sudo apt install tmux")
+			fmt.Println("    Fedora:        sudo dnf install tmux")
+			fmt.Println("    Arch:          sudo pacman -S tmux")
+			fmt.Println("\nPlease install tmux and run setup again.")
+			return nil
 		} else {
-			fmt.Println("  Install with: sudo apt install tmux")
+			fmt.Println("  Please install tmux for your platform.")
+			fmt.Println("\nPlease install tmux and run setup again.")
+			return nil
 		}
-		fmt.Println()
-		fmt.Println("Please install tmux and run setup again.")
-		return nil
 	}
 
 	// 1. Install hooks
@@ -385,6 +411,14 @@ func isBrewInstalled() bool {
 // installTerminalNotifier installs terminal-notifier via Homebrew.
 func installTerminalNotifier() error {
 	cmd := exec.Command("brew", "install", "terminal-notifier")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// installTmux installs tmux via Homebrew.
+func installTmux() error {
+	cmd := exec.Command("brew", "install", "tmux")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
