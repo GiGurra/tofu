@@ -905,7 +905,8 @@ func RunWatchMode(includeAll bool, initialSort SortState, initialFilter, initial
 		}
 
 		if result.TmuxSession == "" {
-			// User quit without selecting
+			// User quit without selecting - auto-prune exited sessions
+			pruneExitedSessionsSilent()
 			return nil
 		}
 

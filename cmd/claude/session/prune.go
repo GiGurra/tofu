@@ -94,6 +94,22 @@ func runPrune(params *PruneParams) error {
 	return nil
 }
 
+// pruneExitedSessionsSilent removes all exited session state files silently
+// Used for automatic cleanup when exiting the session viewer
+func pruneExitedSessionsSilent() {
+	states, err := ListSessionStates()
+	if err != nil {
+		return
+	}
+
+	for _, state := range states {
+		RefreshSessionStatus(state)
+		if state.Status == StatusExited {
+			_ = DeleteSessionState(state.ID)
+		}
+	}
+}
+
 // parseDuration parses a duration string with support for days (d) and weeks (w)
 func parseDuration(s string) (time.Duration, error) {
 	// Handle weeks and days which aren't supported by time.ParseDuration
