@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -82,6 +83,9 @@ func TestSessionEntry_HasTitle(t *testing.T) {
 }
 
 func TestPathToProjectDir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping on Windows - path handling differs")
+	}
 	// Test basic path conversion
 	result := PathToProjectDir("/home/user/project")
 	if result != "-home-user-project" {

@@ -7,9 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
-	"syscall"
 	"time"
 
 	"github.com/GiGurra/boa/pkg/boa"
@@ -82,17 +80,8 @@ func runUsage(interactive bool) error {
 	}
 	defer ptmx.Close()
 
-	// Handle window size changes
-	ch := make(chan os.Signal, 1)
-	signal.Notify(ch, syscall.SIGWINCH)
-	go func() {
-		for range ch {
-			if ws, err := pty.GetsizeFull(os.Stdin); err == nil {
-				_ = pty.Setsize(ptmx, ws)
-			}
-		}
-	}()
-	ch <- syscall.SIGWINCH // Initial size sync
+	// Handle window size changes (platform-specific)
+	setupWindowResize(ptmx)
 
 	// Set stdin to raw mode (needed for PTY interaction)
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
