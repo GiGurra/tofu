@@ -78,10 +78,10 @@ func send(sessionID, to, cwd, convTitle string) {
 	statusDisplay := formatStatus(to)
 	title := fmt.Sprintf("Claude: %s", statusDisplay)
 
-	// Build body: first line is ID | Project, second line is conversation title
+	// Build body: ID | Project - conversation title
 	var body string
 	if convTitle != "" {
-		body = fmt.Sprintf("%s | %s\n%s", shortID(sessionID), projectName, convTitle)
+		body = fmt.Sprintf("%s | %s - %s", shortID(sessionID), projectName, convTitle)
 	} else {
 		body = fmt.Sprintf("%s | %s", shortID(sessionID), projectName)
 	}
@@ -96,7 +96,6 @@ func send(sessionID, to, cwd, convTitle string) {
 	} else if runtime.GOOS == "darwin" {
 		err = sendDarwinClickable(sessionID, title, body)
 	} else {
-		// Windows native or unknown - use beeep
 		err = beeep.Notify(title, body, "")
 	}
 
@@ -172,7 +171,7 @@ func sendDarwinClickable(sessionID, title, body string) error {
 			"-title", title,
 			"-message", body,
 			"-execute", focusCmd,
-			"-sender", "com.apple.Terminal", // Shows Terminal icon
+			"-sound", "default",
 		).Run()
 	}
 

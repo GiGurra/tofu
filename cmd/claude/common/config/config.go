@@ -32,9 +32,9 @@ func DefaultConfig() *Config {
 		Notifications: &NotificationConfig{
 			Enabled: false,
 			Transitions: []TransitionRule{
-				{From: "working", To: "idle"},
-				{From: "working", To: "awaiting_permission"},
-				{From: "working", To: "awaiting_input"},
+				{From: "*", To: "idle"},
+				{From: "*", To: "awaiting_permission"},
+				{From: "*", To: "awaiting_input"},
 				{From: "*", To: "exited"},
 			},
 			CooldownSeconds: 5,
