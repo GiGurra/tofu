@@ -650,25 +650,28 @@ func (m watchModel) View() string {
 	}
 
 	// Build table - use flexible column for TITLE/PROMPT
+	// Calculate table width with some padding for aesthetics
+	tableWidth := max(m.width-5, 60)
+
 	var tbl *table.Table
 	if m.global {
 		tbl = table.New(
 			table.Column{Header: "", Width: 2},                                                      // Session indicator
 			table.Column{Header: "ID", Width: 10},                                                   // ID
-			table.Column{Header: "PROJECT", MinWidth: 20, MaxWidth: 50, Weight: 0.45, Truncate: true, TruncateMode: table.TruncateStart}, // Project (flexible, lower weight)
-			table.Column{Header: "TITLE/PROMPT", MinWidth: 30, MaxWidth: 80, Truncate: true},        // Title (flexible)
+			table.Column{Header: "PROJECT", MinWidth: 20, Weight: 0.4, Truncate: true, TruncateMode: table.TruncateStart}, // Project (flexible)
+			table.Column{Header: "TITLE/PROMPT", MinWidth: 30, Weight: 0.6, Truncate: true},         // Title (flexible)
 			table.Column{Header: "MODIFIED", Width: 16},                                             // Modified
 		)
 	} else {
 		tbl = table.New(
 			table.Column{Header: "", Width: 2},                                                      // Session indicator
 			table.Column{Header: "ID", Width: 10},                                                   // ID
-			table.Column{Header: "TITLE/PROMPT", MinWidth: 30, MaxWidth: 80, Truncate: true},        // Title (flexible)
+			table.Column{Header: "TITLE/PROMPT", MinWidth: 30, Truncate: true},                      // Title (flexible)
 			table.Column{Header: "MODIFIED", Width: 16},                                             // Modified
 		)
 	}
 	tbl.Padding = 1
-	tbl.SetTerminalWidth(max(m.width, 80))
+	tbl.SetTerminalWidth(tableWidth)
 	tbl.HeaderStyle = wHeaderStyle
 	tbl.SelectedStyle = wSelectedStyle
 	tbl.SelectedIndex = m.cursor
