@@ -71,8 +71,10 @@ type watchModel struct {
 
 	// Result
 	selectedConv *SessionEntry
-	shouldCreate bool  // true = create new session, false = attach to existing
+	shouldCreate bool   // true = create new session, false = attach to existing
 	forceAttach  bool
+	focusOnly    bool   // Just focus the window, don't attach
+	focusTmux    string // Tmux session to focus
 
 	// Status message (shown briefly after actions)
 	statusMsg string
@@ -552,7 +554,10 @@ func (m watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						// Non-tmux or dead tmux session, cannot attach
 						m.confirmMode = watchConfirmNoTmux
 					} else if existing.Attached > 0 {
-						m.confirmMode = watchConfirmAttachForce
+						// Session already has clients attached - just focus the window
+						m.focusOnly = true
+						m.focusTmux = existing.TmuxSession
+						return m, tea.Quit
 					} else {
 						m.selectedConv = &conv
 						m.shouldCreate = false // Just attach to existing
@@ -780,9 +785,11 @@ func (m watchModel) renderHelpView() string {
 
 // WatchResult holds the result of the watch mode selection
 type WatchResult struct {
-	Conv        *SessionEntry
-	ShouldCreate bool  // true = create new session, false = attach to existing
-	ForceAttach  bool  // Detach other clients when attaching
+	Conv         *SessionEntry
+	ShouldCreate bool   // true = create new session, false = attach to existing
+	ForceAttach  bool   // Detach other clients when attaching
+	FocusOnly    bool   // Just focus the window, don't attach
+	TmuxSession  string // Tmux session to focus (when FocusOnly is true)
 }
 
 // ConvWatchState holds state that persists between attach cycles
@@ -825,6 +832,8 @@ func RunConvWatch(global bool, since, before string, state ConvWatchState) (Watc
 		Conv:         fm.selectedConv,
 		ShouldCreate: fm.shouldCreate,
 		ForceAttach:  fm.forceAttach,
+		FocusOnly:    fm.focusOnly,
+		TmuxSession:  fm.focusTmux,
 	}, newState, nil
 }
 
@@ -838,9 +847,15 @@ func RunConvWatchMode(global bool, since, before string) error {
 			return err
 		}
 
-		if result.Conv == nil {
+		if result.Conv == nil && !result.FocusOnly {
 			// User quit without selecting
 			return nil
+		}
+
+		// Focus only - just focus the window and return to watch mode
+		if result.FocusOnly {
+			session.TryFocusAttachedSession(result.TmuxSession)
+			continue
 		}
 
 		if result.ShouldCreate {

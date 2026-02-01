@@ -63,7 +63,7 @@ func runFocus(params *FocusParams) error {
 	os.Setenv("TOFU_SESSION_ID", state.ID)
 
 	// Try to focus the terminal running this session
-	tryFocusAttachedSession(state.TmuxSession)
+	TryFocusAttachedSession(state.TmuxSession)
 
 	return nil
 }

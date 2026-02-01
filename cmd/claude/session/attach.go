@@ -62,7 +62,7 @@ func runAttach(params *AttachParams) error {
 	if !params.Force && IsTmuxSessionAttached(state.TmuxSession) {
 		fmt.Printf("Session %s is already attached in another terminal\n", state.ID)
 		// Try to focus the terminal window
-		tryFocusAttachedSession(state.TmuxSession)
+		TryFocusAttachedSession(state.TmuxSession)
 		return nil
 	}
 

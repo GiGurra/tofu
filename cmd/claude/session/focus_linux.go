@@ -34,9 +34,9 @@ func debugLog(format string, args ...any) {
 	fmt.Fprintf(f, "[focus] "+format+"\n", args...)
 }
 
-// tryFocusAttachedSession attempts to focus the terminal window that has the session attached.
-func tryFocusAttachedSession(tmuxSession string) {
-	debugLog("tryFocusAttachedSession called for: %s", tmuxSession)
+// TryFocusAttachedSession attempts to focus the terminal window that has the session attached.
+func TryFocusAttachedSession(tmuxSession string) {
+	debugLog("TryFocusAttachedSession called for: %s", tmuxSession)
 
 	if isWSL() {
 		debugLog("WSL detected, using Windows focus")

@@ -935,7 +935,7 @@ func RunWatchMode(includeAll bool, initialSort SortState, initialFilter, initial
 
 		// Focus only - just focus the window and return to watch mode
 		if result.FocusOnly {
-			tryFocusAttachedSession(result.TmuxSession)
+			TryFocusAttachedSession(result.TmuxSession)
 			continue
 		}
 

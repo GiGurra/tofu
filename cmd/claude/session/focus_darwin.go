@@ -9,8 +9,8 @@ import (
 	"strings"
 )
 
-// tryFocusAttachedSession attempts to focus the terminal window that has the session attached.
-func tryFocusAttachedSession(tmuxSession string) {
+// TryFocusAttachedSession attempts to focus the terminal window that has the session attached.
+func TryFocusAttachedSession(tmuxSession string) {
 	FocusTmuxSession(tmuxSession)
 }
 

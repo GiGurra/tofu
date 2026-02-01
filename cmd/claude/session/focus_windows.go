@@ -20,9 +20,9 @@ const (
 	swRestore = 9
 )
 
-// tryFocusAttachedSession attempts to focus the terminal window that has the session attached.
+// TryFocusAttachedSession attempts to focus the terminal window that has the session attached.
 // On Windows native, tmux sessions aren't typical, so this is a no-op.
-func tryFocusAttachedSession(tmuxSession string) {
+func TryFocusAttachedSession(tmuxSession string) {
 	// No-op for external focus attempts
 }
 
