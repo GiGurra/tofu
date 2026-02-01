@@ -630,7 +630,7 @@ func (m watchModel) View() string {
 	case watchConfirmDeleteWithSession:
 		b.WriteString(wConfirmStyle.Render("  Has active session. Delete+stop (y), stop only (s), cancel (n)?"))
 	case watchConfirmNoTmux:
-		b.WriteString(wConfirmStyle.Render("  Session was started outside tofu (◉) - already in its terminal. [press any key]"))
+		b.WriteString(wConfirmStyle.Render("  Session was started outside tofu/tmux (◉) - already in its terminal. [press any key]"))
 	default:
 		if m.statusMsg != "" {
 			b.WriteString(wSearchStyle.Render("  " + m.statusMsg))

@@ -532,7 +532,7 @@ func (m model) View() string {
 		case confirmAttachForce:
 			b.WriteString(confirmStyle.Render(fmt.Sprintf("  Session %s already attached. Detach other clients? [y/n]", m.sessions[m.cursor].ID)))
 		case confirmNoTmux:
-			b.WriteString(confirmStyle.Render(fmt.Sprintf("  Session %s was started outside tofu (◉) - already in its terminal. [press any key]", m.sessions[m.cursor].ID)))
+			b.WriteString(confirmStyle.Render(fmt.Sprintf("  Session %s was started outside tofu/tmux (◉) - already in its terminal. [press any key]", m.sessions[m.cursor].ID)))
 		default:
 			b.WriteString(helpStyle.Render("  h help • / search • ↑/↓ navigate • enter attach • q quit"))
 		}
