@@ -713,11 +713,20 @@ func (m watchModel) View() string {
 		modified := formatDate(e.Modified)
 
 		// Use dynamic title width (titleWidth calculated above)
-		title := e.DisplayTitle()
-		if title == "" {
-			title = truncatePrompt(e.FirstPrompt, titleWidth-2)
+		// Format: [title]: prompt, or just prompt if no title/summary
+		var title string
+		if e.HasTitle() {
+			displayTitle := e.DisplayTitle()
+			prefix := "[" + displayTitle + "]: "
+			remaining := titleWidth - 2 - len(prefix)
+			if remaining < 10 {
+				// Not enough room for prompt, just show title
+				title = truncatePrompt(displayTitle, titleWidth-2)
+			} else {
+				title = prefix + truncatePrompt(e.FirstPrompt, remaining)
+			}
 		} else {
-			title = truncatePrompt("["+title+"]", titleWidth-2)
+			title = truncatePrompt(e.FirstPrompt, titleWidth-2)
 		}
 
 		var row string
