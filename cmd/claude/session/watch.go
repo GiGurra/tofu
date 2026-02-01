@@ -649,15 +649,15 @@ func (m model) View() string {
 		return b.String()
 	}
 
-	// Build table - TITLE/PROMPT and STATUS are flexible
+	// Build table - PROJECT, TITLE/PROMPT and STATUS are flexible
 	tableWidth := max(m.width-3, 60)
 	tbl := table.New(
-		table.Column{Header: "", Width: 2},                                                             // Attached indicator
-		table.Column{Header: "ID" + m.sort.Indicator(SortID), Width: 10},                               // ID
-		table.Column{Header: "PROJECT" + m.sort.Indicator(SortDirectory), Width: 20, Truncate: true},   // Project (base name of cwd)
-		table.Column{Header: "TITLE/PROMPT", MinWidth: 20, Weight: 0.7, Truncate: true},                // Title/prompt (flexible)
-		table.Column{Header: "STATUS" + m.sort.Indicator(SortStatus), MinWidth: 15, Weight: 0.3, Truncate: true}, // Status (flexible)
-		table.Column{Header: "UPDATED" + m.sort.Indicator(SortUpdated), Width: 10},                     // Updated
+		table.Column{Header: "", Width: 2},                                                                                               // Attached indicator
+		table.Column{Header: "ID" + m.sort.Indicator(SortID), Width: 10},                                                                 // ID
+		table.Column{Header: "PROJECT" + m.sort.Indicator(SortDirectory), MinWidth: 15, Weight: 0.25, Truncate: true, TruncateMode: table.TruncateStart}, // Project (full path, truncate from start)
+		table.Column{Header: "TITLE/PROMPT", MinWidth: 20, Weight: 0.5, Truncate: true},                                                  // Title/prompt (flexible)
+		table.Column{Header: "STATUS" + m.sort.Indicator(SortStatus), MinWidth: 15, Weight: 0.25, Truncate: true},                        // Status (flexible)
+		table.Column{Header: "UPDATED" + m.sort.Indicator(SortUpdated), Width: 10},                                                       // Updated
 	)
 	tbl.Padding = 3
 	tbl.SetTerminalWidth(tableWidth)
@@ -685,11 +685,8 @@ func (m model) View() string {
 			attachedMark = " ▷" // Tmux detached (can attach)
 		}
 
-		// Get project name (base of cwd)
-		project := filepath.Base(state.Cwd)
-		if project == "." || project == "" {
-			project = state.Cwd
-		}
+		// Get project path (full path, table will truncate from start)
+		project := state.Cwd
 
 		// Get title/prompt from conversation if available
 		title := convindex.GetConvTitleAndPrompt(state.ConvID, state.Cwd)
