@@ -36,9 +36,9 @@ Alternatively, create `~/.tofu/config.json` manually:
   "notifications": {
     "enabled": true,
     "transitions": [
-      {"from": "working", "to": "idle"},
-      {"from": "working", "to": "awaiting_permission"},
-      {"from": "working", "to": "awaiting_input"},
+      {"from": "*", "to": "idle"},
+      {"from": "*", "to": "awaiting_permission"},
+      {"from": "*", "to": "awaiting_input"},
       {"from": "*", "to": "exited"}
     ],
     "cooldown_seconds": 5
@@ -59,9 +59,9 @@ Alternatively, create `~/.tofu/config.json` manually:
 Each transition rule has `from` and `to` fields. Use `*` as a wildcard to match any state.
 
 **Default transitions:**
-- `working` → `idle` - Claude finished processing
-- `working` → `awaiting_permission` - Claude needs permission to proceed
-- `working` → `awaiting_input` - Claude is asking a question
+- `*` → `idle` - Claude finished processing
+- `*` → `awaiting_permission` - Claude needs permission to proceed
+- `*` → `awaiting_input` - Claude is asking a question
 - `*` → `exited` - Session ended
 
 **Available states:** `working`, `idle`, `awaiting_permission`, `awaiting_input`, `exited`
