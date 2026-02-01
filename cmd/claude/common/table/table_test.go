@@ -553,6 +553,20 @@ func TestFormatCell(t *testing.T) {
 			width: 5,
 			want:  "hell…",
 		},
+		{
+			name:  "truncate from start",
+			value: "/home/user/projects/myapp",
+			col:   Column{Truncate: true, TruncateMode: TruncateStart},
+			width: 15,
+			want:  "…projects/myapp",
+		},
+		{
+			name:  "truncate from start padded",
+			value: "/home/user",
+			col:   Column{Truncate: true, TruncateMode: TruncateStart},
+			width: 15,
+			want:  "/home/user     ",
+		},
 	}
 
 	for _, tt := range tests {

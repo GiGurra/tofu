@@ -651,7 +651,7 @@ func (m watchModel) View() string {
 		tbl = table.New(
 			table.Column{Header: "", Width: 2},                                                      // Session indicator
 			table.Column{Header: "ID", Width: 10},                                                   // ID
-			table.Column{Header: "PROJECT", Width: 30, Truncate: true},                              // Project
+			table.Column{Header: "PROJECT", Width: 30, Truncate: true, TruncateMode: table.TruncateStart}, // Project (truncate from start for paths)
 			table.Column{Header: "TITLE/PROMPT", MinWidth: 30, MaxWidth: 80, Truncate: true},        // Title (flexible)
 			table.Column{Header: "BRANCH", Width: 15, Truncate: true},                               // Branch
 			table.Column{Header: "MODIFIED", Width: 16},                                             // Modified
@@ -673,7 +673,7 @@ func (m watchModel) View() string {
 	tbl.ViewportOffset = m.viewportOffset
 	tbl.ViewportHeight = m.viewportHeight
 
-	// Get calculated title column width for content truncation
+	// Get calculated title column width for content formatting
 	titleColIndex := 2 // icon, id, title...
 	if m.global {
 		titleColIndex = 3 // icon, id, project, title...
@@ -715,9 +715,8 @@ func (m watchModel) View() string {
 		}
 
 		if m.global {
-			project := table.TruncateFromStart(e.ProjectPath, 28)
 			tbl.AddRow(table.Row{
-				Cells: []string{sessionMark, id, project, title, e.GitBranch, modified},
+				Cells: []string{sessionMark, id, e.ProjectPath, title, e.GitBranch, modified},
 			})
 		} else {
 			tbl.AddRow(table.Row{

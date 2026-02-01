@@ -614,7 +614,7 @@ func (m model) View() string {
 	tbl := table.New(
 		table.Column{Header: "", Width: 2},                                                             // Attached indicator
 		table.Column{Header: "ID" + m.sort.Indicator(SortID), Width: 10},                               // ID
-		table.Column{Header: "DIRECTORY" + m.sort.Indicator(SortDirectory), MinWidth: 20, MaxWidth: 50, Truncate: true}, // Directory (flexible)
+		table.Column{Header: "DIRECTORY" + m.sort.Indicator(SortDirectory), MinWidth: 20, MaxWidth: 50, Truncate: true, TruncateMode: table.TruncateStart}, // Directory (flexible, truncate from start for paths)
 		table.Column{Header: "STATUS" + m.sort.Indicator(SortStatus), Width: 25, Truncate: true},       // Status
 		table.Column{Header: "AGE" + m.sort.Indicator(SortAge), Width: 10},                             // Age
 		table.Column{Header: "UPDATED" + m.sort.Indicator(SortUpdated), Width: 10},                     // Updated
@@ -624,9 +624,6 @@ func (m model) View() string {
 	tbl.HeaderStyle = headerStyle
 	tbl.SelectedStyle = selectedStyle
 	tbl.SelectedIndex = m.cursor
-
-	// Get calculated directory column width for truncation
-	dirWidth := tbl.GetColumnWidth(2) // icon, id, directory
 
 	// Add rows
 	for _, state := range m.sessions {
@@ -646,12 +643,11 @@ func (m model) View() string {
 			attachedMark = " ▷" // Tmux detached (can attach)
 		}
 
-		dir := table.TruncateFromStart(state.Cwd, dirWidth)
 		age := FormatDuration(time.Since(state.Created))
 		updated := FormatDuration(time.Since(state.Updated))
 
 		tbl.AddRow(table.Row{
-			Cells: []string{attachedMark, state.ID, dir, status, age, updated},
+			Cells: []string{attachedMark, state.ID, state.Cwd, status, age, updated},
 			Style: getRowStyle(state.Status),
 		})
 	}

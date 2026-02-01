@@ -9,15 +9,24 @@ const (
 	AlignCenter
 )
 
+// TruncateMode specifies how to truncate content that's too long
+type TruncateMode int
+
+const (
+	TruncateEnd   TruncateMode = iota // Truncate from end: "hello..." (default)
+	TruncateStart                     // Truncate from start: "...world" (good for paths)
+)
+
 // Column defines a table column configuration
 type Column struct {
-	Header   string    // Column header text
-	Width    int       // Fixed width (0 = flexible)
-	MinWidth int       // Minimum width for flexible columns
-	MaxWidth int       // Maximum width (0 = unlimited)
-	Weight   float64   // Weight for distributing remaining space (default 1.0)
-	Align    Alignment // Left, Right, Center (default Left)
-	Truncate bool      // Truncate with ellipsis if content too long
+	Header       string       // Column header text
+	Width        int          // Fixed width (0 = flexible)
+	MinWidth     int          // Minimum width for flexible columns
+	MaxWidth     int          // Maximum width (0 = unlimited)
+	Weight       float64      // Weight for distributing remaining space (default 1.0)
+	Align        Alignment    // Left, Right, Center (default Left)
+	Truncate     bool         // Truncate with ellipsis if content too long
+	TruncateMode TruncateMode // How to truncate: TruncateEnd (default) or TruncateStart
 }
 
 // IsFixed returns true if the column has a fixed width
@@ -131,8 +140,13 @@ func CalculateColumnWidths(columns []Column, termWidth int, padding int) []int {
 
 // FormatCell formats a cell value according to column settings
 func FormatCell(value string, col Column, width int) string {
-	if col.Truncate && len(value) > width {
-		value = TruncateWithEllipsis(value, width)
+	if col.Truncate && StringWidth(value) > width {
+		switch col.TruncateMode {
+		case TruncateStart:
+			value = TruncateFromStart(value, width)
+		default:
+			value = TruncateWithEllipsis(value, width)
+		}
 	}
 
 	switch col.Align {
