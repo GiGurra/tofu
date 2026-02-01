@@ -319,6 +319,27 @@ func IsTmuxSessionAttached(sessionName string) bool {
 	return GetTmuxSessionAttachedCount(sessionName) > 0
 }
 
+// DetachSessionClients detaches all clients from a tmux session
+func DetachSessionClients(sessionName string) error {
+	// Get list of clients attached to this session
+	cmd := exec.Command("tmux", "list-clients", "-t", sessionName, "-F", "#{client_tty}")
+	output, err := cmd.Output()
+	if err != nil {
+		return err
+	}
+
+	// Detach each client
+	clients := strings.Split(strings.TrimSpace(string(output)), "\n")
+	for _, client := range clients {
+		if client == "" {
+			continue
+		}
+		// Detach this specific client
+		_ = exec.Command("tmux", "detach-client", "-t", client).Run()
+	}
+	return nil
+}
+
 // CheckTmuxInstalled verifies tmux is available
 func CheckTmuxInstalled() error {
 	_, err := exec.LookPath("tmux")

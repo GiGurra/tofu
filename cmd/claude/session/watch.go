@@ -40,6 +40,7 @@ const (
 	confirmKill
 	confirmAttachForce // Session already attached, confirm force attach
 	confirmNoTmux      // Session has no tmux, cannot attach
+	confirmDetach      // Confirm detaching clients from session
 )
 
 // Filter options for the checkbox menu
@@ -67,6 +68,7 @@ type model struct {
 	shouldAttach   string // tmux session name to attach to after quitting
 	shouldAttachID string // session ID for inbox watcher
 	forceAttach    bool   // detach other clients when attaching
+	focusOnly      bool   // just focus, don't attach (session already attached elsewhere)
 	createNew     bool   // create a new session after quitting
 	includeAll    bool
 	sort          SortState
@@ -369,6 +371,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.forceAttach = true
 						m.confirmMode = confirmNone
 						return m, tea.Quit
+					} else if m.confirmMode == confirmDetach {
+						state := m.sessions[m.cursor]
+						_ = DetachSessionClients(state.TmuxSession)
+						m.confirmMode = confirmNone
+						m = m.refreshSessions()
 					}
 				}
 			case "n", "N", "esc", "q", "enter", " ":
@@ -508,8 +515,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Non-tmux or dead tmux session, cannot attach
 					m.confirmMode = confirmNoTmux
 				} else if state.Attached > 0 {
-					// Session already has clients attached, ask for confirmation
-					m.confirmMode = confirmAttachForce
+					// Session already has clients attached - just focus the window
+					m.shouldAttach = state.TmuxSession
+					m.shouldAttachID = state.ID
+					m.focusOnly = true
+					return m, tea.Quit
 				} else {
 					m.shouldAttach = state.TmuxSession
 					m.shouldAttachID = state.ID
@@ -519,6 +529,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "delete", "backspace", "x":
 			if len(m.sessions) > 0 && m.cursor < len(m.sessions) {
 				m.confirmMode = confirmKill
+			}
+		case "d", "D":
+			// Detach clients from session
+			if len(m.sessions) > 0 && m.cursor < len(m.sessions) {
+				state := m.sessions[m.cursor]
+				if state.Attached > 0 && state.TmuxSession != "" {
+					m.confirmMode = confirmDetach
+				}
 			}
 		case "f":
 			// Initialize filter checkboxes from current filter state
@@ -689,6 +707,8 @@ func (m model) View() string {
 			b.WriteString(confirmStyle.Render(fmt.Sprintf("  Kill session %s? [y/n]", m.sessions[m.cursor].ID)))
 		case confirmAttachForce:
 			b.WriteString(confirmStyle.Render(fmt.Sprintf("  Session %s already attached. Detach other clients? [y/n]", m.sessions[m.cursor].ID)))
+		case confirmDetach:
+			b.WriteString(confirmStyle.Render(fmt.Sprintf("  Detach all clients from session %s? [y/n]", m.sessions[m.cursor].ID)))
 		case confirmNoTmux:
 			b.WriteString(confirmStyle.Render(fmt.Sprintf("  Session %s was started outside tofu/tmux (◉) - already in its terminal. [press any key]", m.sessions[m.cursor].ID)))
 		default:
@@ -823,6 +843,7 @@ type AttachResult struct {
 	SessionID   string // session ID for inbox watcher
 	ForceAttach bool   // true if we should detach other clients
 	CreateNew   bool   // true if user wants to create a new session
+	FocusOnly   bool   // true if we should just focus (session already attached)
 }
 
 // RunInteractive starts the interactive session viewer
@@ -851,6 +872,7 @@ func RunInteractive(includeAll bool, state WatchState) (AttachResult, WatchState
 		SessionID:   fm.shouldAttachID,
 		ForceAttach: fm.forceAttach,
 		CreateNew:   fm.createNew,
+		FocusOnly:   fm.focusOnly,
 	}
 	newState := WatchState{
 		Sort:         fm.sort,
@@ -909,6 +931,12 @@ func RunWatchMode(includeAll bool, initialSort SortState, initialFilter, initial
 			// User quit without selecting - auto-prune exited sessions
 			pruneExitedSessionsSilent()
 			return nil
+		}
+
+		// Focus only - just focus the window and return to watch mode
+		if result.FocusOnly {
+			tryFocusAttachedSession(result.TmuxSession)
+			continue
 		}
 
 		// Attach to the session
