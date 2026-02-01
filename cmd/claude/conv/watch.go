@@ -13,19 +13,17 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/fsnotify/fsnotify"
+	"github.com/gigurra/tofu/cmd/claude/common/table"
 	"github.com/gigurra/tofu/cmd/claude/session"
 	"github.com/gigurra/tofu/cmd/claude/syncutil"
 )
 
 var (
-	wSelectedStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("15")).Background(lipgloss.Color("62"))
+	wSelectedStyle = lipgloss.NewStyle().Bold(true).Background(lipgloss.Color("238")) // Dark gray background, preserves row foreground color
 	wHeaderStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("250"))
 	wHelpStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 	wSearchStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
 	wConfirmStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("196"))
-	wActiveStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("46"))  // Green for attached tmux session
-	wDetachedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("46"))  // Green for detached tmux session
-	wNoTmuxStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("226")) // Yellow for non-tmux session
 )
 
 type watchTickMsg time.Time
@@ -647,108 +645,83 @@ func (m watchModel) View() string {
 		return b.String()
 	}
 
-	// Header - calculate dynamic title width based on terminal width
-	termWidth := m.width
-	if termWidth < 80 {
-		termWidth = 120
-	}
-
-	// Fixed column widths: sessionMark(2) + id(10) + branch(15) + modified(16) + spaces(4) = 47
-	// Global adds: project(30) + space(1) = 31 more
-	// Title gets the rest
-	var fixedWidth int
+	// Build table - use flexible column for TITLE/PROMPT
+	var tbl *table.Table
 	if m.global {
-		fixedWidth = 3 + 10 + 1 + 30 + 1 + 1 + 15 + 1 + 16 // 78 (icon + id + project + title margin + branch + modified)
+		tbl = table.New(
+			table.Column{Header: "", Width: 2},                                                      // Session indicator
+			table.Column{Header: "ID", Width: 10},                                                   // ID
+			table.Column{Header: "PROJECT", MinWidth: 20, MaxWidth: 50, Weight: 0.45, Truncate: true, TruncateMode: table.TruncateStart}, // Project (flexible, lower weight)
+			table.Column{Header: "TITLE/PROMPT", MinWidth: 30, MaxWidth: 80, Truncate: true},        // Title (flexible)
+			table.Column{Header: "BRANCH", Width: 15, Truncate: true},                               // Branch
+			table.Column{Header: "MODIFIED", Width: 16},                                             // Modified
+		)
 	} else {
-		fixedWidth = 3 + 10 + 1 + 1 + 15 + 1 + 16 // 47 (icon + id + title margin + branch + modified)
+		tbl = table.New(
+			table.Column{Header: "", Width: 2},                                                      // Session indicator
+			table.Column{Header: "ID", Width: 10},                                                   // ID
+			table.Column{Header: "TITLE/PROMPT", MinWidth: 30, MaxWidth: 80, Truncate: true},        // Title (flexible)
+			table.Column{Header: "BRANCH", Width: 15, Truncate: true},                               // Branch
+			table.Column{Header: "MODIFIED", Width: 16},                                             // Modified
+		)
 	}
-	titleWidth := termWidth - fixedWidth - 2 // -2 for some margin
-	if titleWidth < 30 {
-		titleWidth = 30
-	}
-	if titleWidth > 80 {
-		titleWidth = 80
-	}
+	tbl.Padding = 1
+	tbl.SetTerminalWidth(max(m.width, 80))
+	tbl.HeaderStyle = wHeaderStyle
+	tbl.SelectedStyle = wSelectedStyle
+	tbl.SelectedIndex = m.cursor
+	tbl.ViewportOffset = m.viewportOffset
+	tbl.ViewportHeight = m.viewportHeight
 
-	var header string
-	rowWidth := fixedWidth + titleWidth
-	if m.global {
-		header = fmt.Sprintf("   %-10s %-30s %-*s %-15s %-16s", "ID", "PROJECT", titleWidth, "TITLE/PROMPT", "BRANCH", "MODIFIED")
-	} else {
-		header = fmt.Sprintf("   %-10s %-*s %-15s %-16s", "ID", titleWidth, "TITLE/PROMPT", "BRANCH", "MODIFIED")
-	}
-	b.WriteString(wHeaderStyle.Render(header))
-	b.WriteString("\n")
-	b.WriteString(wHeaderStyle.Render(strings.Repeat("─", rowWidth)))
-	b.WriteString("\n")
-
-	// Render visible rows only
-	endIdx := min(m.viewportOffset+m.viewportHeight, len(m.filtered))
-
-	for i := m.viewportOffset; i < endIdx; i++ {
-		e := m.filtered[i]
-
-		// Session indicator
-		// ⚡ = tmux session with attached clients
-		// ○ = tmux session, detached
-		// ◉ = non-tmux or dead tmux session (in-terminal, can't attach)
+	// Add rows for all filtered entries
+	for _, e := range m.filtered {
+		// Session indicator (plain text - ANSI in cells breaks row selection highlight)
 		sessionMark := "  "
 		if state, ok := m.activeSessions[e.SessionID]; ok {
 			tmuxAlive := state.TmuxSession != "" && session.IsTmuxSessionAlive(state.TmuxSession)
 			if !tmuxAlive {
-				sessionMark = " " + wNoTmuxStyle.Render("◉")
+				sessionMark = " ◉" // Non-tmux or dead tmux
 			} else if state.Attached > 0 {
-				sessionMark = wActiveStyle.Render("⚡")
+				sessionMark = "⚡" // Tmux with attached clients
 			} else {
-				sessionMark = " " + wDetachedStyle.Render("▷")
+				sessionMark = " ▷" // Tmux detached
 			}
 		}
 
-		// Format row
+		// Format fields
 		id := e.SessionID[:8]
-		branch := e.GitBranch
-		if len(branch) > 15 {
-			branch = branch[:14] + "…"
-		}
 		modified := formatDate(e.Modified)
 
-		// Use dynamic title width (titleWidth calculated above)
-		// Format: [title]: prompt, or just prompt if no title/summary
+		// Build title: [title]: prompt, or just prompt (table handles truncation)
 		var title string
 		if e.HasTitle() {
-			displayTitle := e.DisplayTitle()
-			prefix := "[" + displayTitle + "]: "
-			remaining := titleWidth - 2 - len(prefix)
-			if remaining < 10 {
-				// Not enough room for prompt, just show title
-				title = truncatePrompt(displayTitle, titleWidth-2)
-			} else {
-				title = prefix + truncatePrompt(e.FirstPrompt, remaining)
-			}
+			title = "[" + e.DisplayTitle() + "]: " + cleanPrompt(e.FirstPrompt)
 		} else {
-			title = truncatePrompt(e.FirstPrompt, titleWidth-2)
+			title = cleanPrompt(e.FirstPrompt)
 		}
 
-		var row string
 		if m.global {
-			project := shortenPath(e.ProjectPath, 28)
-			row = fmt.Sprintf("%s %-10s %-30s %-*s %-15s %s", sessionMark, id, project, titleWidth, title, branch, modified)
+			tbl.AddRow(table.Row{
+				Cells: []string{sessionMark, id, e.ProjectPath, title, e.GitBranch, modified},
+			})
 		} else {
-			row = fmt.Sprintf("%s %-10s %-*s %-15s %s", sessionMark, id, titleWidth, title, branch, modified)
+			tbl.AddRow(table.Row{
+				Cells: []string{sessionMark, id, title, e.GitBranch, modified},
+			})
 		}
-
-		if i == m.cursor {
-			b.WriteString(wSelectedStyle.Render(row))
-		} else {
-			b.WriteString(row)
-		}
-		b.WriteString("\n")
 	}
 
+	// Render table
+	b.WriteString(tbl.RenderHeader())
+	b.WriteString("\n")
+	b.WriteString(tbl.RenderSeparator())
+	b.WriteString("\n")
+	b.WriteString(tbl.RenderRows())
+	b.WriteString("\n")
+
 	// Scroll indicator
-	if len(m.filtered) > m.viewportHeight {
-		scrollPct := float64(m.viewportOffset) / float64(len(m.filtered)-m.viewportHeight) * 100
-		b.WriteString(wHelpStyle.Render(fmt.Sprintf("  ── scroll: %.0f%% ──", scrollPct)))
+	if tbl.NeedsScrollIndicator() {
+		b.WriteString(tbl.RenderScrollIndicator(wHelpStyle))
 		b.WriteString("\n")
 	}
 

@@ -13,10 +13,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/fsnotify/fsnotify"
+	"github.com/gigurra/tofu/cmd/claude/common/table"
 )
 
 var (
-	selectedStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("15")).Background(lipgloss.Color("62"))
+	selectedStyle = lipgloss.NewStyle().Bold(true).Background(lipgloss.Color("238")) // Dark gray background, preserves row foreground color
 	idleStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("226"))     // Yellow
 	workingStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("46"))      // Green
 	needsInput    = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))     // Bright red
@@ -609,43 +610,29 @@ func (m model) View() string {
 		return b.String()
 	}
 
-	// Header with sort indicators and filter badge
-	idHdr := "ID" + m.sort.Indicator(SortID)
-	dirHdr := "DIRECTORY" + m.sort.Indicator(SortDirectory)
-	statusHdr := "STATUS" + m.sort.Indicator(SortStatus)
-	ageHdr := "AGE" + m.sort.Indicator(SortAge)
-	updatedHdr := "UPDATED" + m.sort.Indicator(SortUpdated)
-	header := fmt.Sprintf("   %-10s %-35s %-25s %-10s %s", idHdr, dirHdr, statusHdr, ageHdr, updatedHdr)
-	b.WriteString(headerStyle.Render(header))
+	// Build table using table library - DIRECTORY is flexible
+	tbl := table.New(
+		table.Column{Header: "", Width: 2},                                                             // Attached indicator
+		table.Column{Header: "ID" + m.sort.Indicator(SortID), Width: 10},                               // ID
+		table.Column{Header: "DIRECTORY" + m.sort.Indicator(SortDirectory), MinWidth: 20, MaxWidth: 50, Truncate: true, TruncateMode: table.TruncateStart}, // Directory (flexible, truncate from start for paths)
+		table.Column{Header: "STATUS" + m.sort.Indicator(SortStatus), Width: 25, Truncate: true},       // Status
+		table.Column{Header: "AGE" + m.sort.Indicator(SortAge), Width: 10},                             // Age
+		table.Column{Header: "UPDATED" + m.sort.Indicator(SortUpdated), Width: 10},                     // Updated
+	)
+	tbl.Padding = 1
+	tbl.SetTerminalWidth(max(m.width, 80))
+	tbl.HeaderStyle = headerStyle
+	tbl.SelectedStyle = selectedStyle
+	tbl.SelectedIndex = m.cursor
 
-	// Show filter badge
-	if len(m.statusFilter) > 0 {
-		b.WriteString(filterBadge.Render(fmt.Sprintf("  [%s]", strings.Join(m.statusFilter, ", "))))
-	}
-	b.WriteString("\n")
-
-	width := m.width
-	if width < 10 {
-		width = 90 // default width
-	}
-	b.WriteString(headerStyle.Render(strings.Repeat("─", min(width-2, 90))))
-	b.WriteString("\n")
-
-	// Rows
-	for i, state := range m.sessions {
+	// Add rows
+	for _, state := range m.sessions {
 		status := state.Status
 		if state.StatusDetail != "" {
 			status = status + ": " + state.StatusDetail
 		}
-		// Truncate status if too long
-		if len(status) > 25 {
-			status = status[:24] + "…"
-		}
 
 		// Add attached/type indicator
-		// ⚡ = tmux session with attached clients
-		// ◉ = non-tmux session (always in-terminal, can't attach)
-		//   = tmux session, no clients attached
 		attachedMark := "  "
 		tmuxAlive := state.TmuxSession != "" && IsTmuxSessionAlive(state.TmuxSession)
 		if !tmuxAlive {
@@ -656,20 +643,29 @@ func (m model) View() string {
 			attachedMark = " ▷" // Tmux detached (can attach)
 		}
 
-		dir := shortenPathForTable(state.Cwd, 33)
 		age := FormatDuration(time.Since(state.Created))
 		updated := FormatDuration(time.Since(state.Updated))
 
-		row := fmt.Sprintf("%s %-10s %-35s %-25s %-10s %s", attachedMark, state.ID, dir, status, age, updated)
-
-		if i == m.cursor {
-			b.WriteString(selectedStyle.Render(row))
-		} else {
-			style := getRowStyle(state.Status)
-			b.WriteString(style.Render(row))
-		}
-		b.WriteString("\n")
+		tbl.AddRow(table.Row{
+			Cells: []string{attachedMark, state.ID, state.Cwd, status, age, updated},
+			Style: getRowStyle(state.Status),
+		})
 	}
+
+	// Render header
+	b.WriteString(tbl.RenderHeader())
+
+	// Show filter badge
+	if len(m.statusFilter) > 0 {
+		b.WriteString(filterBadge.Render(fmt.Sprintf("  [%s]", strings.Join(m.statusFilter, ", "))))
+	}
+	b.WriteString("\n")
+
+	// Render separator and rows
+	b.WriteString(tbl.RenderSeparator())
+	b.WriteString("\n")
+	b.WriteString(tbl.RenderRows())
+	b.WriteString("\n")
 
 	// Confirmation dialog or help hint
 	b.WriteString("\n")
@@ -796,13 +792,6 @@ func getRowStyle(status string) lipgloss.Style {
 	default:
 		return needsInput
 	}
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 // WatchState holds state that persists between attach cycles
