@@ -72,22 +72,55 @@ func (t *Table) SetTerminalWidth(width int) {
 	}
 }
 
-// AddRow adds a row to the table
+// AddRow adds a row to the table and invalidates cached widths
 func (t *Table) AddRow(row Row) {
 	t.Rows = append(t.Rows, row)
+	t.calculatedWidths = nil // Content changed, recalculate widths
 }
 
-// ClearRows removes all rows from the table
+// ClearRows removes all rows from the table and invalidates cached widths
 func (t *Table) ClearRows() {
 	t.Rows = nil
+	t.calculatedWidths = nil
 }
 
-// CalculateWidths computes actual column widths based on terminal width
+// CalculateWidths computes actual column widths based on terminal width.
+// For flexible columns, widths are capped at actual content width (no wasted space).
 func (t *Table) CalculateWidths() []int {
 	if t.calculatedWidths == nil {
-		t.calculatedWidths = CalculateColumnWidths(t.Columns, t.TerminalWidth, t.Padding)
+		contentWidths := t.maxContentWidths()
+		t.calculatedWidths = CalculateColumnWidthsWithContent(t.Columns, t.TerminalWidth, t.Padding, contentWidths)
 	}
 	return t.calculatedWidths
+}
+
+// maxContentWidths returns the maximum content width for each column based on rows.
+// Returns nil if no rows exist.
+func (t *Table) maxContentWidths() []int {
+	if len(t.Rows) == 0 {
+		return nil
+	}
+
+	widths := make([]int, len(t.Columns))
+
+	// Include header widths
+	for i, col := range t.Columns {
+		widths[i] = StringWidth(col.Header)
+	}
+
+	// Find max content width per column
+	for _, row := range t.Rows {
+		for i, cell := range row.Cells {
+			if i < len(widths) {
+				w := StringWidth(cell)
+				if w > widths[i] {
+					widths[i] = w
+				}
+			}
+		}
+	}
+
+	return widths
 }
 
 // InvalidateWidths forces recalculation of column widths on next render

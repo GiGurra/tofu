@@ -44,12 +44,19 @@ func (c *Column) EffectiveWeight() float64 {
 }
 
 // CalculateColumnWidths computes actual column widths based on terminal width.
+// Use CalculateColumnWidthsWithContent for content-aware sizing.
+func CalculateColumnWidths(columns []Column, termWidth int, padding int) []int {
+	return CalculateColumnWidthsWithContent(columns, termWidth, padding, nil)
+}
+
+// CalculateColumnWidthsWithContent computes column widths with optional content-awareness.
 // The algorithm:
 // 1. Allocate fixed-width columns first
 // 2. Distribute remaining space to flexible columns by weight
 // 3. Clamp flexible columns to min/max constraints
-// 4. Give any remaining space to the first flexible column that can use it
-func CalculateColumnWidths(columns []Column, termWidth int, padding int) []int {
+// 4. Cap flexible columns at actual content width (if contentWidths provided)
+// 5. Give any remaining space to flexible columns that can use it
+func CalculateColumnWidthsWithContent(columns []Column, termWidth int, padding int, contentWidths []int) []int {
 	if len(columns) == 0 {
 		return nil
 	}
@@ -96,23 +103,52 @@ func CalculateColumnWidths(columns []Column, termWidth int, padding int) []int {
 				width = col.MaxWidth
 			}
 
+			// Cap at content width (don't allocate more space than content needs)
+			if contentWidths != nil && i < len(contentWidths) {
+				contentWidth := contentWidths[i]
+				if contentWidth > 0 && width > contentWidth {
+					width = contentWidth
+				}
+				// But still respect MinWidth
+				if col.MinWidth > 0 && width < col.MinWidth {
+					width = col.MinWidth
+				}
+			}
+
 			widths[i] = width
 			allocated += width
 		}
 
-		// Give leftover to the last flexible column that can use it
+		// Give leftover to flexible columns that can use it (content needs more space)
 		leftover := remainingWidth - allocated
 		if leftover > 0 {
 			for j := len(flexibleIndices) - 1; j >= 0; j-- {
 				i := flexibleIndices[j]
 				col := columns[i]
 				canAdd := leftover
+
+				// Cap at MaxWidth
 				if col.MaxWidth > 0 {
 					maxAdd := col.MaxWidth - widths[i]
 					if canAdd > maxAdd {
 						canAdd = maxAdd
 					}
 				}
+
+				// Cap at content width (don't expand beyond content needs)
+				if contentWidths != nil && i < len(contentWidths) {
+					contentWidth := contentWidths[i]
+					if contentWidth > 0 {
+						maxAdd := contentWidth - widths[i]
+						if maxAdd < 0 {
+							maxAdd = 0
+						}
+						if canAdd > maxAdd {
+							canAdd = maxAdd
+						}
+					}
+				}
+
 				if canAdd > 0 {
 					widths[i] += canAdd
 					leftover -= canAdd

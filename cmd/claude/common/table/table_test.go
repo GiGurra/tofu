@@ -249,6 +249,30 @@ func TestCalculateColumnWidths(t *testing.T) {
 	}
 }
 
+func TestContentAwareWidths(t *testing.T) {
+	// Create table with flexible column that has MaxWidth 50
+	tbl := New(
+		Column{Header: "ID", Width: 5},
+		Column{Header: "PATH", MinWidth: 10, MaxWidth: 50, Truncate: true},
+	)
+	tbl.SetTerminalWidth(100)
+
+	// Add rows with short content (max 15 chars)
+	tbl.AddRow(Row{Cells: []string{"1", "/home/user"}})     // 10 chars
+	tbl.AddRow(Row{Cells: []string{"2", "/home/user/foo"}}) // 14 chars
+
+	widths := tbl.CalculateWidths()
+
+	// PATH column should be capped at content width (14), not expand to MaxWidth (50)
+	// or fill remaining space
+	if widths[1] > 20 {
+		t.Errorf("PATH column width = %d, expected <= 20 (content-aware)", widths[1])
+	}
+	if widths[1] < 14 {
+		t.Errorf("PATH column width = %d, expected >= 14 (content width)", widths[1])
+	}
+}
+
 func TestTableNew(t *testing.T) {
 	tbl := New(
 		Column{Header: "ID", Width: 10},
