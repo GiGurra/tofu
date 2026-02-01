@@ -32,6 +32,7 @@ const (
 	confirmNone confirmMode = iota
 	confirmKill
 	confirmAttachForce // Session already attached, confirm force attach
+	confirmNoTmux      // Session has no tmux, cannot attach
 )
 
 // Filter options for the checkbox menu
@@ -215,7 +216,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return m, tea.Quit
 					}
 				}
-			case "n", "N", "esc", "q":
+			case "n", "N", "esc", "q", "enter", " ":
 				m.confirmMode = confirmNone
 			}
 			return m, nil
@@ -345,7 +346,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if len(m.sessions) > 0 && m.cursor < len(m.sessions) {
 				state := m.sessions[m.cursor]
-				if state.Attached > 0 {
+				tmuxAlive := state.TmuxSession != "" && IsTmuxSessionAlive(state.TmuxSession)
+				if !tmuxAlive {
+					// Non-tmux or dead tmux session, cannot attach
+					m.confirmMode = confirmNoTmux
+				} else if state.Attached > 0 {
 					// Session already has clients attached, ask for confirmation
 					m.confirmMode = confirmAttachForce
 				} else {
@@ -464,7 +469,7 @@ func (m model) View() string {
 	statusHdr := "STATUS" + m.sort.Indicator(SortStatus)
 	ageHdr := "AGE" + m.sort.Indicator(SortAge)
 	updatedHdr := "UPDATED" + m.sort.Indicator(SortUpdated)
-	header := fmt.Sprintf("  %-12s %-35s %-22s %-10s %s", idHdr, dirHdr, statusHdr, ageHdr, updatedHdr)
+	header := fmt.Sprintf("   %-10s %-35s %-25s %-10s %s", idHdr, dirHdr, statusHdr, ageHdr, updatedHdr)
 	b.WriteString(headerStyle.Render(header))
 
 	// Show filter badge
@@ -486,18 +491,28 @@ func (m model) View() string {
 		if state.StatusDetail != "" {
 			status = status + ": " + state.StatusDetail
 		}
+		// Truncate status if too long
+		if len(status) > 25 {
+			status = status[:24] + "…"
+		}
 
-		// Add attached indicator
+		// Add attached/type indicator
+		// ⚡ = tmux session with attached clients
+		// ◉ = non-tmux session (always in-terminal, can't attach)
+		//   = tmux session, no clients attached
 		attachedMark := "  "
-		if state.Attached > 0 {
-			attachedMark = "⚡"
+		tmuxAlive := state.TmuxSession != "" && IsTmuxSessionAlive(state.TmuxSession)
+		if !tmuxAlive {
+			attachedMark = " ◉" // Non-tmux or dead tmux (in-terminal, can't attach)
+		} else if state.Attached > 0 {
+			attachedMark = "⚡" // Tmux with attached clients
 		}
 
 		dir := shortenPathForTable(state.Cwd, 33)
 		age := FormatDuration(time.Since(state.Created))
 		updated := FormatDuration(time.Since(state.Updated))
 
-		row := fmt.Sprintf("%s %-10s %-35s %-22s %-10s %s", attachedMark, state.ID, dir, status, age, updated)
+		row := fmt.Sprintf("%s %-10s %-35s %-25s %-10s %s", attachedMark, state.ID, dir, status, age, updated)
 
 		if i == m.cursor {
 			b.WriteString(selectedStyle.Render(row))
@@ -516,6 +531,8 @@ func (m model) View() string {
 			b.WriteString(confirmStyle.Render(fmt.Sprintf("  Kill session %s? [y/n]", m.sessions[m.cursor].ID)))
 		case confirmAttachForce:
 			b.WriteString(confirmStyle.Render(fmt.Sprintf("  Session %s already attached. Detach other clients? [y/n]", m.sessions[m.cursor].ID)))
+		case confirmNoTmux:
+			b.WriteString(confirmStyle.Render(fmt.Sprintf("  Session %s was started outside tofu (◉) - already in its terminal. [press any key]", m.sessions[m.cursor].ID)))
 		default:
 			b.WriteString(helpStyle.Render("  h help • / search • ↑/↓ navigate • enter attach • q quit"))
 		}
@@ -603,6 +620,13 @@ func (m model) renderHelpView() string {
 	b.WriteString("    4/F4      Sort by Age\n")
 	b.WriteString("    5/F5      Sort by Updated\n")
 	b.WriteString("              (press again to toggle asc/desc/off)\n")
+	b.WriteString("\n")
+
+	b.WriteString(headerStyle.Render("  Session Indicators"))
+	b.WriteString("\n")
+	b.WriteString("    ⚡        Tmux session with clients attached\n")
+	b.WriteString("    ◉         Non-tmux session (in-terminal, can't attach)\n")
+	b.WriteString("    (blank)   Tmux session, detached\n")
 	b.WriteString("\n")
 
 	b.WriteString(helpStyle.Render("  Press any key to close"))

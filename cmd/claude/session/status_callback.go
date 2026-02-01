@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/GiGurra/boa/pkg/boa"
@@ -50,14 +51,7 @@ type HookInput struct {
 }
 
 func runStatusCallback(params *StatusCallbackParams) error {
-	// Get tofu session ID from environment
-	// If not set, silently succeed - this session wasn't started via tofu
-	tofuSessionID := os.Getenv("TOFU_SESSION_ID")
-	if tofuSessionID == "" {
-		return nil
-	}
-
-	// Validate status
+	// Validate status first
 	switch params.Status {
 	case StatusWorking, StatusIdle, StatusAwaitingPermission, StatusAwaitingInput:
 		// Valid
@@ -65,17 +59,41 @@ func runStatusCallback(params *StatusCallbackParams) error {
 		return fmt.Errorf("invalid status: %s", params.Status)
 	}
 
-	// Read hook input from stdin (optional, for logging/debugging)
+	// Read hook input from stdin - we need this for auto-registration
 	var hookInput HookInput
 	stdinData, err := io.ReadAll(os.Stdin)
 	if err == nil && len(stdinData) > 0 {
 		json.Unmarshal(stdinData, &hookInput)
 	}
 
-	// Load existing session state
-	state, err := LoadSessionState(tofuSessionID)
-	if err != nil {
-		return fmt.Errorf("failed to load session state: %w", err)
+
+	// Get tofu session ID from environment
+	tofuSessionID := os.Getenv("TOFU_SESSION_ID")
+
+	var state *SessionState
+
+	if tofuSessionID == "" {
+		// Session wasn't started via tofu - try to auto-register
+		if hookInput.SessionID == "" {
+			// No session ID from hook input, can't register
+			return nil
+		}
+
+		// Check if we already have a session for this Claude conversation
+		state = findSessionByConvID(hookInput.SessionID)
+		if state == nil {
+			// Create a new auto-registered session
+			state = autoRegisterSession(hookInput)
+			if state == nil {
+				return nil
+			}
+		}
+	} else {
+		// Load existing session state
+		state, err = LoadSessionState(tofuSessionID)
+		if err != nil {
+			return fmt.Errorf("failed to load session state: %w", err)
+		}
 	}
 
 	// Update status
@@ -86,6 +104,19 @@ func runStatusCallback(params *StatusCallbackParams) error {
 	// This happens when a session is started fresh (not resuming)
 	if state.ConvID == "" && hookInput.SessionID != "" {
 		state.ConvID = hookInput.SessionID
+	}
+
+	// Update PID if the current one is stale (session was resumed with new process)
+	// This is important for detecting when the session actually exits
+	if state.PID > 0 && !IsProcessAlive(state.PID) {
+		if newPID := FindClaudePID(); newPID > 0 {
+			state.PID = newPID
+		}
+	} else if state.PID == 0 {
+		// Session had no PID, try to find one
+		if newPID := FindClaudePID(); newPID > 0 {
+			state.PID = newPID
+		}
 	}
 
 	// Add detail if available
@@ -99,4 +130,92 @@ func runStatusCallback(params *StatusCallbackParams) error {
 	}
 
 	return nil
+}
+
+// findSessionByConvID searches for an existing session with the given Claude conversation ID
+func findSessionByConvID(convID string) *SessionState {
+	states, err := ListSessionStates()
+	if err != nil {
+		return nil
+	}
+	for _, state := range states {
+		if state.ConvID == convID {
+			return state
+		}
+	}
+	return nil
+}
+
+// autoRegisterSession creates a new session state for a Claude session
+// that wasn't started via tofu
+func autoRegisterSession(hookInput HookInput) *SessionState {
+	// Find Claude's PID by walking up the process tree
+	claudePID := FindClaudePID()
+	if claudePID == 0 {
+		// Can't find Claude process - can't track this session
+		return nil
+	}
+
+	// Check if we're inside tmux
+	tmuxSession := GetCurrentTmuxSession()
+
+	// Generate a session ID
+	// Use first 8 chars of Claude's session ID for recognizability
+	sessionID := hookInput.SessionID
+	if len(sessionID) > 8 {
+		sessionID = sessionID[:8]
+	}
+
+	// Determine cwd
+	cwd := hookInput.Cwd
+	if cwd == "" {
+		cwd, _ = os.Getwd()
+	}
+
+	state := &SessionState{
+		ID:          sessionID,
+		TmuxSession: tmuxSession,
+		PID:         claudePID,
+		Cwd:         cwd,
+		ConvID:      hookInput.SessionID,
+		Status:      StatusWorking,
+		Created:     time.Now(),
+		Updated:     time.Now(),
+	}
+
+	// Ensure sessions directory exists
+	if err := EnsureSessionsDir(); err != nil {
+		return nil
+	}
+
+	// Check for ID collision (unlikely but possible)
+	existingPath := SessionStatePath(sessionID)
+	if _, err := os.Stat(existingPath); err == nil {
+		// ID already exists - check if it's the same conversation
+		existing, err := LoadSessionState(sessionID)
+		if err == nil && existing.ConvID == hookInput.SessionID {
+			// Same conversation, return existing
+			return existing
+		}
+		// Different conversation - append disambiguator
+		for i := 1; i < 100; i++ {
+			newID := fmt.Sprintf("%s-%d", sessionID, i)
+			if _, err := os.Stat(SessionStatePath(newID)); os.IsNotExist(err) {
+				state.ID = newID
+				break
+			}
+		}
+	}
+
+	// Save the new session
+	if err := SaveSessionState(state); err != nil {
+		return nil
+	}
+
+	// Write a marker file so we know this was auto-registered
+	// This could be useful for UI differentiation later
+	markerPath := filepath.Join(SessionsDir(), state.ID+".auto")
+	os.WriteFile(markerPath, []byte("auto-registered"), 0644)
+
+	return state
 }

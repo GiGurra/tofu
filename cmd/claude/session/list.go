@@ -104,7 +104,7 @@ func runList(params *ListParams) error {
 	t.SetStyle(table.StyleLight)
 	t.SetAllowedRowLength(getTermWidth())
 
-	t.AppendHeader(table.Row{"ID", "Directory", "Status", "Age", "Updated"})
+	t.AppendHeader(table.Row{"", "ID", "Directory", "Status", "Age", "Updated"})
 
 	for _, state := range filtered {
 		colorFunc := getStatusColorFunc(state.Status)
@@ -113,7 +113,17 @@ func runList(params *ListParams) error {
 			status = status + ": " + state.StatusDetail
 		}
 
+		// Determine indicator: ⚡ = attached tmux, ◉ = non-tmux/dead tmux, blank = detached tmux
+		indicator := "  "
+		tmuxAlive := state.TmuxSession != "" && IsTmuxSessionAlive(state.TmuxSession)
+		if !tmuxAlive {
+			indicator = " ◉"
+		} else if state.Attached > 0 {
+			indicator = "⚡"
+		}
+
 		t.AppendRow(table.Row{
+			colorFunc(indicator),
 			colorFunc(state.ID),
 			colorFunc(shortenPathForTable(state.Cwd, 40)),
 			colorFunc(status),

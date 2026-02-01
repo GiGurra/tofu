@@ -20,7 +20,9 @@ var (
 	wHelpStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 	wSearchStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
 	wConfirmStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("196"))
-	wActiveStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("46")) // Green for active session indicator
+	wActiveStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("46"))  // Green for attached tmux session
+	wDetachedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("46"))  // Green for detached tmux session
+	wNoTmuxStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("226")) // Yellow for non-tmux session
 )
 
 type watchTickMsg time.Time
@@ -30,9 +32,10 @@ type watchConfirmMode int
 
 const (
 	watchConfirmNone watchConfirmMode = iota
-	watchConfirmAttachForce      // Session already attached, confirm force attach
-	watchConfirmDelete           // Delete conversation (no active session)
+	watchConfirmAttachForce       // Session already attached, confirm force attach
+	watchConfirmDelete            // Delete conversation (no active session)
 	watchConfirmDeleteWithSession // Delete conversation that has an active session
+	watchConfirmNoTmux            // Session has no tmux, cannot attach
 )
 
 type watchModel struct {
@@ -320,7 +323,11 @@ func (m watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.confirmMode = watchConfirmNone
 					m = m.refreshActiveSessions()
 				}
-			case "n", "N", "esc":
+			case "n", "N", "esc", " ":
+				m.confirmMode = watchConfirmNone
+			}
+			// Any key dismisses the no-tmux message
+			if m.confirmMode == watchConfirmNoTmux {
 				m.confirmMode = watchConfirmNone
 			}
 			return m, nil
@@ -425,7 +432,11 @@ func (m watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				conv := m.filtered[m.cursor]
 				// Check if session already exists for this conversation
 				if existing, ok := m.activeSessions[conv.SessionID]; ok {
-					if existing.Attached > 0 {
+					tmuxAlive := existing.TmuxSession != "" && session.IsTmuxSessionAlive(existing.TmuxSession)
+					if !tmuxAlive {
+						// Non-tmux or dead tmux session, cannot attach
+						m.confirmMode = watchConfirmNoTmux
+					} else if existing.Attached > 0 {
 						m.confirmMode = watchConfirmAttachForce
 					} else {
 						m.selectedConv = &conv
@@ -524,9 +535,9 @@ func (m watchModel) View() string {
 	// Title gets the rest
 	var fixedWidth int
 	if m.global {
-		fixedWidth = 2 + 10 + 1 + 30 + 1 + 1 + 15 + 1 + 16 // 77
+		fixedWidth = 3 + 10 + 1 + 30 + 1 + 1 + 15 + 1 + 16 // 78 (icon + id + project + title margin + branch + modified)
 	} else {
-		fixedWidth = 2 + 10 + 1 + 1 + 15 + 1 + 16 // 46
+		fixedWidth = 3 + 10 + 1 + 1 + 15 + 1 + 16 // 47 (icon + id + title margin + branch + modified)
 	}
 	titleWidth := termWidth - fixedWidth - 2 // -2 for some margin
 	if titleWidth < 30 {
@@ -539,9 +550,9 @@ func (m watchModel) View() string {
 	var header string
 	rowWidth := fixedWidth + titleWidth
 	if m.global {
-		header = fmt.Sprintf("  %-10s %-30s %-*s %-15s %-16s", "ID", "PROJECT", titleWidth, "TITLE/PROMPT", "BRANCH", "MODIFIED")
+		header = fmt.Sprintf("   %-10s %-30s %-*s %-15s %-16s", "ID", "PROJECT", titleWidth, "TITLE/PROMPT", "BRANCH", "MODIFIED")
 	} else {
-		header = fmt.Sprintf("  %-10s %-*s %-15s %-16s", "ID", titleWidth, "TITLE/PROMPT", "BRANCH", "MODIFIED")
+		header = fmt.Sprintf("   %-10s %-*s %-15s %-16s", "ID", titleWidth, "TITLE/PROMPT", "BRANCH", "MODIFIED")
 	}
 	b.WriteString(wHeaderStyle.Render(header))
 	b.WriteString("\n")
@@ -555,12 +566,18 @@ func (m watchModel) View() string {
 		e := m.filtered[i]
 
 		// Session indicator
+		// ⚡ = tmux session with attached clients
+		// ○ = tmux session, detached
+		// ◉ = non-tmux or dead tmux session (in-terminal, can't attach)
 		sessionMark := "  "
 		if state, ok := m.activeSessions[e.SessionID]; ok {
-			if state.Attached > 0 {
+			tmuxAlive := state.TmuxSession != "" && session.IsTmuxSessionAlive(state.TmuxSession)
+			if !tmuxAlive {
+				sessionMark = " " + wNoTmuxStyle.Render("◉")
+			} else if state.Attached > 0 {
 				sessionMark = wActiveStyle.Render("⚡")
 			} else {
-				sessionMark = wActiveStyle.Render("○ ")
+				sessionMark = " " + wDetachedStyle.Render("○")
 			}
 		}
 
@@ -583,9 +600,9 @@ func (m watchModel) View() string {
 		var row string
 		if m.global {
 			project := shortenPath(e.ProjectPath, 28)
-			row = fmt.Sprintf("%s%-10s %-30s %-*s %-15s %s", sessionMark, id, project, titleWidth, title, branch, modified)
+			row = fmt.Sprintf("%s %-10s %-30s %-*s %-15s %s", sessionMark, id, project, titleWidth, title, branch, modified)
 		} else {
-			row = fmt.Sprintf("%s%-10s %-*s %-15s %s", sessionMark, id, titleWidth, title, branch, modified)
+			row = fmt.Sprintf("%s %-10s %-*s %-15s %s", sessionMark, id, titleWidth, title, branch, modified)
 		}
 
 		if i == m.cursor {
@@ -612,6 +629,8 @@ func (m watchModel) View() string {
 		b.WriteString(wConfirmStyle.Render("  Delete conversation? [y/n]"))
 	case watchConfirmDeleteWithSession:
 		b.WriteString(wConfirmStyle.Render("  Has active session. Delete+stop (y), stop only (s), cancel (n)?"))
+	case watchConfirmNoTmux:
+		b.WriteString(wConfirmStyle.Render("  Session was started outside tofu (◉) - already in its terminal. [press any key]"))
 	default:
 		if m.statusMsg != "" {
 			b.WriteString(wSearchStyle.Render("  " + m.statusMsg))
@@ -658,8 +677,9 @@ func (m watchModel) renderHelpView() string {
 
 	b.WriteString(wHeaderStyle.Render("  Indicators"))
 	b.WriteString("\n")
-	b.WriteString("    ⚡        Conversation has attached session\n")
-	b.WriteString("    ○         Conversation has active session (not attached)\n")
+	b.WriteString("    ⚡        Tmux session with attached clients\n")
+	b.WriteString("    ○         Tmux session, detached\n")
+	b.WriteString("    ◉         Non-tmux session (in-terminal, can't attach)\n")
 	b.WriteString("\n")
 
 	b.WriteString(wHelpStyle.Render("  Press any key to close"))

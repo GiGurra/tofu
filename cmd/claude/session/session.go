@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/GiGurra/boa/pkg/boa"
@@ -282,20 +281,6 @@ func CleanupOldExitedSessions(maxAge time.Duration) error {
 	return nil
 }
 
-// IsProcessAlive checks if a process with the given PID is still running
-func IsProcessAlive(pid int) bool {
-	if pid <= 0 {
-		return false
-	}
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-	// On Unix, FindProcess always succeeds, so we need to send signal 0
-	err = process.Signal(syscall.Signal(0))
-	return err == nil
-}
-
 // IsTmuxSessionAlive checks if a tmux session exists
 func IsTmuxSessionAlive(sessionName string) bool {
 	cmd := exec.Command("tmux", "has-session", "-t", sessionName)
@@ -351,12 +336,28 @@ func FormatDuration(d time.Duration) string {
 
 // RefreshSessionStatus updates the session status based on actual state
 func RefreshSessionStatus(state *SessionState) {
-	if !IsTmuxSessionAlive(state.TmuxSession) {
-		state.Status = StatusExited
+	// For tmux-backed sessions, check if tmux session is alive
+	if state.TmuxSession != "" {
+		if IsTmuxSessionAlive(state.TmuxSession) {
+			state.Attached = GetTmuxSessionAttachedCount(state.TmuxSession)
+			return
+		}
+		// Tmux session is dead - fall through to check PID
 		state.Attached = 0
-	} else {
-		state.Attached = GetTmuxSessionAttachedCount(state.TmuxSession)
 	}
+
+	// Check if PID is alive (works for both non-tmux sessions and
+	// sessions where tmux died but the process is still running)
+	if state.PID > 0 {
+		if !IsProcessAlive(state.PID) {
+			state.Status = StatusExited
+		}
+		// If PID is alive, keep the current status (updated by hooks)
+		return
+	}
+
+	// No tmux session and no PID - mark as exited
+	state.Status = StatusExited
 }
 
 // ShortID returns the first 8 characters of an ID for display
