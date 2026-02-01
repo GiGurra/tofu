@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/gigurra/tofu/cmd/claude/common/convindex"
+	"github.com/gigurra/tofu/cmd/claude/common/notify"
 	"github.com/spf13/cobra"
 )
 
@@ -134,6 +136,9 @@ func runHookCallback() error {
 		return err
 	}
 
+	// Capture previous status for notification
+	prevStatus := state.Status
+
 	// Update status
 	state.Status = newStatus
 	state.StatusDetail = statusDetail
@@ -156,7 +161,22 @@ func runHookCallback() error {
 	}
 
 	// Save updated state
-	return SaveSessionState(state)
+	if err := SaveSessionState(state); err != nil {
+		return err
+	}
+
+	// Look up conversation title for notification
+	convTitle := getConvTitle(state.ConvID, state.Cwd)
+
+	// Notify on state transition (handles cooldown internally)
+	notify.OnStateTransition(state.ID, prevStatus, newStatus, state.Cwd, convTitle)
+
+	return nil
+}
+
+// getConvTitle looks up the conversation title from Claude's session index.
+func getConvTitle(convID, cwd string) string {
+	return convindex.GetConvTitle(convID, cwd)
 }
 
 // getOrCreateSessionState finds existing session or creates a new one

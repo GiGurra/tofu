@@ -8,6 +8,7 @@ Powerful session and conversation management for [Claude Code](https://claude.ai
 
 - 📺 **Session Management** - Run Claude in tmux sessions, attach/detach anytime
 - 🔮 **Status Tracking** - See when Claude is working, idle, or waiting for input
+- 🔔 **OS Notifications** - Get notified when sessions need attention (opt-in)
 - 🔍 **Interactive Watch Modes** - Browse sessions and conversations with search, filtering, sorting
 - ⚡ **Session Indicators** - Know which conversations have active sessions (⚡ attached, ○ active)
 
@@ -80,6 +81,7 @@ Session watch also supports:
 
 - [Session Management](sessions.md) - Detailed session commands
 - [Conversation Management](conversations.md) - Detailed conversation commands
+- [OS Notifications](notifications.md) - Get notified when sessions need attention
 - [Git Sync](git-sync.md) - Sync conversations across devices
 
 ## Recording a Demo
