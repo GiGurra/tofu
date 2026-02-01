@@ -659,7 +659,7 @@ func (m model) View() string {
 	}
 
 	// Render table
-	b.WriteString(tbl.Render())
+	b.WriteString(tbl.RenderWithScroll(nil))
 	b.WriteString("\n\n")
 	if m.cursor < len(m.sessions) {
 		switch m.confirmMode {
