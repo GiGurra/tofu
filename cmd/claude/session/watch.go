@@ -652,23 +652,15 @@ func (m model) View() string {
 		})
 	}
 
-	// Render header
-	b.WriteString(tbl.RenderHeader())
-
-	// Show filter badge
+	// Show filter badge (if filtering by status)
 	if len(m.statusFilter) > 0 {
-		b.WriteString(filterBadge.Render(fmt.Sprintf("  [%s]", strings.Join(m.statusFilter, ", "))))
+		b.WriteString(filterBadge.Render(fmt.Sprintf("[filter: %s]", strings.Join(m.statusFilter, ", "))))
+		b.WriteString("\n")
 	}
-	b.WriteString("\n")
 
-	// Render separator and rows
-	b.WriteString(tbl.RenderSeparator())
-	b.WriteString("\n")
-	b.WriteString(tbl.RenderRows())
-	b.WriteString("\n")
-
-	// Confirmation dialog or help hint
-	b.WriteString("\n")
+	// Render table
+	b.WriteString(tbl.Render())
+	b.WriteString("\n\n")
 	if m.cursor < len(m.sessions) {
 		switch m.confirmMode {
 		case confirmKill:
