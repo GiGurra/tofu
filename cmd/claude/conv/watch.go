@@ -651,7 +651,7 @@ func (m watchModel) View() string {
 
 	// Build table - use flexible column for TITLE/PROMPT
 	// Calculate table width with some padding for aesthetics
-	tableWidth := max(m.width-5, 60)
+	tableWidth := max(m.width-3, 60)
 
 	var tbl *table.Table
 	if m.global {
