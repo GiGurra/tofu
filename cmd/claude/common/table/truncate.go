@@ -4,13 +4,14 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/mattn/go-runewidth"
 )
 
 // StringWidth returns the display width of a string in terminal cells.
-// Accounts for wide characters (CJK, emojis, etc.)
+// Accounts for wide characters (CJK, emojis, etc.) AND ANSI escape codes.
 func StringWidth(s string) int {
-	return runewidth.StringWidth(s)
+	return lipgloss.Width(s)
 }
 
 // TruncateWithEllipsis truncates a string to fit within maxWidth display cells,
@@ -20,7 +21,7 @@ func TruncateWithEllipsis(s string, maxWidth int) string {
 		return ""
 	}
 
-	width := runewidth.StringWidth(s)
+	width := lipgloss.Width(s)
 	if width <= maxWidth {
 		return s
 	}
@@ -53,7 +54,7 @@ func TruncateFromStart(s string, maxWidth int) string {
 		return ""
 	}
 
-	width := runewidth.StringWidth(s)
+	width := lipgloss.Width(s)
 	if width <= maxWidth {
 		return s
 	}
@@ -92,13 +93,13 @@ func ShortenPath(path string, maxWidth int) string {
 	// Normalize path separators
 	path = filepath.ToSlash(path)
 
-	if runewidth.StringWidth(path) <= maxWidth {
+	if lipgloss.Width(path) <= maxWidth {
 		return path
 	}
 
 	// Get just the filename
 	filename := filepath.Base(path)
-	filenameWidth := runewidth.StringWidth(filename)
+	filenameWidth := lipgloss.Width(filename)
 
 	// If filename fits, try to add some path context
 	if filenameWidth <= maxWidth {
@@ -118,7 +119,7 @@ func ShortenPath(path string, maxWidth int) string {
 		// Try to fit last directory component
 		parts := strings.Split(dir, "/")
 		lastDir := parts[len(parts)-1]
-		lastDirWidth := runewidth.StringWidth(lastDir)
+		lastDirWidth := lipgloss.Width(lastDir)
 
 		if lastDirWidth+1 <= available { // +1 for "/"
 			return "…/" + lastDir + "/" + filename
@@ -139,7 +140,7 @@ func PadRight(s string, width int) string {
 		return ""
 	}
 
-	strWidth := runewidth.StringWidth(s)
+	strWidth := lipgloss.Width(s)
 	if strWidth >= width {
 		return TruncateWithEllipsis(s, width)
 	}
@@ -154,7 +155,7 @@ func PadLeft(s string, width int) string {
 		return ""
 	}
 
-	strWidth := runewidth.StringWidth(s)
+	strWidth := lipgloss.Width(s)
 	if strWidth >= width {
 		return TruncateWithEllipsis(s, width)
 	}
@@ -169,7 +170,7 @@ func PadCenter(s string, width int) string {
 		return ""
 	}
 
-	strWidth := runewidth.StringWidth(s)
+	strWidth := lipgloss.Width(s)
 	if strWidth >= width {
 		return TruncateWithEllipsis(s, width)
 	}

@@ -109,6 +109,9 @@ func TestPadFunctions(t *testing.T) {
 			{"⚡", 3, "⚡ "},       // Needs 1 space padding
 			{"⚡", 4, "⚡  "},      // Needs 2 spaces padding
 			{" ▷", 2, " ▷"},       // Narrow chars fit
+			// ANSI styled text - escape codes should not affect width
+			{lipgloss.NewStyle().Foreground(lipgloss.Color("46")).Render("⚡"), 2,
+				lipgloss.NewStyle().Foreground(lipgloss.Color("46")).Render("⚡")}, // Styled emoji fits in 2
 		}
 		for _, tt := range tests {
 			got := PadRight(tt.input, tt.width)
