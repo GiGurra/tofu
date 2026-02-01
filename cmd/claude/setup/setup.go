@@ -48,6 +48,22 @@ func runSetup(params *Params) error {
 	fmt.Println("Setting up tofu claude integration...")
 	fmt.Println()
 
+	// 0. Check tmux
+	fmt.Println("=== Prerequisites ===")
+	if isTmuxInstalled() {
+		fmt.Println("✓ tmux installed")
+	} else {
+		fmt.Println("✗ tmux not found (required for session management)")
+		if runtime.GOOS == "darwin" {
+			fmt.Println("  Install with: brew install tmux")
+		} else {
+			fmt.Println("  Install with: sudo apt install tmux")
+		}
+		fmt.Println()
+		fmt.Println("Please install tmux and run setup again.")
+		return nil
+	}
+
 	// 1. Install hooks
 	fmt.Println("=== Hooks ===")
 	installed, missing, hasOldHooks := session.CheckHooksInstalled()
@@ -112,6 +128,28 @@ func runSetup(params *Params) error {
 				fmt.Println("  https://github.com/julienXX/terminal-notifier")
 				fmt.Println("  Without it, notifications won't be clickable")
 			}
+		}
+	} else if runtime.GOOS == "linux" {
+		// Native Linux: Check for xdotool and notify-send/dunstify
+		fmt.Println("  Checking Linux notification tools...")
+
+		// Check xdotool for window focus
+		if isXdotoolInstalled() {
+			fmt.Println("✓ xdotool installed (for window focus)")
+		} else {
+			fmt.Println("✗ xdotool not found (optional, for window focus)")
+			fmt.Println("  Install with: sudo apt install xdotool")
+		}
+
+		// Check notify-send or dunstify
+		if isDunstifyInstalled() {
+			fmt.Println("✓ dunstify installed (supports click actions)")
+		} else if isNotifySendInstalled() {
+			fmt.Println("✓ notify-send installed (no click actions)")
+			fmt.Println("  For clickable notifications, install dunst: sudo apt install dunst")
+		} else {
+			fmt.Println("✗ No notification tool found")
+			fmt.Println("  Install with: sudo apt install libnotify-bin")
 		}
 	} else if runtime.GOOS == "windows" {
 		fmt.Println("  Not implemented for native Windows yet")
@@ -179,8 +217,16 @@ func checkStatus() error {
 	fmt.Println("Tofu Claude Setup Status")
 	fmt.Println()
 
+	// Check tmux
+	fmt.Println("=== Prerequisites ===")
+	if isTmuxInstalled() {
+		fmt.Println("✓ tmux installed")
+	} else {
+		fmt.Println("✗ tmux not found (required)")
+	}
+
 	// Check hooks
-	fmt.Println("=== Hooks ===")
+	fmt.Println("\n=== Hooks ===")
 	installed, missing, hasOldHooks := session.CheckHooksInstalled()
 	if hasOldHooks {
 		fmt.Println("⚠ Old-style hooks detected (need upgrade)")
@@ -208,6 +254,20 @@ func checkStatus() error {
 		} else {
 			fmt.Println("✗ terminal-notifier not installed")
 			fmt.Println("  Install with: brew install terminal-notifier")
+		}
+	} else if runtime.GOOS == "linux" {
+		// Native Linux
+		if isXdotoolInstalled() {
+			fmt.Println("✓ xdotool installed (for window focus)")
+		} else {
+			fmt.Println("✗ xdotool not found (optional)")
+		}
+		if isDunstifyInstalled() {
+			fmt.Println("✓ dunstify installed (supports click actions)")
+		} else if isNotifySendInstalled() {
+			fmt.Println("✓ notify-send installed (no click actions)")
+		} else {
+			fmt.Println("✗ No notification tool found")
 		}
 	} else if runtime.GOOS == "windows" {
 		fmt.Println("  Not implemented for native Windows yet")
@@ -328,4 +388,28 @@ func installTerminalNotifier() error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
+}
+
+// isTmuxInstalled checks if tmux is available.
+func isTmuxInstalled() bool {
+	_, err := exec.LookPath("tmux")
+	return err == nil
+}
+
+// isXdotoolInstalled checks if xdotool is available (for Linux window focus).
+func isXdotoolInstalled() bool {
+	_, err := exec.LookPath("xdotool")
+	return err == nil
+}
+
+// isNotifySendInstalled checks if notify-send is available.
+func isNotifySendInstalled() bool {
+	_, err := exec.LookPath("notify-send")
+	return err == nil
+}
+
+// isDunstifyInstalled checks if dunstify is available.
+func isDunstifyInstalled() bool {
+	_, err := exec.LookPath("dunstify")
+	return err == nil
 }

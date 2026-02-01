@@ -12,7 +12,6 @@ import (
 
 	"github.com/gen2brain/beeep"
 	"github.com/gigurra/tofu/cmd/claude/common/config"
-	"github.com/gigurra/tofu/cmd/claude/common/terminal"
 	"github.com/gigurra/tofu/cmd/claude/common/wsl"
 )
 
@@ -108,18 +107,24 @@ func send(sessionID, to, cwd, convTitle string) {
 	}
 }
 
-// sendLinuxClickable sends a notification with click-to-attach on native Linux.
+// sendLinuxClickable sends a notification with click-to-focus on native Linux.
 func sendLinuxClickable(sessionID, title, body string) error {
+	// Get full path to tofu executable
+	tofuPath, err := os.Executable()
+	if err != nil {
+		tofuPath = "tofu" // fallback
+	}
+
 	// Check for dunstify (supports actions)
 	if _, err := exec.LookPath("dunstify"); err == nil {
 		// Run in goroutine since dunstify blocks waiting for action
 		go func() {
-			cmd := exec.Command("dunstify", "-A", "attach,Attach", title, body)
+			cmd := exec.Command("dunstify", "-A", "focus,Focus", title, body)
 			output, err := cmd.Output()
-			if err == nil && strings.TrimSpace(string(output)) == "attach" {
-				// Default behavior now prevents duplicate attachments and focuses existing window
-				attachCmd := fmt.Sprintf("tofu claude session attach %s", sessionID)
-				_ = terminal.OpenWithCommand(attachCmd)
+			if err == nil && strings.TrimSpace(string(output)) == "focus" {
+				// Focus the session window (or attach if not attached)
+				focusCmd := exec.Command(tofuPath, "claude", "session", "focus", sessionID)
+				_ = focusCmd.Run()
 			}
 		}()
 		return nil

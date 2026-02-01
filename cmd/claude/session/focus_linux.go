@@ -36,7 +36,17 @@ func debugLog(format string, args ...any) {
 
 // tryFocusAttachedSession attempts to focus the terminal window that has the session attached.
 func tryFocusAttachedSession(tmuxSession string) {
-	// Best effort - the user already got a message saying the session is attached elsewhere.
+	debugLog("tryFocusAttachedSession called for: %s", tmuxSession)
+
+	if isWSL() {
+		debugLog("WSL detected, using Windows focus")
+		focusWSLWindow()
+		return
+	}
+
+	// Native Linux - use xdotool
+	debugLog("Native Linux, using xdotool")
+	focusLinuxTmuxSession(tmuxSession)
 }
 
 // FocusOwnWindow attempts to focus the current process's terminal window.
@@ -48,9 +58,8 @@ func FocusOwnWindow() bool {
 		return focusWSLWindow()
 	}
 
-	debugLog("Not in WSL, skipping focus")
-	// Native Linux - could use xdotool/wmctrl but not implemented yet
-	return false
+	debugLog("Native Linux, using xdotool")
+	return focusLinuxCurrentWindow()
 }
 
 // GetOwnWindowTitle returns the title of the current terminal window.
@@ -560,4 +569,173 @@ exit 1
 	}
 	debugLog("Focus any terminal succeeded")
 	return true
+}
+
+// =============================================================================
+// Native Linux Focus Support (using xdotool)
+// =============================================================================
+
+// focusLinuxTmuxSession focuses the terminal window running a specific tmux session.
+func focusLinuxTmuxSession(tmuxSession string) bool {
+	// Check if xdotool is available
+	if _, err := exec.LookPath("xdotool"); err != nil {
+		debugLog("xdotool not found, cannot focus window")
+		return false
+	}
+
+	// Get the client TTY for this tmux session
+	cmd := exec.Command("tmux", "list-clients", "-t", tmuxSession, "-F", "#{client_tty}")
+	output, err := cmd.Output()
+	if err != nil {
+		debugLog("Failed to get tmux client tty: %v", err)
+		return false
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	if len(lines) == 0 || lines[0] == "" {
+		debugLog("No clients attached to tmux session")
+		return false
+	}
+	tty := lines[0]
+	debugLog("Found client TTY: %s", tty)
+
+	// Find the terminal window by walking the process tree from TTY
+	return focusLinuxWindowByTTY(tty)
+}
+
+// focusLinuxCurrentWindow focuses the current terminal window.
+func focusLinuxCurrentWindow() bool {
+	// Check if xdotool is available
+	if _, err := exec.LookPath("xdotool"); err != nil {
+		debugLog("xdotool not found, cannot focus window")
+		return false
+	}
+
+	// Try to get the active window from the current TTY
+	tty, err := os.Readlink("/proc/self/fd/0")
+	if err != nil {
+		debugLog("Failed to get current TTY: %v", err)
+		return false
+	}
+	debugLog("Current TTY: %s", tty)
+
+	return focusLinuxWindowByTTY(tty)
+}
+
+// focusLinuxWindowByTTY finds and focuses the terminal window owning a TTY.
+func focusLinuxWindowByTTY(tty string) bool {
+	// Find processes on this TTY
+	cmd := exec.Command("lsof", "-t", tty)
+	output, err := cmd.Output()
+	if err != nil {
+		debugLog("lsof failed for TTY %s: %v", tty, err)
+		// Fallback: try to focus by window name pattern
+		return focusLinuxWindowByPattern("tofu:")
+	}
+
+	pids := strings.Fields(string(output))
+	debugLog("Found PIDs on TTY: %v", pids)
+
+	// Walk up process tree to find terminal
+	for _, pidStr := range pids {
+		if windowID := findLinuxWindowForPID(pidStr); windowID != "" {
+			return focusLinuxWindowByID(windowID)
+		}
+	}
+
+	// Fallback: try by window name
+	return focusLinuxWindowByPattern("tofu:")
+}
+
+// findLinuxWindowForPID walks up the process tree to find a window.
+func findLinuxWindowForPID(pidStr string) string {
+	visited := make(map[string]bool)
+	current := pidStr
+
+	for current != "" && current != "0" && current != "1" && !visited[current] {
+		visited[current] = true
+
+		// Try to find X window for this PID
+		cmd := exec.Command("xdotool", "search", "--pid", current)
+		output, err := cmd.Output()
+		if err == nil {
+			windows := strings.Fields(string(output))
+			if len(windows) > 0 {
+				debugLog("Found window %s for PID %s", windows[0], current)
+				return windows[0]
+			}
+		}
+
+		// Get parent PID
+		ppidData, err := os.ReadFile("/proc/" + current + "/status")
+		if err != nil {
+			break
+		}
+		for _, line := range strings.Split(string(ppidData), "\n") {
+			if strings.HasPrefix(line, "PPid:") {
+				parts := strings.Fields(line)
+				if len(parts) >= 2 {
+					current = parts[1]
+					break
+				}
+			}
+		}
+	}
+
+	return ""
+}
+
+// focusLinuxWindowByID focuses a window by its X window ID.
+func focusLinuxWindowByID(windowID string) bool {
+	debugLog("Focusing window ID: %s", windowID)
+
+	// Activate the window
+	cmd := exec.Command("xdotool", "windowactivate", "--sync", windowID)
+	if err := cmd.Run(); err != nil {
+		debugLog("xdotool windowactivate failed: %v", err)
+		return false
+	}
+
+	debugLog("Successfully focused window")
+	return true
+}
+
+// focusLinuxWindowByPattern searches for and focuses a window by name pattern.
+func focusLinuxWindowByPattern(pattern string) bool {
+	debugLog("Searching for window with pattern: %s", pattern)
+
+	// Search for windows matching the pattern
+	cmd := exec.Command("xdotool", "search", "--name", pattern)
+	output, err := cmd.Output()
+	if err != nil {
+		debugLog("xdotool search failed: %v", err)
+		return false
+	}
+
+	windows := strings.Fields(string(output))
+	if len(windows) == 0 {
+		debugLog("No windows found matching pattern")
+		return false
+	}
+
+	debugLog("Found %d windows, focusing first: %s", len(windows), windows[0])
+	return focusLinuxWindowByID(windows[0])
+}
+
+// IsXdotoolInstalled checks if xdotool is available.
+func IsXdotoolInstalled() bool {
+	_, err := exec.LookPath("xdotool")
+	return err == nil
+}
+
+// IsNotifySendInstalled checks if notify-send is available.
+func IsNotifySendInstalled() bool {
+	_, err := exec.LookPath("notify-send")
+	return err == nil
+}
+
+// IsDunstifyInstalled checks if dunstify is available.
+func IsDunstifyInstalled() bool {
+	_, err := exec.LookPath("dunstify")
+	return err == nil
 }
