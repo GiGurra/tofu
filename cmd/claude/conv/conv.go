@@ -288,6 +288,14 @@ func parseJSONLSession(filePath, sessionID string) *SessionEntry {
 			firstTimestamp = msg.Timestamp
 		}
 
+		// Capture project path and git branch from first message that has them
+		if entry.ProjectPath == "" && msg.Cwd != "" {
+			entry.ProjectPath = msg.Cwd
+		}
+		if entry.GitBranch == "" && msg.GitBranch != "" {
+			entry.GitBranch = msg.GitBranch
+		}
+
 		// Capture summaries if we see one (and stop - we have display data)
 		if msg.Type == "summary" && msg.Summary != "" {
 			entry.Summary = msg.Summary
