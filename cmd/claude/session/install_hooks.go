@@ -29,9 +29,14 @@ func InstallHooksCmd() *cobra.Command {
 }
 
 func runInstallHooks(params *InstallHooksParams) error {
-	installed, missing := CheckHooksInstalled()
+	installed, missing, hasOldHooks := CheckHooksInstalled()
 
 	if params.Check {
+		if hasOldHooks {
+			fmt.Println("Warning: Old-style tofu hooks detected (status-callback).")
+			fmt.Println("Run 'tofu claude session install-hooks' to upgrade to the new unified callback.")
+			os.Exit(1)
+		}
 		if installed {
 			fmt.Println("All tofu session hooks are installed.")
 			return nil
@@ -41,12 +46,17 @@ func runInstallHooks(params *InstallHooksParams) error {
 		os.Exit(1)
 	}
 
-	if installed {
+	if installed && !hasOldHooks {
 		fmt.Println("All tofu session hooks are already installed.")
 		return nil
 	}
 
-	fmt.Printf("Installing hooks for: %v\n", missing)
+	if hasOldHooks {
+		fmt.Println("Removing old-style hooks (status-callback)...")
+	}
+	if len(missing) > 0 {
+		fmt.Printf("Installing hooks for: %v\n", missing)
+	}
 
 	if err := InstallHooks(); err != nil {
 		return err
@@ -54,7 +64,7 @@ func runInstallHooks(params *InstallHooksParams) error {
 
 	fmt.Println("\nHooks installed successfully!")
 	fmt.Printf("Configuration updated: %s\n", ClaudeSettingsPath())
-	fmt.Println("\nThe following hooks were added:")
+	fmt.Println("\nThe following hooks are now active:")
 	fmt.Println("  - UserPromptSubmit: Tracks when you send a prompt")
 	fmt.Println("  - Stop: Tracks when Claude finishes responding")
 	fmt.Println("  - PermissionRequest: Tracks when Claude needs permission")

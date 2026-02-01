@@ -25,6 +25,9 @@ const TofuHookMarker = "tofu claude session hook-callback"
 // TofuHookCommand is the unified callback command for all hooks
 const TofuHookCommand = "tofu claude session hook-callback"
 
+// OldTofuHookMarker identifies old-style hooks that should be removed
+const OldTofuHookMarker = "tofu claude session status-callback"
+
 // RequiredHooks defines the hooks tofu needs for status tracking
 // All hooks use the same unified callback - it reads stdin and figures out what to do
 var RequiredHooks = map[string][]HookMatcher{
@@ -83,34 +86,43 @@ func ClaudeSettingsPath() string {
 }
 
 // CheckHooksInstalled checks if tofu hooks are installed in Claude settings
-func CheckHooksInstalled() (installed bool, missing []string) {
+// Returns: installed (all new hooks present), missing (list of missing hooks), hasOldHooks
+func CheckHooksInstalled() (installed bool, missing []string, hasOldHooks bool) {
 	settingsPath := ClaudeSettingsPath()
 	if settingsPath == "" {
-		return false, []string{"all"}
+		return false, []string{"all"}, false
 	}
 
 	data, err := os.ReadFile(settingsPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return false, []string{"all (settings.json not found)"}
+			return false, []string{"all (settings.json not found)"}, false
 		}
-		return false, []string{"all (cannot read settings.json)"}
+		return false, []string{"all (cannot read settings.json)"}, false
 	}
 
 	// Parse only what we need to check
 	var settings map[string]json.RawMessage
 	if err := json.Unmarshal(data, &settings); err != nil {
-		return false, []string{"all (invalid settings.json)"}
+		return false, []string{"all (invalid settings.json)"}, false
 	}
 
 	hooksRaw, ok := settings["hooks"]
 	if !ok {
-		return false, []string{"all (no hooks section)"}
+		return false, []string{"all (no hooks section)"}, false
 	}
 
 	var hooks map[string]json.RawMessage
 	if err := json.Unmarshal(hooksRaw, &hooks); err != nil {
-		return false, []string{"all (invalid hooks section)"}
+		return false, []string{"all (invalid hooks section)"}, false
+	}
+
+	// Check for old-style hooks
+	for _, eventHooks := range hooks {
+		if containsOldTofuCallback(string(eventHooks)) {
+			hasOldHooks = true
+			break
+		}
 	}
 
 	// Check each required hook event by looking for our marker in the raw JSON
@@ -121,11 +133,15 @@ func CheckHooksInstalled() (installed bool, missing []string) {
 		}
 	}
 
-	return len(missing) == 0, missing
+	return len(missing) == 0, missing, hasOldHooks
 }
 
 func containsTofuCallback(s string) bool {
 	return findSubstring(s, TofuHookMarker)
+}
+
+func containsOldTofuCallback(s string) bool {
+	return findSubstring(s, OldTofuHookMarker)
 }
 
 func findSubstring(s, substr string) bool {
@@ -135,6 +151,35 @@ func findSubstring(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+// removeOldHooksFromEvent removes old-style tofu hooks from an event's hook list
+func removeOldHooksFromEvent(eventHooksRaw json.RawMessage) (json.RawMessage, bool, error) {
+	var matchers []json.RawMessage
+	if err := json.Unmarshal(eventHooksRaw, &matchers); err != nil {
+		return eventHooksRaw, false, err
+	}
+
+	var filtered []json.RawMessage
+	removed := false
+	for _, m := range matchers {
+		if containsOldTofuCallback(string(m)) {
+			removed = true
+			continue // Skip old hooks
+		}
+		filtered = append(filtered, m)
+	}
+
+	if !removed {
+		return eventHooksRaw, false, nil
+	}
+
+	if len(filtered) == 0 {
+		return nil, true, nil // All hooks were old, return nil to delete event
+	}
+
+	newRaw, err := json.Marshal(filtered)
+	return newRaw, true, err
 }
 
 // InstallHooks adds tofu hooks to Claude settings, preserving existing config
@@ -175,7 +220,24 @@ func InstallHooks() error {
 		hooks = make(map[string]json.RawMessage)
 	}
 
-	// Add missing tofu hooks - only modify events that need our hooks
+	// First pass: remove old-style tofu hooks from all events
+	for event, eventHooksRaw := range hooks {
+		if containsOldTofuCallback(string(eventHooksRaw)) {
+			newRaw, removed, err := removeOldHooksFromEvent(eventHooksRaw)
+			if err != nil {
+				return fmt.Errorf("failed to clean old hooks from %s: %w", event, err)
+			}
+			if removed {
+				if newRaw == nil {
+					delete(hooks, event) // No hooks left, remove the event
+				} else {
+					hooks[event] = newRaw
+				}
+			}
+		}
+	}
+
+	// Second pass: add missing tofu hooks
 	for event, requiredMatchers := range RequiredHooks {
 		eventHooksRaw, exists := hooks[event]
 
@@ -238,15 +300,20 @@ func InstallHooks() error {
 
 // EnsureHooksInstalled checks and optionally installs hooks, returning true if ready
 func EnsureHooksInstalled(autoInstall bool, stdout, stderr *os.File) bool {
-	installed, missing := CheckHooksInstalled()
-	if installed {
+	installed, missing, hasOldHooks := CheckHooksInstalled()
+	if installed && !hasOldHooks {
 		return true
 	}
 
 	if !autoInstall {
-		fmt.Fprintf(stderr, "Warning: Tofu session hooks not installed in Claude settings.\n")
-		fmt.Fprintf(stderr, "Missing hooks for: %v\n", missing)
-		fmt.Fprintf(stderr, "Status tracking will not work. Install with: tofu claude session install-hooks\n\n")
+		if hasOldHooks {
+			fmt.Fprintf(stderr, "Warning: Old-style tofu hooks detected. Run 'tofu claude session install-hooks' to upgrade.\n")
+		}
+		if !installed {
+			fmt.Fprintf(stderr, "Warning: Tofu session hooks not installed in Claude settings.\n")
+			fmt.Fprintf(stderr, "Missing hooks for: %v\n", missing)
+		}
+		fmt.Fprintf(stderr, "Status tracking may not work correctly. Install with: tofu claude session install-hooks\n\n")
 		return false
 	}
 
