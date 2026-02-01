@@ -1,6 +1,7 @@
 package table
 
 import (
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -85,25 +86,26 @@ func TruncateFromStart(s string, maxWidth int) string {
 
 // ShortenPath shortens a file path to fit within maxWidth display cells.
 // It prioritizes keeping the filename visible and shortens directory components.
-func ShortenPath(path string, maxWidth int) string {
+func ShortenPath(p string, maxWidth int) string {
 	if maxWidth <= 0 {
 		return ""
 	}
 
-	// Normalize path separators
-	path = filepath.ToSlash(path)
+	// Normalize path separators to forward slashes
+	p = filepath.ToSlash(p)
 
-	if lipgloss.Width(path) <= maxWidth {
-		return path
+	if lipgloss.Width(p) <= maxWidth {
+		return p
 	}
 
-	// Get just the filename
-	filename := filepath.Base(path)
+	// Use path package (not filepath) since we've normalized to forward slashes.
+	// filepath.Base/Dir use OS-specific separators which breaks on Windows.
+	filename := path.Base(p)
 	filenameWidth := lipgloss.Width(filename)
 
 	// If filename fits, try to add some path context
 	if filenameWidth <= maxWidth {
-		dir := filepath.Dir(path)
+		dir := path.Dir(p)
 		if dir == "." || dir == "/" {
 			return filename
 		}
