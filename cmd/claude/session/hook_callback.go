@@ -57,20 +57,22 @@ func runHookCallback() error {
 		}
 	}
 
-	// Always log for debugging
-	_ = EnsureSessionsDir()
-	debugFile, _ := os.OpenFile(DebugLogPath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if debugFile != nil {
-		fmt.Fprintf(debugFile, "--- %s ---\n", time.Now().Format(time.RFC3339))
-		fmt.Fprintf(debugFile, "Event: %s\n", input.HookEventName)
-		if input.NotificationType != "" {
-			fmt.Fprintf(debugFile, "NotificationType: %s\n", input.NotificationType)
+	// Log for debugging if TOFU_HOOK_DEBUG=true
+	if os.Getenv("TOFU_HOOK_DEBUG") == "true" {
+		_ = EnsureSessionsDir()
+		debugFile, _ := os.OpenFile(DebugLogPath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if debugFile != nil {
+			fmt.Fprintf(debugFile, "--- %s ---\n", time.Now().Format(time.RFC3339))
+			fmt.Fprintf(debugFile, "Event: %s\n", input.HookEventName)
+			if input.NotificationType != "" {
+				fmt.Fprintf(debugFile, "NotificationType: %s\n", input.NotificationType)
+			}
+			if input.Message != "" {
+				fmt.Fprintf(debugFile, "Message: %s\n", input.Message)
+			}
+			fmt.Fprintf(debugFile, "Raw: %s\n", string(stdinData))
+			debugFile.Close()
 		}
-		if input.Message != "" {
-			fmt.Fprintf(debugFile, "Message: %s\n", input.Message)
-		}
-		fmt.Fprintf(debugFile, "Raw: %s\n", string(stdinData))
-		debugFile.Close()
 	}
 
 	// Determine status based on hook event
