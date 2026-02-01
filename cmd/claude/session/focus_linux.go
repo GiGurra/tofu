@@ -281,10 +281,10 @@ func focusWTTab(sessionID string) bool {
 	return false
 }
 
-// focusWTTabByCycling is a fallback that just focuses any Windows Terminal window.
-// Tab cycling was too complex/fragile, so we just bring WT to foreground.
-func focusWTTabByCycling(_ string) bool {
-	debugLog("Fallback: focusing any Windows Terminal window")
+// focusWTTabByCycling opens a new Windows Terminal window and attaches to the session.
+// This is more reliable than trying to find/focus existing tabs.
+func focusWTTabByCycling(sessionID string) bool {
+	debugLog("Fallback: opening new Windows Terminal window to attach to session %s", sessionID)
 
 	psPath := findPowerShell()
 	if psPath == "" {
@@ -292,41 +292,23 @@ func focusWTTabByCycling(_ string) bool {
 		return false
 	}
 
-	// Focus first Windows Terminal window by process name
-	focusScript := `
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
+	// Open new Windows Terminal window with wsl running attach command
+	// Use -f (force) to detach from any existing attachment
+	// Syntax: wt.exe -w -1 wsl -- bash -c "command" (-w -1 = new window)
+	script := fmt.Sprintf(`
+wt.exe -w -1 wsl -- bash -lc "tofu claude session attach -f %s"
+Write-Output "True"
+`, sessionID)
 
-public class WTFocus {
-    [DllImport("user32.dll")]
-    public static extern bool SetForegroundWindow(IntPtr hWnd);
-    [DllImport("user32.dll")]
-    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-    [DllImport("user32.dll")]
-    public static extern bool IsIconic(IntPtr hWnd);
-    public const int SW_RESTORE = 9;
-
-    public static bool Focus(IntPtr hWnd) {
-        if (hWnd == IntPtr.Zero) return false;
-        if (IsIconic(hWnd)) ShowWindow(hWnd, SW_RESTORE);
-        return SetForegroundWindow(hWnd);
-    }
-}
-"@
-
-$wt = Get-Process -Name 'WindowsTerminal' -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($wt -and $wt.MainWindowHandle -ne [IntPtr]::Zero) {
-    $result = [WTFocus]::Focus($wt.MainWindowHandle)
-    Write-Output $result
-    exit 0
-}
-Write-Output "False"
-`
-	cmd := exec.Command(psPath, "-NoProfile", "-NonInteractive", "-Command", focusScript)
-	out, _ := cmd.CombinedOutput()
+	cmd := exec.Command(psPath, "-NoProfile", "-NonInteractive", "-Command", script)
+	out, err := cmd.CombinedOutput()
 	outStr := strings.TrimSpace(string(out))
-	debugLog("Focus WindowsTerminal fallback: %s", outStr)
+	debugLog("Open new WT window result: %s", outStr)
+
+	if err != nil {
+		debugLog("Failed to open new WT window: %v", err)
+		return false
+	}
 
 	return outStr == "True"
 }
