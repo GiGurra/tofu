@@ -50,6 +50,10 @@ func runList(params *ListParams) error {
 		return nil
 	}
 
+	// Get current directory to mark with *
+	cwd, _ := os.Getwd()
+	cwd, _ = filepath.EvalSymlinks(cwd) // Resolve symlinks for comparison
+
 	// Find the longest path for alignment
 	maxPathLen := 0
 	for _, wt := range worktrees {
@@ -75,9 +79,16 @@ func runList(params *ListParams) error {
 			branch = "(detached)"
 		}
 
+		// Mark current directory with *
 		marker := "  "
-		if wt.IsMain {
+		if wt.Path == cwd || strings.HasPrefix(cwd, wt.Path+"/") {
 			marker = "* "
+		}
+
+		// Mark root worktree
+		rootMarker := ""
+		if wt.IsMain {
+			rootMarker = " [root]"
 		}
 
 		if params.Verbose {
@@ -85,9 +96,9 @@ func runList(params *ListParams) error {
 			if len(commit) > 8 {
 				commit = commit[:8]
 			}
-			fmt.Printf("%s%-*s  %-20s  %s\n", marker, maxPathLen, path, branch, commit)
+			fmt.Printf("%s%-*s  %-20s  %s%s\n", marker, maxPathLen, path, branch, commit, rootMarker)
 		} else {
-			fmt.Printf("%s%-*s  %s\n", marker, maxPathLen, path, branch)
+			fmt.Printf("%s%-*s  %s%s\n", marker, maxPathLen, path, branch, rootMarker)
 		}
 	}
 
