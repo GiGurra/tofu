@@ -117,7 +117,8 @@ func sendLinuxClickable(sessionID, title, body string) error {
 			cmd := exec.Command("dunstify", "-A", "attach,Attach", title, body)
 			output, err := cmd.Output()
 			if err == nil && strings.TrimSpace(string(output)) == "attach" {
-				attachCmd := fmt.Sprintf("tofu claude session attach %s", sessionID)
+				// Use --if-not-attached to avoid duplicate terminals when session is already attached
+				attachCmd := fmt.Sprintf("tofu claude session attach --if-not-attached %s", sessionID)
 				_ = terminal.OpenWithCommand(attachCmd)
 			}
 		}()
