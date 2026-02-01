@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	selectedStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("15")).Background(lipgloss.Color("62"))
+	selectedStyle = lipgloss.NewStyle().Bold(true).Background(lipgloss.Color("238")) // Dark gray background, preserves row foreground color
 	idleStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("226"))     // Yellow
 	workingStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("46"))      // Green
 	needsInput    = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))     // Bright red

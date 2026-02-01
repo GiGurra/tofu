@@ -184,9 +184,11 @@ func (t *Table) RenderRows() string {
 
 		line := strings.Join(parts, separator)
 
-		// Apply styling - selected row takes precedence, otherwise use row style
+		// Apply styling - combine row style with selection style to preserve row colors
 		if actualIndex == t.SelectedIndex {
-			line = t.SelectedStyle.Render(line)
+			// Start with row style, add selection's background/bold
+			combinedStyle := row.Style.Inherit(t.SelectedStyle)
+			line = combinedStyle.Render(line)
 		} else {
 			line = row.Style.Render(line)
 		}

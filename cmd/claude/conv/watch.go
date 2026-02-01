@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	wSelectedStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("15")).Background(lipgloss.Color("62"))
+	wSelectedStyle = lipgloss.NewStyle().Bold(true).Background(lipgloss.Color("238")) // Dark gray background, preserves row foreground color
 	wHeaderStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("250"))
 	wHelpStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 	wSearchStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
