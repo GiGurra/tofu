@@ -711,22 +711,9 @@ func (m watchModel) View() string {
 		}
 	}
 
-	// Render table
-	b.WriteString(tbl.RenderHeader())
-	b.WriteString("\n")
-	b.WriteString(tbl.RenderSeparator())
-	b.WriteString("\n")
-	b.WriteString(tbl.RenderRows())
-	b.WriteString("\n")
-
-	// Scroll indicator
-	if tbl.NeedsScrollIndicator() {
-		b.WriteString(tbl.RenderScrollIndicator(wHelpStyle))
-		b.WriteString("\n")
-	}
-
-	// Footer / confirmation dialog / status message
-	b.WriteString("\n")
+	// Render table with scroll indicator
+	b.WriteString(tbl.RenderWithScroll(&wHelpStyle))
+	b.WriteString("\n\n")
 	switch m.confirmMode {
 	case watchConfirmAttachForce:
 		b.WriteString(wConfirmStyle.Render("  Session already attached. Detach others? [y/n]"))

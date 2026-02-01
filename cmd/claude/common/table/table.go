@@ -309,8 +309,14 @@ func (t *Table) MoveSelection(delta int) {
 	t.EnsureCursorVisible()
 }
 
-// Render returns the complete table as a string
+// Render returns the complete table as a string (header, separator, rows)
 func (t *Table) Render() string {
+	return t.RenderWithScroll(nil)
+}
+
+// RenderWithScroll returns the complete table with optional scroll indicator.
+// Pass a style for the scroll indicator, or nil to omit it.
+func (t *Table) RenderWithScroll(scrollStyle *lipgloss.Style) string {
 	var parts []string
 
 	header := t.RenderHeader()
@@ -326,6 +332,10 @@ func (t *Table) Render() string {
 	rows := t.RenderRows()
 	if rows != "" {
 		parts = append(parts, rows)
+	}
+
+	if scrollStyle != nil && t.NeedsScrollIndicator() {
+		parts = append(parts, t.RenderScrollIndicator(*scrollStyle))
 	}
 
 	return strings.Join(parts, "\n")
