@@ -673,13 +673,6 @@ func (m watchModel) View() string {
 	tbl.ViewportOffset = m.viewportOffset
 	tbl.ViewportHeight = m.viewportHeight
 
-	// Get calculated title column width for content formatting
-	titleColIndex := 2 // icon, id, title...
-	if m.global {
-		titleColIndex = 3 // icon, id, project, title...
-	}
-	titleWidth := tbl.GetColumnWidth(titleColIndex)
-
 	// Add rows for all filtered entries
 	for _, e := range m.filtered {
 		// Session indicator (plain text - ANSI in cells breaks row selection highlight)
@@ -699,19 +692,12 @@ func (m watchModel) View() string {
 		id := e.SessionID[:8]
 		modified := formatDate(e.Modified)
 
-		// Build title: [title]: prompt, or just prompt
+		// Build title: [title]: prompt, or just prompt (table handles truncation)
 		var title string
 		if e.HasTitle() {
-			displayTitle := e.DisplayTitle()
-			prefix := "[" + displayTitle + "]: "
-			remaining := titleWidth - 2 - len(prefix)
-			if remaining < 10 {
-				title = truncatePrompt(displayTitle, titleWidth-2)
-			} else {
-				title = prefix + truncatePrompt(e.FirstPrompt, remaining)
-			}
+			title = "[" + e.DisplayTitle() + "]: " + cleanPrompt(e.FirstPrompt)
 		} else {
-			title = truncatePrompt(e.FirstPrompt, titleWidth-2)
+			title = cleanPrompt(e.FirstPrompt)
 		}
 
 		if m.global {
