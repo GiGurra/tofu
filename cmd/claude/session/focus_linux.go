@@ -273,73 +273,62 @@ Write-Output "0|No window found in process tree"
 	return 0
 }
 
-// focusWTTab tries to focus a Windows Terminal tab by title using wt.exe
+// focusWTTab tries to focus a Windows Terminal tab by title.
+// Returns true if successfully focused a tab with our session ID.
 func focusWTTab(sessionID string) bool {
 	debugLog("Trying to focus Windows Terminal tab for session: %s", sessionID)
-
-	// Find wt.exe
-	wtPath := findWindowsTerminal()
-	if wtPath == "" {
-		debugLog("Windows Terminal (wt.exe) not found")
-		return false
-	}
-
-	// wt.exe can focus tabs by title using: wt.exe focus-tab --title <title>
-	// But we need to know the exact title. Let's try with our session ID pattern.
-	// The tab title might be set by tmux or the shell.
-
-	// First, let's try to list Windows Terminal tabs to find ours
-	// Unfortunately wt.exe doesn't have a "list tabs" command, so we'll try focusing by partial match
-
-	// Try focusing any tab that might contain our session ID
-	// wt.exe doesn't support partial title match, so this is a long shot
-	// Instead, let's just focus the Windows Terminal window and flash it
-
-	// For now, just activate Windows Terminal and hope user notices
-	psPath := findPowerShell()
-	if psPath == "" {
-		return false
-	}
-
-	// Focus Windows Terminal window
-	script := `
-$wshell = New-Object -ComObject wscript.shell
-$result = $wshell.AppActivate('Windows Terminal')
-Write-Output $result
-`
-	cmd := exec.Command(psPath, "-NoProfile", "-NonInteractive", "-Command", script)
-	out, err := cmd.CombinedOutput()
-	outStr := strings.TrimSpace(string(out))
-	debugLog("AppActivate Windows Terminal result: %s", outStr)
-
-	if err != nil {
-		debugLog("Failed to focus Windows Terminal: %v", err)
-		return false
-	}
-
-	return outStr == "True"
+	// This is now handled by focusWindowByTitlePattern and focusWTTabByCycling
+	return false
 }
 
-// findWindowsTerminal locates wt.exe
-func findWindowsTerminal() string {
-	// Check common paths
-	paths := []string{
-		"/mnt/c/Users/" + os.Getenv("USER") + "/AppData/Local/Microsoft/WindowsApps/wt.exe",
-		"/mnt/c/Program Files/WindowsApps/Microsoft.WindowsTerminal_*/wt.exe",
+// focusWTTabByCycling is a fallback that just focuses any Windows Terminal window.
+// Tab cycling was too complex/fragile, so we just bring WT to foreground.
+func focusWTTabByCycling(_ string) bool {
+	debugLog("Fallback: focusing any Windows Terminal window")
+
+	psPath := findPowerShell()
+	if psPath == "" {
+		debugLog("PowerShell not found")
+		return false
 	}
 
-	for _, pattern := range paths {
-		if matches, _ := filepath.Glob(pattern); len(matches) > 0 {
-			return matches[0]
-		}
-	}
+	// Focus first Windows Terminal window by process name
+	focusScript := `
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
 
-	// Try PATH (unlikely to work in WSL)
-	if path, err := exec.LookPath("wt.exe"); err == nil {
-		return path
-	}
+public class WTFocus {
+    [DllImport("user32.dll")]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll")]
+    public static extern bool IsIconic(IntPtr hWnd);
+    public const int SW_RESTORE = 9;
 
-	return ""
+    public static bool Focus(IntPtr hWnd) {
+        if (hWnd == IntPtr.Zero) return false;
+        if (IsIconic(hWnd)) ShowWindow(hWnd, SW_RESTORE);
+        return SetForegroundWindow(hWnd);
+    }
+}
+"@
+
+$wt = Get-Process -Name 'WindowsTerminal' -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($wt -and $wt.MainWindowHandle -ne [IntPtr]::Zero) {
+    $result = [WTFocus]::Focus($wt.MainWindowHandle)
+    Write-Output $result
+    exit 0
+}
+Write-Output "False"
+`
+	cmd := exec.Command(psPath, "-NoProfile", "-NonInteractive", "-Command", focusScript)
+	out, _ := cmd.CombinedOutput()
+	outStr := strings.TrimSpace(string(out))
+	debugLog("Focus WindowsTerminal fallback: %s", outStr)
+
+	return outStr == "True"
 }
 
 // focusWindowByPID focuses a window by its Windows process ID.
@@ -356,7 +345,12 @@ func focusWindowByPID(pid int) bool {
 		}
 	}
 
-	debugLog("Title pattern search failed, trying PID-based enumeration")
+	debugLog("Title pattern search failed, trying tab cycling")
+	if focusWTTabByCycling(sessionID) {
+		return true
+	}
+
+	debugLog("Tab cycling failed, trying PID-based enumeration")
 	return focusWindowByPIDEnumeration(pid, sessionID)
 }
 
