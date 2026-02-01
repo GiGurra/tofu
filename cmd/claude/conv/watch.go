@@ -12,6 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/fsnotify/fsnotify"
+	"github.com/gigurra/tofu/cmd/claude/common/convindex"
 	"github.com/gigurra/tofu/cmd/claude/common/table"
 	"github.com/gigurra/tofu/cmd/claude/session"
 	"github.com/gigurra/tofu/cmd/claude/syncutil"
@@ -698,12 +699,7 @@ func (m watchModel) View() string {
 		modified := formatDate(e.Modified)
 
 		// Build title: [title]: prompt, or just prompt (table handles truncation)
-		var title string
-		if e.HasTitle() {
-			title = "[" + e.DisplayTitle() + "]: " + cleanPrompt(e.FirstPrompt)
-		} else {
-			title = cleanPrompt(e.FirstPrompt)
-		}
+		title := convindex.FormatTitleAndPrompt(e.DisplayTitle(), e.FirstPrompt)
 
 		if m.global {
 			tbl.AddRow(table.Row{

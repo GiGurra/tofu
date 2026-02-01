@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/GiGurra/boa/pkg/boa"
+	"github.com/gigurra/tofu/cmd/claude/common/convindex"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
@@ -235,20 +236,7 @@ func RenderTable(stdout *os.File, entries []SessionEntry, showProject, long bool
 	// Add rows
 	for i, e := range entries {
 		// Format: [title]: prompt, or just prompt if no title/summary
-		var displayText string
-		if e.HasTitle() {
-			title := e.DisplayTitle()
-			prefix := "[" + title + "]: "
-			remaining := promptWidth - len(prefix)
-			if remaining < 10 {
-				// Not enough room for prompt, just show title
-				displayText = truncatePrompt(title, promptWidth)
-			} else {
-				displayText = prefix + truncatePrompt(e.FirstPrompt, remaining)
-			}
-		} else {
-			displayText = truncatePrompt(e.FirstPrompt, promptWidth)
-		}
+		displayText := truncatePrompt(convindex.FormatTitleAndPrompt(e.DisplayTitle(), e.FirstPrompt), promptWidth)
 		modified := formatDate(e.Modified)
 
 		row := table.Row{e.SessionID[:8]}
