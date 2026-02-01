@@ -170,6 +170,8 @@ func RunCp(params *CpParams, stdout, stderr *os.File, stdin *os.File) int {
 		FullPath:     dstConvFile,
 		FileMtime:    dstInfo.ModTime().UnixMilli(),
 		FirstPrompt:  srcEntry.FirstPrompt,
+		Summary:      srcEntry.Summary,
+		CustomTitle:  srcEntry.CustomTitle,
 		MessageCount: srcEntry.MessageCount,
 		Created:      now, // New creation time for the copy
 		Modified:     now,

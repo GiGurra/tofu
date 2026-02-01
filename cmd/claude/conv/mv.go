@@ -184,6 +184,8 @@ func RunMv(params *MvParams, stdout, stderr *os.File, stdin *os.File) int {
 		FullPath:     dstConvFile,
 		FileMtime:    dstInfo.ModTime().UnixMilli(),
 		FirstPrompt:  srcEntry.FirstPrompt,
+		Summary:      srcEntry.Summary,
+		CustomTitle:  srcEntry.CustomTitle,
 		MessageCount: srcEntry.MessageCount,
 		Created:      srcEntry.Created,
 		Modified:     srcEntry.Modified,

@@ -95,6 +95,7 @@ Session watch also supports:
 
 - [Session Management](sessions.md) - Detailed session commands
 - [Conversation Management](conversations.md) - Detailed conversation commands
+- [Git Worktrees](worktrees.md) - Parallel development with multiple branches
 - [OS Notifications](notifications.md) - Get notified when sessions need attention
 - [Git Sync](git-sync.md) - Sync conversations across devices
 
