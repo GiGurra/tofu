@@ -1,0 +1,143 @@
+package worktree
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/GiGurra/boa/pkg/boa"
+	"github.com/gigurra/tofu/cmd/common"
+	"github.com/spf13/cobra"
+)
+
+type ListParams struct {
+	Verbose bool `short:"v" help:"Show additional details"`
+}
+
+func ListCmd() *cobra.Command {
+	cmd := boa.CmdT[ListParams]{
+		Use:         "ls",
+		Short:       "List git worktrees",
+		Long:        "List all git worktrees in the current repository.",
+		Aliases:     []string{"list"},
+		ParamEnrich: common.DefaultParamEnricher(),
+		RunFunc: func(params *ListParams, cmd *cobra.Command, args []string) {
+			if err := runList(params); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+		},
+	}.ToCobra()
+
+	return cmd
+}
+
+func runList(params *ListParams) error {
+	// Check we're in a git repo
+	_, err := GetGitInfo()
+	if err != nil {
+		return err
+	}
+
+	worktrees, err := ListWorktrees()
+	if err != nil {
+		return err
+	}
+
+	if len(worktrees) == 0 {
+		fmt.Println("No worktrees found.")
+		return nil
+	}
+
+	// Find the longest path for alignment
+	maxPathLen := 0
+	for _, wt := range worktrees {
+		if len(wt.Path) > maxPathLen {
+			maxPathLen = len(wt.Path)
+		}
+	}
+
+	// Cap at reasonable width
+	if maxPathLen > 60 {
+		maxPathLen = 60
+	}
+
+	for _, wt := range worktrees {
+		path := wt.Path
+		if len(path) > maxPathLen {
+			// Truncate from start with ellipsis
+			path = "..." + path[len(path)-maxPathLen+3:]
+		}
+
+		branch := wt.Branch
+		if branch == "" {
+			branch = "(detached)"
+		}
+
+		marker := "  "
+		if wt.IsMain {
+			marker = "* "
+		}
+
+		if params.Verbose {
+			commit := wt.Commit
+			if len(commit) > 8 {
+				commit = commit[:8]
+			}
+			fmt.Printf("%s%-*s  %-20s  %s\n", marker, maxPathLen, path, branch, commit)
+		} else {
+			fmt.Printf("%s%-*s  %s\n", marker, maxPathLen, path, branch)
+		}
+	}
+
+	return nil
+}
+
+// FindWorktreeByBranch finds a worktree by branch name
+func FindWorktreeByBranch(branch string) (*WorktreeInfo, error) {
+	worktrees, err := ListWorktrees()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, wt := range worktrees {
+		if wt.Branch == branch {
+			return &wt, nil
+		}
+	}
+
+	return nil, fmt.Errorf("worktree for branch %q not found", branch)
+}
+
+// FindWorktreeByPath finds a worktree by path (exact or suffix match)
+func FindWorktreeByPath(pathQuery string) (*WorktreeInfo, error) {
+	worktrees, err := ListWorktrees()
+	if err != nil {
+		return nil, err
+	}
+
+	// Make query absolute if it looks like a path
+	if strings.HasPrefix(pathQuery, "/") || strings.HasPrefix(pathQuery, ".") {
+		absQuery, err := filepath.Abs(pathQuery)
+		if err == nil {
+			pathQuery = absQuery
+		}
+	}
+
+	// Try exact match first
+	for _, wt := range worktrees {
+		if wt.Path == pathQuery {
+			return &wt, nil
+		}
+	}
+
+	// Try suffix match (e.g., "tofu-feature" matches "/Users/.../tofu-feature")
+	for _, wt := range worktrees {
+		if strings.HasSuffix(wt.Path, "/"+pathQuery) || filepath.Base(wt.Path) == pathQuery {
+			return &wt, nil
+		}
+	}
+
+	return nil, fmt.Errorf("worktree %q not found", pathQuery)
+}
