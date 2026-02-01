@@ -44,6 +44,11 @@ func NewCmd() *cobra.Command {
 	return cmd
 }
 
+// RunNew is the exported entry point for running the new session command
+func RunNew(params *NewParams) error {
+	return runNew(params)
+}
+
 func runNew(params *NewParams) error {
 	// Check tmux is installed
 	if err := CheckTmuxInstalled(); err != nil {

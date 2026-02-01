@@ -64,6 +64,7 @@ type model struct {
 	height        int
 	shouldAttach  string // session ID to attach to after quitting
 	forceAttach   bool   // detach other clients when attaching
+	createNew     bool   // create a new session after quitting
 	includeAll    bool
 	sort          SortState
 	statusFilter  []string        // which statuses to show (empty = all)
@@ -516,6 +517,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "r":
 			// Force refresh
 			m = m.refreshSessions()
+		case "n", "N":
+			// Create a new session in current directory
+			m.createNew = true
+			return m, tea.Quit
 		case "f1", "1":
 			m.sort.Toggle(SortID)
 			m = m.refreshSessions()
@@ -599,7 +604,7 @@ func (m model) View() string {
 			b.WriteString("  No matches for \"" + m.searchInput + "\"\n")
 		}
 		b.WriteString("\n")
-		b.WriteString(helpStyle.Render("  / search • f filter • r refresh • q quit"))
+		b.WriteString(helpStyle.Render("  n new • / search • f filter • r refresh • q quit"))
 		b.WriteString("\n")
 		return b.String()
 	}
@@ -677,10 +682,10 @@ func (m model) View() string {
 		case confirmNoTmux:
 			b.WriteString(confirmStyle.Render(fmt.Sprintf("  Session %s was started outside tofu/tmux (◉) - already in its terminal. [press any key]", m.sessions[m.cursor].ID)))
 		default:
-			b.WriteString(helpStyle.Render("  h help • / search • ↑/↓ navigate • enter attach • q quit"))
+			b.WriteString(helpStyle.Render("  h help • n new • / search • ↑/↓ navigate • enter attach • q quit"))
 		}
 	} else {
-		b.WriteString(helpStyle.Render("  h help • / search • ↑/↓ navigate • enter attach • q quit"))
+		b.WriteString(helpStyle.Render("  h help • n new • / search • ↑/↓ navigate • enter attach • q quit"))
 	}
 	b.WriteString("\n")
 
@@ -746,6 +751,7 @@ func (m model) renderHelpView() string {
 
 	b.WriteString(headerStyle.Render("  Actions"))
 	b.WriteString("\n")
+	b.WriteString("    n         New session (in current directory)\n")
 	b.WriteString("    del/x     Kill selected session (with confirmation)\n")
 	b.WriteString("    r         Refresh session list\n")
 	b.WriteString("\n")
@@ -812,6 +818,7 @@ type WatchState struct {
 type AttachResult struct {
 	TmuxSession string
 	ForceAttach bool // true if we should detach other clients
+	CreateNew   bool // true if user wants to create a new session
 }
 
 // RunInteractive starts the interactive session viewer
@@ -838,6 +845,7 @@ func RunInteractive(includeAll bool, state WatchState) (AttachResult, WatchState
 	result := AttachResult{
 		TmuxSession: fm.shouldAttach,
 		ForceAttach: fm.forceAttach,
+		CreateNew:   fm.createNew,
 	}
 	newState := WatchState{
 		Sort:         fm.sort,
@@ -851,12 +859,49 @@ func RunInteractive(includeAll bool, state WatchState) (AttachResult, WatchState
 
 // RunWatchMode runs the interactive watch mode with attach support
 func RunWatchMode(includeAll bool, initialSort SortState, initialFilter, initialHide []string) error {
+	tmuxPath, err := exec.LookPath("tmux")
+	if err != nil {
+		return fmt.Errorf("tmux not found: %w", err)
+	}
+
 	state := WatchState{Sort: initialSort, StatusFilter: initialFilter, HideFilter: initialHide}
 	for {
 		result, newState, err := RunInteractive(includeAll, state)
 		state = newState // Preserve state between attach cycles
 		if err != nil {
 			return err
+		}
+
+		// Handle creating a new session
+		if result.CreateNew {
+			// Create session detached, then attach as subprocess so we return here
+			params := &NewParams{Detached: true}
+			if err := runNew(params); err != nil {
+				fmt.Fprintf(os.Stderr, "Error creating session: %v\n", err)
+				continue
+			}
+
+			// Find the newly created session and attach to it
+			states, _ := ListSessionStates()
+			if len(states) > 0 {
+				// Get the most recently created session
+				var newest *SessionState
+				for _, s := range states {
+					if newest == nil || s.Created.After(newest.Created) {
+						newest = s
+					}
+				}
+				if newest != nil && newest.TmuxSession != "" {
+					fmt.Printf("Attaching to %s... (Ctrl+B D to detach)\n", newest.TmuxSession)
+					cmd := exec.Command(tmuxPath, "attach-session", "-t", newest.TmuxSession)
+					cmd.Stdin = os.Stdin
+					cmd.Stdout = os.Stdout
+					cmd.Stderr = os.Stderr
+					_ = cmd.Run()
+				}
+			}
+			// After session ends or user detaches, continue back to watch
+			continue
 		}
 
 		if result.TmuxSession == "" {
@@ -869,11 +914,6 @@ func RunWatchMode(includeAll bool, initialSort SortState, initialFilter, initial
 			fmt.Printf("Attaching to %s (detaching others)... (Ctrl+B D to detach)\n", result.TmuxSession)
 		} else {
 			fmt.Printf("Attaching to %s... (Ctrl+B D to detach)\n", result.TmuxSession)
-		}
-
-		tmuxPath, err := exec.LookPath("tmux")
-		if err != nil {
-			return fmt.Errorf("tmux not found: %w", err)
 		}
 
 		// Run tmux attach as a subprocess (not exec, so we return here after detach)

@@ -53,8 +53,12 @@ func (e *SessionEntry) HasTitle() bool {
 	return e.CustomTitle != "" || e.Summary != ""
 }
 
+type ConvParams struct {
+	Global bool `short:"g" help:"List conversations from all projects"`
+}
+
 func Cmd() *cobra.Command {
-	cmd := boa.CmdT[boa.NoParams]{
+	cmd := boa.CmdT[ConvParams]{
 		Use:   "conv",
 		Short: "Manage Claude Code conversations",
 		SubCmds: []*cobra.Command{
@@ -67,9 +71,9 @@ func Cmd() *cobra.Command {
 			DeleteCmd(),
 			PruneEmptyCmd(),
 		},
-		RunFunc: func(_ *boa.NoParams, _ *cobra.Command, _ []string) {
+		RunFunc: func(params *ConvParams, _ *cobra.Command, _ []string) {
 			// Default to interactive watch mode (same as conv ls -w)
-			if err := RunConvWatchMode(false, "", ""); err != nil {
+			if err := RunConvWatchMode(params.Global, "", ""); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}

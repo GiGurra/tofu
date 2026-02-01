@@ -150,7 +150,7 @@ func Cmd() *cobra.Command {
 	cmd := boa.CmdT[boa.NoParams]{
 		Use:   "session",
 		Short: "Manage Claude Code sessions (tmux-based)",
-		Long:  "Multiplex and manage multiple Claude Code sessions with detach/reattach support.",
+		Long:  "Multiplex and manage multiple Claude Code sessions with detach/reattach support.\n\nWhen run without a subcommand, opens the interactive session viewer.",
 		SubCmds: []*cobra.Command{
 			NewCmd(),
 			ListCmd(),
@@ -160,6 +160,13 @@ func Cmd() *cobra.Command {
 			InstallHooksCmd(),
 			StatusCallbackCmd(),
 			HookCallbackCmd(),
+		},
+		RunFunc: func(_ *boa.NoParams, cmd *cobra.Command, args []string) {
+			// Default to interactive watch mode
+			if err := RunWatchMode(false, SortState{Column: SortNone}, nil, nil); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
 		},
 	}.ToCobra()
 	cmd.Aliases = []string{"sessions"}
