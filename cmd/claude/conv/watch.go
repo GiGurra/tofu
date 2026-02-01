@@ -699,7 +699,11 @@ func (m watchModel) View() string {
 		modified := formatDate(e.Modified)
 
 		// Build title: [title]: prompt, or just prompt (table handles truncation)
-		title := convindex.FormatTitleAndPrompt(e.DisplayTitle(), e.FirstPrompt)
+		var titleStr string
+		if e.HasTitle() {
+			titleStr = e.DisplayTitle()
+		}
+		title := convindex.FormatTitleAndPrompt(titleStr, e.FirstPrompt)
 
 		if m.global {
 			tbl.AddRow(table.Row{

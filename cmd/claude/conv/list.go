@@ -236,7 +236,11 @@ func RenderTable(stdout *os.File, entries []SessionEntry, showProject, long bool
 	// Add rows
 	for i, e := range entries {
 		// Format: [title]: prompt, or just prompt if no title/summary
-		displayText := truncatePrompt(convindex.FormatTitleAndPrompt(e.DisplayTitle(), e.FirstPrompt), promptWidth)
+		var titleStr string
+		if e.HasTitle() {
+			titleStr = e.DisplayTitle()
+		}
+		displayText := truncatePrompt(convindex.FormatTitleAndPrompt(titleStr, e.FirstPrompt), promptWidth)
 		modified := formatDate(e.Modified)
 
 		row := table.Row{e.SessionID[:8]}
