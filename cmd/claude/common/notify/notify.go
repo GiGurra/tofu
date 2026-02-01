@@ -145,8 +145,29 @@ func sendWSLClickable(sessionID, title, body string) error {
 func sendDarwinClickable(sessionID, title, body string) error {
 	// Check for terminal-notifier (supports -execute)
 	if _, err := exec.LookPath("terminal-notifier"); err == nil {
-		// Use focus command to bring terminal to front
-		focusCmd := fmt.Sprintf("tofu claude session focus %s", sessionID)
+		// Get full path to tofu executable
+		tofuPath, err := os.Executable()
+		if err != nil {
+			tofuPath = "tofu" // fallback
+		}
+
+		// Get full path to tmux (needed by focus command)
+		tmuxPath, err := exec.LookPath("tmux")
+		if err != nil {
+			tmuxPath = "" // will use PATH
+		}
+
+		// Build command - terminal-notifier runs with minimal PATH
+		var focusCmd string
+		if tmuxPath != "" {
+			// Add tmux's directory to PATH
+			tmuxDir := filepath.Dir(tmuxPath)
+			focusCmd = fmt.Sprintf("PATH=%s:$PATH %s claude session focus %s",
+				tmuxDir, tofuPath, sessionID)
+		} else {
+			focusCmd = fmt.Sprintf("%s claude session focus %s", tofuPath, sessionID)
+		}
+
 		return exec.Command("terminal-notifier",
 			"-title", title,
 			"-message", body,

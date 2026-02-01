@@ -59,15 +59,11 @@ func runFocus(params *FocusParams) error {
 	// Try to focus the window
 	fmt.Printf("Focusing session %s...\n", state.ID)
 
-	// Set the session ID for the focus functions
+	// Set the session ID for other functions that may need it
 	os.Setenv("TOFU_SESSION_ID", state.ID)
 
-	if FocusOwnWindow() {
-		fmt.Printf("Focused window for session %s\n", state.ID)
-		return nil
-	}
+	// Try to focus the terminal running this session
+	tryFocusAttachedSession(state.TmuxSession)
 
-	// Fallback: open new window and attach
-	fmt.Printf("Window not found, opening new terminal...\n")
 	return nil
 }
