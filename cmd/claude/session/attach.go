@@ -14,8 +14,8 @@ import (
 )
 
 type AttachParams struct {
-	ID            string `pos:"true" help:"Session ID to attach to"`
-	IfNotAttached bool   `long:"if-not-attached" help:"Only attach if session has no clients attached"`
+	ID    string `pos:"true" help:"Session ID to attach to"`
+	Force bool   `short:"f" long:"force" help:"Attach even if session already has clients attached"`
 }
 
 func AttachCmd() *cobra.Command {
@@ -60,10 +60,10 @@ func runAttach(params *AttachParams) error {
 		return fmt.Errorf("session %s has exited", state.ID)
 	}
 
-	// Check if already attached when --if-not-attached flag is set
-	if params.IfNotAttached && IsTmuxSessionAttached(state.TmuxSession) {
+	// By default, don't attach if session already has clients (use --force to override)
+	if !params.Force && IsTmuxSessionAttached(state.TmuxSession) {
 		fmt.Printf("Session %s is already attached in another terminal\n", state.ID)
-		// Try to focus the terminal window (best effort)
+		// Try to focus the terminal window (best effort, usually doesn't work)
 		tryFocusAttachedSession(state.TmuxSession)
 		return nil
 	}

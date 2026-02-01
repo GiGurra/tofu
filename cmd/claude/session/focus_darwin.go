@@ -2,14 +2,8 @@
 
 package session
 
-import (
-	"os/exec"
-)
-
 // tryFocusAttachedSession attempts to focus the terminal window that has the session attached.
-// On macOS, we use AppleScript to bring Terminal.app to the front.
+// On macOS, this is not reliably possible without knowing which terminal app and window.
 func tryFocusAttachedSession(tmuxSession string) {
-	// Try to activate Terminal.app (most common terminal on macOS)
-	script := `tell application "Terminal" to activate`
-	_ = exec.Command("osascript", "-e", script).Run()
+	// Best effort: the user already got a message saying the session is attached elsewhere.
 }
