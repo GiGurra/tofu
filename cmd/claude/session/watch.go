@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -65,8 +64,9 @@ type model struct {
 	height         int
 	viewportOffset int
 	viewportHeight int
-	shouldAttach  string // session ID to attach to after quitting
-	forceAttach   bool   // detach other clients when attaching
+	shouldAttach   string // tmux session name to attach to after quitting
+	shouldAttachID string // session ID for inbox watcher
+	forceAttach    bool   // detach other clients when attaching
 	createNew     bool   // create a new session after quitting
 	includeAll    bool
 	sort          SortState
@@ -365,6 +365,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m = m.refreshSessions()
 					} else if m.confirmMode == confirmAttachForce {
 						m.shouldAttach = m.sessions[m.cursor].TmuxSession
+						m.shouldAttachID = m.sessions[m.cursor].ID
 						m.forceAttach = true
 						m.confirmMode = confirmNone
 						return m, tea.Quit
@@ -511,6 +512,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.confirmMode = confirmAttachForce
 				} else {
 					m.shouldAttach = state.TmuxSession
+					m.shouldAttachID = state.ID
 					return m, tea.Quit
 				}
 			}
@@ -818,8 +820,9 @@ type WatchState struct {
 // AttachResult holds the result of selecting a session to attach
 type AttachResult struct {
 	TmuxSession string
-	ForceAttach bool // true if we should detach other clients
-	CreateNew   bool // true if user wants to create a new session
+	SessionID   string // session ID for inbox watcher
+	ForceAttach bool   // true if we should detach other clients
+	CreateNew   bool   // true if user wants to create a new session
 }
 
 // RunInteractive starts the interactive session viewer
@@ -845,6 +848,7 @@ func RunInteractive(includeAll bool, state WatchState) (AttachResult, WatchState
 	fm := finalModel.(model)
 	result := AttachResult{
 		TmuxSession: fm.shouldAttach,
+		SessionID:   fm.shouldAttachID,
 		ForceAttach: fm.forceAttach,
 		CreateNew:   fm.createNew,
 	}
@@ -860,7 +864,7 @@ func RunInteractive(includeAll bool, state WatchState) (AttachResult, WatchState
 
 // RunWatchMode runs the interactive watch mode with attach support
 func RunWatchMode(includeAll bool, initialSort SortState, initialFilter, initialHide []string) error {
-	tmuxPath, err := exec.LookPath("tmux")
+	_, err := exec.LookPath("tmux")
 	if err != nil {
 		return fmt.Errorf("tmux not found: %w", err)
 	}
@@ -894,11 +898,7 @@ func RunWatchMode(includeAll bool, initialSort SortState, initialFilter, initial
 				}
 				if newest != nil && newest.TmuxSession != "" {
 					fmt.Printf("Attaching to %s... (Ctrl+B D to detach)\n", newest.TmuxSession)
-					cmd := exec.Command(tmuxPath, "attach-session", "-t", newest.TmuxSession)
-					cmd.Stdin = os.Stdin
-					cmd.Stdout = os.Stdout
-					cmd.Stderr = os.Stderr
-					_ = cmd.Run()
+					_ = AttachToSessionWithInbox(newest.ID, newest.TmuxSession, false)
 				}
 			}
 			// After session ends or user detaches, continue back to watch
@@ -918,30 +918,10 @@ func RunWatchMode(includeAll bool, initialSort SortState, initialFilter, initial
 			fmt.Printf("Attaching to %s... (Ctrl+B D to detach)\n", result.TmuxSession)
 		}
 
-		// Run tmux attach as a subprocess (not exec, so we return here after detach)
-		// Use -d flag to detach other clients if force attach was requested
-		args := []string{"attach-session", "-t", result.TmuxSession}
-		if result.ForceAttach {
-			args = []string{"attach-session", "-d", "-t", result.TmuxSession}
-		}
-		cmd := exec.Command(tmuxPath, args...)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		err = cmd.Run()
+		err = AttachToSessionWithInbox(result.SessionID, result.TmuxSession, result.ForceAttach)
 		if err != nil {
-			// Check if it's just a normal detach (exit code 0 or specific tmux codes)
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
-					// tmux returns various codes, but we want to continue the loop
-					// unless it's a real error
-					if status.ExitStatus() != 0 {
-						// Session might have ended, continue to interactive view
-						continue
-					}
-				}
-			}
+			// Session might have ended, continue to interactive view
+			continue
 		}
 
 		// After detach or session end, loop back to interactive view

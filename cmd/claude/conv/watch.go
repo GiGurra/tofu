@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -867,7 +866,7 @@ func RunConvWatchMode(global bool, since, before string) error {
 					fmt.Printf("Attaching to %s... (Ctrl+B D to detach)\n", sessState.ID)
 				}
 
-				if err := attachToTmuxSession(sessState.TmuxSession, result.ForceAttach); err != nil {
+				if err := session.AttachToSessionWithInbox(sessState.ID, sessState.TmuxSession, result.ForceAttach); err != nil {
 					// Session may have exited, continue to watch mode
 					continue
 				}
@@ -940,7 +939,7 @@ func createSessionForConv(conv *SessionEntry) error {
 	fmt.Printf("Created session %s\n", sessionID)
 	fmt.Println("Attaching... (Ctrl+B D to detach)")
 
-	return attachToTmuxSession(tmuxSession, false)
+	return session.AttachToSessionWithInbox(sessionID, tmuxSession, false)
 }
 
 // findSessionForConv finds an existing session for a conversation ID
@@ -955,35 +954,3 @@ func findSessionForConv(convID string) *session.SessionState {
 	return nil
 }
 
-// attachToTmuxSession attaches to a tmux session
-func attachToTmuxSession(tmuxSession string, forceDetach bool) error {
-	tmuxPath, err := exec.LookPath("tmux")
-	if err != nil {
-		return fmt.Errorf("tmux not found: %w", err)
-	}
-
-	// Run tmux attach as a subprocess (not exec, so we return here after detach)
-	args := []string{"attach-session", "-t", tmuxSession}
-	if forceDetach {
-		args = []string{"attach-session", "-d", "-t", tmuxSession}
-	}
-
-	cmd := exec.Command(tmuxPath, args...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	err = cmd.Run()
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
-				if status.ExitStatus() != 0 {
-					// Session might have ended, return without error to go back to watch
-					return nil
-				}
-			}
-		}
-	}
-
-	return nil
-}

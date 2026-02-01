@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gigurra/tofu/cmd/claude/common/convindex"
+	"github.com/gigurra/tofu/cmd/claude/common/inbox"
 	"github.com/gigurra/tofu/cmd/claude/common/notify"
 	"github.com/spf13/cobra"
 )
@@ -165,6 +166,9 @@ func runHookCallback() error {
 		return err
 	}
 
+	// Process inbox messages (focus requests, etc.)
+	processInbox(state.ID)
+
 	// Look up conversation title for notification
 	convTitle := getConvTitle(state.ConvID, state.Cwd)
 
@@ -172,6 +176,49 @@ func runHookCallback() error {
 	notify.OnStateTransition(state.ID, prevStatus, newStatus, state.Cwd, convTitle)
 
 	return nil
+}
+
+// processInbox reads and handles any pending messages for this session.
+func processInbox(sessionID string) {
+	messages, err := inbox.ReadAll(sessionID)
+	if err != nil {
+		return
+	}
+
+	debug := os.Getenv("TOFU_HOOK_DEBUG") == "true"
+	var debugFile *os.File
+	if debug {
+		debugFile, _ = os.OpenFile(DebugLogPath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if debugFile != nil {
+			defer debugFile.Close()
+		}
+	}
+
+	for _, msg := range messages {
+		if debug && debugFile != nil {
+			fmt.Fprintf(debugFile, "[inbox] Processing message: type=%s, created=%s\n",
+				msg.Type, msg.Created.Format(time.RFC3339))
+		}
+
+		switch msg.Type {
+		case inbox.TypeFocus:
+			// Attempt to focus our own window
+			if FocusOwnWindow() {
+				if debug && debugFile != nil {
+					fmt.Fprintf(debugFile, "[inbox] Successfully focused window\n")
+				}
+			} else {
+				if debug && debugFile != nil {
+					title := GetOwnWindowTitle()
+					fmt.Fprintf(debugFile, "[inbox] Failed to focus window (title: %s)\n", title)
+				}
+			}
+		default:
+			if debug && debugFile != nil {
+				fmt.Fprintf(debugFile, "[inbox] Unknown message type: %s\n", msg.Type)
+			}
+		}
+	}
 }
 
 // getConvTitle looks up the conversation title from Claude's session index.
