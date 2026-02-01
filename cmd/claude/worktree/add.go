@@ -5,14 +5,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"time"
 
 	"github.com/GiGurra/boa/pkg/boa"
 	clcommon "github.com/gigurra/tofu/cmd/claude/common"
-	"github.com/gigurra/tofu/cmd/claude/conv"
+	"github.com/gigurra/tofu/cmd/claude/common/convops"
 	"github.com/gigurra/tofu/cmd/claude/session"
 	"github.com/gigurra/tofu/cmd/common"
-	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
 
@@ -53,7 +51,13 @@ func AddCmd() *cobra.Command {
 }
 
 func runAdd(params *AddParams) error {
-	if params.Branch == "" {
+	return RunAdd(params.Branch, params.FromBranch, params.FromConv, params.Path, params.Global, params.Detached)
+}
+
+// RunAdd creates a git worktree and optionally starts a Claude session.
+// This is the core logic that can be called from CLI or programmatically.
+func RunAdd(branch, fromBranch, fromConv, path string, global, detached bool) error {
+	if branch == "" {
 		return fmt.Errorf("branch name is required")
 	}
 
@@ -64,7 +68,7 @@ func runAdd(params *AddParams) error {
 	}
 
 	// Determine base branch
-	baseBranch := params.FromBranch
+	baseBranch := fromBranch
 	if baseBranch == "" {
 		baseBranch, err = GetDefaultBranch()
 		if err != nil {
@@ -78,11 +82,11 @@ func runAdd(params *AddParams) error {
 	}
 
 	// Determine worktree path
-	worktreePath := params.Path
+	worktreePath := path
 	if worktreePath == "" {
 		// Default: ../<repo>-<branch>
 		parentDir := filepath.Dir(gitInfo.RepoRoot)
-		worktreePath = filepath.Join(parentDir, gitInfo.RepoName+"-"+params.Branch)
+		worktreePath = filepath.Join(parentDir, gitInfo.RepoName+"-"+branch)
 	}
 
 	// Make path absolute
@@ -97,10 +101,10 @@ func runAdd(params *AddParams) error {
 	}
 
 	// Check if branch already exists
-	branchExists := BranchExists(params.Branch)
+	branchExists := BranchExists(branch)
 
 	fmt.Printf("Creating worktree...\n")
-	fmt.Printf("  Branch: %s", params.Branch)
+	fmt.Printf("  Branch: %s", branch)
 	if !branchExists {
 		fmt.Printf(" (new, from %s)", baseBranch)
 	}
@@ -111,10 +115,10 @@ func runAdd(params *AddParams) error {
 	var gitCmd *exec.Cmd
 	if branchExists {
 		// Use existing branch
-		gitCmd = exec.Command("git", "worktree", "add", worktreePath, params.Branch)
+		gitCmd = exec.Command("git", "worktree", "add", worktreePath, branch)
 	} else {
 		// Create new branch from base
-		gitCmd = exec.Command("git", "worktree", "add", "-b", params.Branch, worktreePath, baseBranch)
+		gitCmd = exec.Command("git", "worktree", "add", "-b", branch, worktreePath, baseBranch)
 	}
 
 	gitCmd.Stdout = os.Stdout
@@ -128,20 +132,21 @@ func runAdd(params *AddParams) error {
 
 	// Copy conversation if specified
 	var copiedConvID string
-	if params.FromConv != "" {
-		convID := clcommon.ExtractIDFromCompletion(params.FromConv)
+	if fromConv != "" {
+		convID := clcommon.ExtractIDFromCompletion(fromConv)
 		fmt.Printf("\nCopying conversation %s...\n", convID)
 
-		copiedConvID, err = copyConversationToWorktree(convID, worktreePath, params.Global)
+		result, err := convops.CopyConversationToPath(convID, worktreePath, global)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to copy conversation: %v\n", err)
 		} else {
+			copiedConvID = result.NewConvID
 			fmt.Printf("  Copied to new project: %s\n", copiedConvID[:8])
 		}
 	}
 
 	// Start session unless detached
-	if !params.Detached {
+	if !detached {
 		fmt.Printf("\nStarting Claude session...\n")
 
 		newParams := &session.NewParams{
@@ -164,129 +169,4 @@ func runAdd(params *AddParams) error {
 	}
 
 	return nil
-}
-
-// copyConversationToWorktree copies a conversation to a new worktree's project directory
-func copyConversationToWorktree(convID, worktreePath string, global bool) (string, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("failed to get current directory: %w", err)
-	}
-
-	var srcEntry *conv.SessionEntry
-	var srcProjectPath string
-	dstProjectPath := conv.GetClaudeProjectPath(worktreePath)
-
-	if global {
-		// Search all projects
-		projectsDir := conv.ClaudeProjectsDir()
-		entries, err := os.ReadDir(projectsDir)
-		if err != nil {
-			return "", fmt.Errorf("failed to read projects directory: %w", err)
-		}
-
-		for _, dirEntry := range entries {
-			if !dirEntry.IsDir() {
-				continue
-			}
-			projPath := projectsDir + "/" + dirEntry.Name()
-			index, err := conv.LoadSessionsIndex(projPath)
-			if err != nil {
-				continue
-			}
-			if found, _ := conv.FindSessionByID(index, convID); found != nil {
-				srcEntry = found
-				srcProjectPath = projPath
-				break
-			}
-		}
-	} else {
-		srcProjectPath = conv.GetClaudeProjectPath(cwd)
-		srcIndex, err := conv.LoadSessionsIndex(srcProjectPath)
-		if err != nil {
-			return "", fmt.Errorf("failed to load sessions index: %w", err)
-		}
-		srcEntry, _ = conv.FindSessionByID(srcIndex, convID)
-	}
-
-	if srcEntry == nil {
-		if global {
-			return "", fmt.Errorf("conversation %s not found", convID)
-		}
-		return "", fmt.Errorf("conversation %s not found in current project (use -g for global search)", convID)
-	}
-
-	// Create destination directory if needed
-	if err := os.MkdirAll(dstProjectPath, 0700); err != nil {
-		return "", fmt.Errorf("failed to create destination directory: %w", err)
-	}
-
-	// Load or create destination index
-	dstIndex, err := conv.LoadSessionsIndex(dstProjectPath)
-	if err != nil {
-		// Create new index
-		dstIndex = &conv.SessionsIndex{Version: 1, Entries: []conv.SessionEntry{}}
-	}
-
-	// Generate new UUID
-	newConvID := generateUUID()
-	oldConvID := srcEntry.SessionID
-
-	// Copy conversation file
-	srcConvFile := filepath.Join(srcProjectPath, oldConvID+".jsonl")
-	dstConvFile := filepath.Join(dstProjectPath, newConvID+".jsonl")
-
-	if err := conv.CopyConversationFile(srcConvFile, dstConvFile, oldConvID, newConvID); err != nil {
-		return "", fmt.Errorf("failed to copy conversation file: %w", err)
-	}
-
-	// Copy conversation directory if exists
-	srcConvDir := filepath.Join(srcProjectPath, oldConvID)
-	dstConvDir := filepath.Join(dstProjectPath, newConvID)
-	if info, err := os.Stat(srcConvDir); err == nil && info.IsDir() {
-		if err := conv.CopyDir(srcConvDir, dstConvDir); err != nil {
-			return "", fmt.Errorf("failed to copy conversation directory: %w", err)
-		}
-	}
-
-	// Get file info for new entry
-	dstInfo, err := os.Stat(dstConvFile)
-	if err != nil {
-		return "", fmt.Errorf("failed to stat destination file: %w", err)
-	}
-
-	// Create new entry
-	now := formatTime()
-	newEntry := conv.SessionEntry{
-		SessionID:    newConvID,
-		FullPath:     dstConvFile,
-		FileMtime:    dstInfo.ModTime().UnixMilli(),
-		FirstPrompt:  srcEntry.FirstPrompt,
-		Summary:      srcEntry.Summary,
-		CustomTitle:  srcEntry.CustomTitle,
-		MessageCount: srcEntry.MessageCount,
-		Created:      now,
-		Modified:     now,
-		GitBranch:    srcEntry.GitBranch,
-		ProjectPath:  worktreePath,
-		IsSidechain:  srcEntry.IsSidechain,
-	}
-
-	dstIndex.Entries = append(dstIndex.Entries, newEntry)
-
-	if err := conv.SaveSessionsIndex(dstProjectPath, dstIndex); err != nil {
-		return "", fmt.Errorf("failed to save destination index: %w", err)
-	}
-
-	return newConvID, nil
-}
-
-// generateUUID generates a new UUID v4
-func generateUUID() string {
-	return uuid.New().String()
-}
-
-// formatTime returns current time in RFC3339 format (local time)
-func formatTime() string {
-	return time.Now().Format(time.RFC3339)
 }

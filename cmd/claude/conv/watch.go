@@ -16,6 +16,7 @@ import (
 	"github.com/gigurra/tofu/cmd/claude/common/table"
 	"github.com/gigurra/tofu/cmd/claude/session"
 	"github.com/gigurra/tofu/cmd/claude/syncutil"
+	"github.com/gigurra/tofu/cmd/claude/worktree"
 )
 
 var (
@@ -58,6 +59,10 @@ type watchModel struct {
 	searchInput   string
 	searchFocused bool
 
+	// Worktree branch input
+	worktreeInput   string
+	worktreeFocused bool
+
 	// UI state
 	width       int
 	height      int
@@ -71,11 +76,13 @@ type watchModel struct {
 	before      string // Filter: modified before
 
 	// Result
-	selectedConv *SessionEntry
-	shouldCreate bool   // true = create new session, false = attach to existing
-	forceAttach  bool
-	focusOnly    bool   // Just focus the window, don't attach
-	focusTmux    string // Tmux session to focus
+	selectedConv    *SessionEntry
+	shouldCreate    bool   // true = create new session, false = attach to existing
+	forceAttach     bool
+	focusOnly       bool   // Just focus the window, don't attach
+	focusTmux       string // Tmux session to focus
+	createWorktree  bool   // true = create worktree for selected conv
+	worktreeBranch  string // Branch name for worktree
 
 	// Status message (shown briefly after actions)
 	statusMsg string
@@ -501,6 +508,41 @@ func (m watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+		// Handle worktree branch input mode
+		if m.worktreeFocused {
+			switch msg.String() {
+			case "esc":
+				m.worktreeFocused = false
+				m.worktreeInput = ""
+			case "enter":
+				if m.worktreeInput != "" && m.cursor < len(m.filtered) {
+					conv := m.filtered[m.cursor]
+					m.selectedConv = &conv
+					m.createWorktree = true
+					m.worktreeBranch = m.worktreeInput
+					return m, tea.Quit
+				}
+				m.worktreeFocused = false
+			case "backspace":
+				if len(m.worktreeInput) > 0 {
+					m.worktreeInput = m.worktreeInput[:len(m.worktreeInput)-1]
+				}
+			case "ctrl+u":
+				m.worktreeInput = ""
+			default:
+				// Add valid branch name characters
+				ch := msg.String()
+				if len(ch) == 1 {
+					c := ch[0]
+					// Allow alphanumeric, dash, underscore, slash
+					if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '/' {
+						m.worktreeInput += ch
+					}
+				}
+			}
+			return m, nil
+		}
+
 		// Normal mode
 		switch msg.String() {
 		case "q", "ctrl+c":
@@ -576,6 +618,12 @@ func (m watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMsg = ""
 		case "h", "?":
 			m.helpView = true
+		case "W":
+			// Create worktree for selected conversation
+			if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
+				m.worktreeFocused = true
+				m.worktreeInput = ""
+			}
 		case "delete", "backspace", "x":
 			// Delete conversation (with confirmation)
 			if len(m.filtered) > 0 && m.cursor < len(m.filtered) {
@@ -729,10 +777,12 @@ func (m watchModel) View() string {
 	case watchConfirmNoTmux:
 		b.WriteString(wConfirmStyle.Render("  Session was started outside tofu/tmux (◉) - already in its terminal. [press any key]"))
 	default:
-		if m.statusMsg != "" {
+		if m.worktreeFocused {
+			b.WriteString(wSearchStyle.Render("  Branch name: [" + m.worktreeInput + "_] (enter to create, esc to cancel)"))
+		} else if m.statusMsg != "" {
 			b.WriteString(wSearchStyle.Render("  " + m.statusMsg))
 		} else {
-			b.WriteString(wHelpStyle.Render("  h help • ↑/↓ navigate • enter attach • del delete • q quit"))
+			b.WriteString(wHelpStyle.Render("  h help • ↑/↓ navigate • enter attach • W worktree • del delete • q quit"))
 		}
 	}
 	b.WriteString("\n")
@@ -767,6 +817,7 @@ func (m watchModel) renderHelpView() string {
 
 	b.WriteString(wHeaderStyle.Render("  Actions"))
 	b.WriteString("\n")
+	b.WriteString("    W         Create git worktree with this conversation\n")
 	b.WriteString("    del/x     Delete conversation (with confirmation)\n")
 	b.WriteString("              If has session: y=delete+stop, s=stop only, n=cancel\n")
 	b.WriteString("    r         Refresh conversation list\n")
@@ -786,11 +837,13 @@ func (m watchModel) renderHelpView() string {
 
 // WatchResult holds the result of the watch mode selection
 type WatchResult struct {
-	Conv         *SessionEntry
-	ShouldCreate bool   // true = create new session, false = attach to existing
-	ForceAttach  bool   // Detach other clients when attaching
-	FocusOnly    bool   // Just focus the window, don't attach
-	TmuxSession  string // Tmux session to focus (when FocusOnly is true)
+	Conv           *SessionEntry
+	ShouldCreate   bool   // true = create new session, false = attach to existing
+	ForceAttach    bool   // Detach other clients when attaching
+	FocusOnly      bool   // Just focus the window, don't attach
+	TmuxSession    string // Tmux session to focus (when FocusOnly is true)
+	CreateWorktree bool   // true = create worktree for selected conv
+	WorktreeBranch string // Branch name for worktree
 }
 
 // ConvWatchState holds state that persists between attach cycles
@@ -830,11 +883,13 @@ func RunConvWatch(global bool, since, before string, state ConvWatchState) (Watc
 		ViewportOffset: fm.viewportOffset,
 	}
 	return WatchResult{
-		Conv:         fm.selectedConv,
-		ShouldCreate: fm.shouldCreate,
-		ForceAttach:  fm.forceAttach,
-		FocusOnly:    fm.focusOnly,
-		TmuxSession:  fm.focusTmux,
+		Conv:           fm.selectedConv,
+		ShouldCreate:   fm.shouldCreate,
+		ForceAttach:    fm.forceAttach,
+		FocusOnly:      fm.focusOnly,
+		TmuxSession:    fm.focusTmux,
+		CreateWorktree: fm.createWorktree,
+		WorktreeBranch: fm.worktreeBranch,
 	}, newState, nil
 }
 
@@ -848,7 +903,7 @@ func RunConvWatchMode(global bool, since, before string) error {
 			return err
 		}
 
-		if result.Conv == nil && !result.FocusOnly {
+		if result.Conv == nil && !result.FocusOnly && !result.CreateWorktree {
 			// User quit without selecting
 			return nil
 		}
@@ -857,6 +912,16 @@ func RunConvWatchMode(global bool, since, before string) error {
 		if result.FocusOnly {
 			session.TryFocusAttachedSession(result.TmuxSession)
 			continue
+		}
+
+		// Create worktree - exits watch mode to run git commands
+		if result.CreateWorktree {
+			if err := createWorktreeForConv(result.Conv, result.WorktreeBranch); err != nil {
+				fmt.Fprintf(os.Stderr, "Error creating worktree: %v\n", err)
+			}
+			// Don't return to watch mode after worktree creation
+			// (the new session will be in the worktree directory)
+			return nil
 		}
 
 		if result.ShouldCreate {
@@ -968,5 +1033,12 @@ func findSessionForConv(convID string) *session.SessionState {
 		}
 	}
 	return nil
+}
+
+// createWorktreeForConv creates a git worktree and starts a session with the conversation
+func createWorktreeForConv(conv *SessionEntry, branch string) error {
+	// Call the worktree add function directly
+	// branch, fromBranch, fromConv, path, global, detached
+	return worktree.RunAdd(branch, "", conv.SessionID, "", false, false)
 }
 
