@@ -74,7 +74,7 @@ Only notify when permission is needed:
   "notifications": {
     "enabled": true,
     "transitions": [
-      {"from": "working", "to": "awaiting_permission"}
+      {"from": "*", "to": "awaiting_permission"}
     ]
   }
 }
