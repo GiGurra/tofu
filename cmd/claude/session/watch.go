@@ -12,6 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/fsnotify/fsnotify"
+	"github.com/gigurra/tofu/cmd/claude/common/convindex"
 	"github.com/gigurra/tofu/cmd/claude/common/table"
 )
 
@@ -648,17 +649,18 @@ func (m model) View() string {
 		return b.String()
 	}
 
-	// Build table using table library - DIRECTORY is flexible
+	// Build table - TITLE/PROMPT and STATUS are flexible
+	tableWidth := max(m.width-3, 60)
 	tbl := table.New(
 		table.Column{Header: "", Width: 2},                                                             // Attached indicator
 		table.Column{Header: "ID" + m.sort.Indicator(SortID), Width: 10},                               // ID
-		table.Column{Header: "DIRECTORY" + m.sort.Indicator(SortDirectory), MinWidth: 20, MaxWidth: 50, Truncate: true, TruncateMode: table.TruncateStart}, // Directory (flexible, truncate from start for paths)
-		table.Column{Header: "STATUS" + m.sort.Indicator(SortStatus), Width: 25, Truncate: true},       // Status
-		table.Column{Header: "AGE" + m.sort.Indicator(SortAge), Width: 10},                             // Age
+		table.Column{Header: "PROJECT" + m.sort.Indicator(SortDirectory), Width: 20, Truncate: true},   // Project (base name of cwd)
+		table.Column{Header: "TITLE/PROMPT", MinWidth: 20, Weight: 0.7, Truncate: true},                // Title/prompt (flexible)
+		table.Column{Header: "STATUS" + m.sort.Indicator(SortStatus), MinWidth: 15, Weight: 0.3, Truncate: true}, // Status (flexible)
 		table.Column{Header: "UPDATED" + m.sort.Indicator(SortUpdated), Width: 10},                     // Updated
 	)
 	tbl.Padding = 1
-	tbl.SetTerminalWidth(max(m.width, 80))
+	tbl.SetTerminalWidth(tableWidth)
 	tbl.HeaderStyle = headerStyle
 	tbl.SelectedStyle = selectedStyle
 	tbl.SelectedIndex = m.cursor
@@ -683,11 +685,22 @@ func (m model) View() string {
 			attachedMark = " ▷" // Tmux detached (can attach)
 		}
 
-		age := FormatDuration(time.Since(state.Created))
+		// Get project name (base of cwd)
+		project := filepath.Base(state.Cwd)
+		if project == "." || project == "" {
+			project = state.Cwd
+		}
+
+		// Get title/prompt from conversation if available
+		title := convindex.GetConvTitle(state.ConvID, state.Cwd)
+		if title == "" {
+			title = "-"
+		}
+
 		updated := FormatDuration(time.Since(state.Updated))
 
 		tbl.AddRow(table.Row{
-			Cells: []string{attachedMark, state.ID, state.Cwd, status, age, updated},
+			Cells: []string{attachedMark, state.ID, project, title, status, updated},
 			Style: getRowStyle(state.Status),
 		})
 	}
