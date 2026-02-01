@@ -196,8 +196,8 @@ func (t *Table) RenderRows() string {
 
 		// Apply styling - combine row style with selection style to preserve row colors
 		if actualIndex == t.SelectedIndex {
-			// Start with row style, add selection's background/bold
-			combinedStyle := row.Style.Inherit(t.SelectedStyle)
+			// Combine row foreground (if any) with selection background/bold
+			combinedStyle := t.SelectedStyle.Inherit(row.Style)
 			line = combinedStyle.Render(line)
 		} else {
 			line = row.Style.Render(line)
