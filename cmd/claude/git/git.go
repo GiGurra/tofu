@@ -3,13 +3,15 @@ package git
 import (
 	"github.com/GiGurra/boa/pkg/boa"
 	"github.com/gigurra/tofu/cmd/claude/syncutil"
+	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
 )
 
 func Cmd() *cobra.Command {
 	return boa.CmdT[boa.NoParams]{
-		Use:   "git",
-		Short: "Sync Claude conversations across devices via git",
+		Use:         "git",
+		Short:       "Sync Claude conversations across devices via git",
+		ParamEnrich: common.DefaultParamEnricher(),
 		Long: `Sync Claude conversations across multiple computers using a git repository.
 
 This keeps ~/.claude/projects_sync as a git working directory separate from

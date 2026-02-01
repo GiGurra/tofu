@@ -8,14 +8,16 @@ import (
 	"github.com/gigurra/tofu/cmd/claude/conv"
 	"github.com/gigurra/tofu/cmd/claude/git"
 	"github.com/gigurra/tofu/cmd/claude/session"
+	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
 )
 
 func Cmd() *cobra.Command {
 	return boa.CmdT[session.NewParams]{
-		Use:   "claude",
-		Short: "Claude Code utilities",
-		Long:  "Claude Code utilities.\n\nWhen run without a subcommand, starts a new Claude session in the current directory.",
+		Use:         "claude",
+		Short:       "Claude Code utilities",
+		Long:        "Claude Code utilities.\n\nWhen run without a subcommand, starts a new Claude session in the current directory.",
+		ParamEnrich: common.DefaultParamEnricher(),
 		SubCmds: []*cobra.Command{
 			conv.Cmd(),
 			session.Cmd(),

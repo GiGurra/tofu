@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/GiGurra/boa/pkg/boa"
+	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
 )
 
@@ -148,9 +149,10 @@ func statusPriority(status string) int {
 
 func Cmd() *cobra.Command {
 	cmd := boa.CmdT[boa.NoParams]{
-		Use:   "session",
-		Short: "Manage Claude Code sessions (tmux-based)",
-		Long:  "Multiplex and manage multiple Claude Code sessions with detach/reattach support.\n\nWhen run without a subcommand, opens the interactive session viewer.",
+		Use:         "session",
+		Short:       "Manage Claude Code sessions (tmux-based)",
+		Long:        "Multiplex and manage multiple Claude Code sessions with detach/reattach support.\n\nWhen run without a subcommand, opens the interactive session viewer.",
+		ParamEnrich: common.DefaultParamEnricher(),
 		SubCmds: []*cobra.Command{
 			NewCmd(),
 			ListCmd(),

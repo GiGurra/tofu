@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/GiGurra/boa/pkg/boa"
+	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
 )
 
@@ -59,8 +60,9 @@ type ConvParams struct {
 
 func Cmd() *cobra.Command {
 	cmd := boa.CmdT[ConvParams]{
-		Use:   "conv",
-		Short: "Manage Claude Code conversations",
+		Use:         "conv",
+		Short:       "Manage Claude Code conversations",
+		ParamEnrich: common.DefaultParamEnricher(),
 		SubCmds: []*cobra.Command{
 			ListCmd(),
 			SearchCmd(),
