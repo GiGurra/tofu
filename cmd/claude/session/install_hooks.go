@@ -55,10 +55,13 @@ func runInstallHooks(params *InstallHooksParams) error {
 	fmt.Println("\nHooks installed successfully!")
 	fmt.Printf("Configuration updated: %s\n", ClaudeSettingsPath())
 	fmt.Println("\nThe following hooks were added:")
-	fmt.Println("  - UserPromptSubmit: Sets status to 'working' when you send a prompt")
-	fmt.Println("  - Stop: Sets status to 'idle' when Claude finishes")
-	fmt.Println("  - Notification (permission_prompt): Sets status to 'awaiting_permission'")
-	fmt.Println("  - Notification (elicitation_dialog): Sets status to 'awaiting_input'")
+	fmt.Println("  - UserPromptSubmit: Tracks when you send a prompt")
+	fmt.Println("  - Stop: Tracks when Claude finishes responding")
+	fmt.Println("  - PermissionRequest: Tracks when Claude needs permission")
+	fmt.Println("  - PostToolUse: Tracks when a tool completes")
+	fmt.Println("  - PostToolUseFailure: Tracks when a tool fails")
+	fmt.Println("  - Notification: Tracks other notifications and dialogs")
+	fmt.Println("\nAll hooks use a unified callback that logs events and updates session status.")
 
 	return nil
 }

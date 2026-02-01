@@ -159,6 +159,7 @@ func Cmd() *cobra.Command {
 			PruneCmd(),
 			InstallHooksCmd(),
 			StatusCallbackCmd(),
+			HookCallbackCmd(),
 		},
 	}.ToCobra()
 	cmd.Aliases = []string{"sessions"}

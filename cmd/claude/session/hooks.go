@@ -20,35 +20,54 @@ type HookConfig struct {
 }
 
 // TofuHookMarker is used to identify tofu-managed hooks
-const TofuHookMarker = "tofu claude session status-callback"
+const TofuHookMarker = "tofu claude session hook-callback"
+
+// TofuHookCommand is the unified callback command for all hooks
+const TofuHookCommand = "tofu claude session hook-callback"
 
 // RequiredHooks defines the hooks tofu needs for status tracking
+// All hooks use the same unified callback - it reads stdin and figures out what to do
 var RequiredHooks = map[string][]HookMatcher{
 	"UserPromptSubmit": {
 		{
 			Hooks: []HookConfig{
-				{Type: "command", Command: "tofu claude session status-callback working"},
+				{Type: "command", Command: TofuHookCommand},
 			},
 		},
 	},
 	"Stop": {
 		{
 			Hooks: []HookConfig{
-				{Type: "command", Command: "tofu claude session status-callback idle"},
+				{Type: "command", Command: TofuHookCommand},
+			},
+		},
+	},
+	"PermissionRequest": {
+		{
+			Hooks: []HookConfig{
+				{Type: "command", Command: TofuHookCommand},
+			},
+		},
+	},
+	"PostToolUse": {
+		{
+			Hooks: []HookConfig{
+				{Type: "command", Command: TofuHookCommand},
+			},
+		},
+	},
+	"PostToolUseFailure": {
+		{
+			Hooks: []HookConfig{
+				{Type: "command", Command: TofuHookCommand},
 			},
 		},
 	},
 	"Notification": {
 		{
-			Matcher: "permission_prompt",
+			// No matcher = catch all notifications, let tofu decide what to do
 			Hooks: []HookConfig{
-				{Type: "command", Command: "tofu claude session status-callback awaiting_permission"},
-			},
-		},
-		{
-			Matcher: "elicitation_dialog",
-			Hooks: []HookConfig{
-				{Type: "command", Command: "tofu claude session status-callback awaiting_input"},
+				{Type: "command", Command: TofuHookCommand},
 			},
 		},
 	},

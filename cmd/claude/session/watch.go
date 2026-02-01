@@ -1,15 +1,18 @@
 package session
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/fsnotify/fsnotify"
 )
 
 var (
@@ -24,6 +27,10 @@ var (
 )
 
 type tickMsg time.Time
+type fileChangeMsg struct {
+	sessionID string // ID of the session that changed
+	deleted   bool   // true if the file was deleted
+}
 
 // Confirmation modes
 type confirmMode int
@@ -82,13 +89,89 @@ func initialModel(includeAll bool, statusFilter, hideFilter []string) model {
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(tickCmd(), tea.EnterAltScreen)
+	return tea.Batch(tickCmd(), watchSessionFiles(), tea.EnterAltScreen)
 }
 
 func tickCmd() tea.Cmd {
-	return tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
+	// Fallback tick - slower now that we have file watching
+	return tea.Tick(5*time.Second, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
+}
+
+// watchSessionFiles starts a file watcher on the sessions directory
+// and returns a command that sends fileChangeMsg when session files change
+func watchSessionFiles() tea.Cmd {
+	return func() tea.Msg {
+		watcher, err := fsnotify.NewWatcher()
+		if err != nil {
+			return nil // Fall back to polling
+		}
+
+		dir := SessionsDir()
+		if dir == "" {
+			watcher.Close()
+			return nil
+		}
+
+		// Ensure directory exists before watching
+		if err := EnsureSessionsDir(); err != nil {
+			watcher.Close()
+			return nil
+		}
+
+		if err := watcher.Add(dir); err != nil {
+			watcher.Close()
+			return nil
+		}
+
+		// Wait for a relevant file change
+		for {
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return nil
+				}
+				// Only care about .json files (session state files)
+				if filepath.Ext(event.Name) == ".json" {
+					// Extract session ID from filename (e.g., "abc123.json" -> "abc123")
+					sessionID := filepath.Base(event.Name)
+					sessionID = sessionID[:len(sessionID)-5] // remove .json
+
+					if event.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Remove) != 0 {
+						// For remove events, trigger immediately
+						if event.Op&fsnotify.Remove != 0 {
+							watcher.Close()
+							return fileChangeMsg{sessionID: sessionID, deleted: true}
+						}
+						// For write/create, verify the file is complete and parseable
+						if isValidSessionFile(event.Name) {
+							watcher.Close()
+							return fileChangeMsg{sessionID: sessionID, deleted: false}
+						}
+						// File not yet complete, wait for next event
+					}
+				}
+			case _, ok := <-watcher.Errors:
+				if !ok {
+					return nil
+				}
+				// On error, close and fall back to polling
+				watcher.Close()
+				return nil
+			}
+		}
+	}
+}
+
+// isValidSessionFile checks if a session state file is complete and parseable
+func isValidSessionFile(path string) bool {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	var state SessionState
+	return json.Unmarshal(data, &state) == nil
 }
 
 func (m model) refreshSessions() model {
@@ -122,6 +205,60 @@ func (m model) refreshSessions() model {
 	m = m.applySearchFilter()
 
 	return m
+}
+
+// updateSingleSession updates just one session in the list
+func (m model) updateSingleSession(sessionID string, deleted bool) model {
+	if deleted {
+		// Remove session from allSessions
+		for i, s := range m.allSessions {
+			if s.ID == sessionID {
+				m.allSessions = append(m.allSessions[:i], m.allSessions[i+1:]...)
+				break
+			}
+		}
+		return m.applySearchFilter()
+	}
+
+	// Load the updated session state
+	state, err := LoadSessionState(sessionID)
+	if err != nil {
+		return m
+	}
+
+	RefreshSessionStatus(state)
+
+	// Check if session should be visible
+	shouldShow := m.includeAll || state.Status != StatusExited
+	if shouldShow && !m.matchesShowFilter(state.Status) {
+		shouldShow = false
+	}
+	if shouldShow && m.matchesHideFilter(state.Status) {
+		shouldShow = false
+	}
+
+	// Find and update or add the session
+	found := false
+	for i, s := range m.allSessions {
+		if s.ID == sessionID {
+			if shouldShow {
+				m.allSessions[i] = state
+			} else {
+				// Remove from list
+				m.allSessions = append(m.allSessions[:i], m.allSessions[i+1:]...)
+			}
+			found = true
+			break
+		}
+	}
+
+	// Add new session if not found and should be shown
+	if !found && shouldShow {
+		m.allSessions = append(m.allSessions, state)
+		SortSessions(m.allSessions, m.sort)
+	}
+
+	return m.applySearchFilter()
 }
 
 // applySearchFilter filters sessions based on search input
@@ -403,6 +540,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tickMsg:
 		m = m.refreshSessions()
 		return m, tickCmd()
+
+	case fileChangeMsg:
+		m = m.updateSingleSession(msg.sessionID, msg.deleted)
+		return m, watchSessionFiles() // Restart watcher for next change
 	}
 
 	return m, nil
