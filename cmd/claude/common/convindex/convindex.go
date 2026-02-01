@@ -170,7 +170,7 @@ func GetConvTitleAndPrompt(convID, cwd string) string {
 	return cleanTitle(parseFirstPromptFromJSONL(projectPath, convID))
 }
 
-// cleanTitle removes XML-like tags and truncates the title for display.
+// cleanTitle removes XML-like tags, newlines, and truncates the title for display.
 func cleanTitle(title string) string {
 	if title == "" {
 		return ""
@@ -178,6 +178,16 @@ func cleanTitle(title string) string {
 
 	// Remove XML-like tags (e.g., <local-command-caveat>...</local-command-caveat>)
 	result := stripXMLTags(title)
+
+	// Replace newlines and carriage returns with visible marker
+	result = strings.ReplaceAll(result, "\r\n", " ↵ ")
+	result = strings.ReplaceAll(result, "\n", " ↵ ")
+	result = strings.ReplaceAll(result, "\r", " ↵ ")
+
+	// Collapse multiple spaces into one
+	for strings.Contains(result, "  ") {
+		result = strings.ReplaceAll(result, "  ", " ")
+	}
 
 	// Trim whitespace
 	result = strings.TrimSpace(result)
