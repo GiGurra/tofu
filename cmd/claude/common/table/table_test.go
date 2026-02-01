@@ -3,7 +3,6 @@ package table
 import (
 	"strings"
 	"testing"
-	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -24,8 +23,10 @@ func TestTruncateWithEllipsis(t *testing.T) {
 		{"negative maxLen", "hello", -5, ""},
 		{"unicode string", "héllo", 5, "héllo"},
 		{"unicode truncation", "héllo wörld", 6, "héllo…"},
-		{"emoji", "hello 👋", 8, "hello 👋"},
-		{"emoji truncate", "hello 👋 world", 8, "hello 👋…"},
+		{"emoji fits", "hello 👋", 8, "hello 👋"},
+		{"emoji truncate", "hello 👋 world", 8, "hello …"},
+		{"wide char padding", "⚡test", 6, "⚡test"},
+		{"wide char truncate", "⚡test", 5, "⚡te…"},
 		{"exactly truncation point", "hello", 6, "hello"},
 	}
 
@@ -103,6 +104,11 @@ func TestPadFunctions(t *testing.T) {
 			{"hello", 5, "hello"},
 			{"hello world", 5, "hell…"},
 			{"", 3, "   "},
+			// Wide character tests - ⚡ has display width 2
+			{"⚡", 2, "⚡"},        // Exactly fits
+			{"⚡", 3, "⚡ "},       // Needs 1 space padding
+			{"⚡", 4, "⚡  "},      // Needs 2 spaces padding
+			{" ▷", 2, " ▷"},       // Narrow chars fit
 		}
 		for _, tt := range tests {
 			got := PadRight(tt.input, tt.width)
@@ -314,11 +320,10 @@ func TestTableRenderSeparator(t *testing.T) {
 
 	sep := tbl.RenderSeparator()
 
-	// Total width should be 5 + 2 (padding) + 10 = 17 runes
-	// But "─" is 3 bytes in UTF-8, so 17 * 3 = 51 bytes
-	runeCount := utf8.RuneCountInString(sep)
-	if runeCount != 17 {
-		t.Errorf("separator rune count = %d, want 17", runeCount)
+	// Total width should be 5 + 2 (padding) + 10 = 17 display cells
+	displayWidth := StringWidth(sep)
+	if displayWidth != 17 {
+		t.Errorf("separator display width = %d, want 17", displayWidth)
 	}
 }
 

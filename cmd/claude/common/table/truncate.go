@@ -3,57 +3,105 @@ package table
 import (
 	"path/filepath"
 	"strings"
-	"unicode/utf8"
+
+	"github.com/mattn/go-runewidth"
 )
 
-// TruncateWithEllipsis truncates a string to maxLen characters, adding "…" if truncated.
-// Returns the original string if it fits within maxLen.
-// Handles unicode correctly by counting runes, not bytes.
-func TruncateWithEllipsis(s string, maxLen int) string {
-	if maxLen <= 0 {
+// StringWidth returns the display width of a string in terminal cells.
+// Accounts for wide characters (CJK, emojis, etc.)
+func StringWidth(s string) int {
+	return runewidth.StringWidth(s)
+}
+
+// TruncateWithEllipsis truncates a string to fit within maxWidth display cells,
+// adding "…" if truncated. Handles wide characters correctly.
+func TruncateWithEllipsis(s string, maxWidth int) string {
+	if maxWidth <= 0 {
 		return ""
 	}
 
-	runeCount := utf8.RuneCountInString(s)
-	if runeCount <= maxLen {
+	width := runewidth.StringWidth(s)
+	if width <= maxWidth {
 		return s
 	}
 
-	if maxLen == 1 {
+	if maxWidth == 1 {
 		return "…"
 	}
 
-	// Convert to runes to handle unicode correctly
-	runes := []rune(s)
-	return string(runes[:maxLen-1]) + "…"
+	// Truncate by iterating runes and tracking display width
+	result := make([]rune, 0, len(s))
+	currentWidth := 0
+	targetWidth := maxWidth - 1 // Reserve 1 cell for ellipsis
+
+	for _, r := range s {
+		rw := runewidth.RuneWidth(r)
+		if currentWidth+rw > targetWidth {
+			break
+		}
+		result = append(result, r)
+		currentWidth += rw
+	}
+
+	return string(result) + "…"
 }
 
-// ShortenPath shortens a file path to fit within maxLen characters.
+// TruncateFromStart truncates a string from the beginning, keeping the end.
+// Adds "…" prefix if truncated. Useful for paths where the end is more relevant.
+func TruncateFromStart(s string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return ""
+	}
+
+	width := runewidth.StringWidth(s)
+	if width <= maxWidth {
+		return s
+	}
+
+	if maxWidth == 1 {
+		return "…"
+	}
+
+	// We need to keep the END of the string, so work backwards
+	runes := []rune(s)
+	result := make([]rune, 0, len(runes))
+	currentWidth := 0
+	targetWidth := maxWidth - 1 // Reserve 1 cell for ellipsis
+
+	// Iterate from end to beginning
+	for i := len(runes) - 1; i >= 0; i-- {
+		r := runes[i]
+		rw := runewidth.RuneWidth(r)
+		if currentWidth+rw > targetWidth {
+			break
+		}
+		result = append([]rune{r}, result...)
+		currentWidth += rw
+	}
+
+	return "…" + string(result)
+}
+
+// ShortenPath shortens a file path to fit within maxWidth display cells.
 // It prioritizes keeping the filename visible and shortens directory components.
-// Strategy:
-// 1. If path fits, return as-is
-// 2. Try shortening to just filename
-// 3. If filename is too long, truncate it with ellipsis
-func ShortenPath(path string, maxLen int) string {
-	if maxLen <= 0 {
+func ShortenPath(path string, maxWidth int) string {
+	if maxWidth <= 0 {
 		return ""
 	}
 
 	// Normalize path separators
 	path = filepath.ToSlash(path)
 
-	runeCount := utf8.RuneCountInString(path)
-	if runeCount <= maxLen {
+	if runewidth.StringWidth(path) <= maxWidth {
 		return path
 	}
 
 	// Get just the filename
 	filename := filepath.Base(path)
-	filenameLen := utf8.RuneCountInString(filename)
+	filenameWidth := runewidth.StringWidth(filename)
 
 	// If filename fits, try to add some path context
-	if filenameLen <= maxLen {
-		// Try to add as much directory context as possible
+	if filenameWidth <= maxWidth {
 		dir := filepath.Dir(path)
 		if dir == "." || dir == "/" {
 			return filename
@@ -61,7 +109,7 @@ func ShortenPath(path string, maxLen int) string {
 
 		// Calculate available space for directory prefix
 		// Format: "…/dirname/filename" or just "…/filename"
-		available := maxLen - filenameLen - 2 // -2 for "…/"
+		available := maxWidth - filenameWidth - 2 // -2 for "…/"
 
 		if available <= 0 {
 			return filename
@@ -70,9 +118,9 @@ func ShortenPath(path string, maxLen int) string {
 		// Try to fit last directory component
 		parts := strings.Split(dir, "/")
 		lastDir := parts[len(parts)-1]
-		lastDirLen := utf8.RuneCountInString(lastDir)
+		lastDirWidth := runewidth.StringWidth(lastDir)
 
-		if lastDirLen+1 <= available { // +1 for "/"
+		if lastDirWidth+1 <= available { // +1 for "/"
 			return "…/" + lastDir + "/" + filename
 		}
 
@@ -81,73 +129,52 @@ func ShortenPath(path string, maxLen int) string {
 	}
 
 	// Filename is too long, truncate it
-	return TruncateWithEllipsis(filename, maxLen)
+	return TruncateWithEllipsis(filename, maxWidth)
 }
 
-// TruncateFromStart truncates a string from the beginning, keeping the end.
-// Adds "…" prefix if truncated. Useful for paths where the end is more relevant.
-func TruncateFromStart(s string, maxLen int) string {
-	if maxLen <= 0 {
-		return ""
-	}
-
-	runeCount := utf8.RuneCountInString(s)
-	if runeCount <= maxLen {
-		return s
-	}
-
-	if maxLen == 1 {
-		return "…"
-	}
-
-	// Convert to runes to handle unicode correctly
-	runes := []rune(s)
-	return "…" + string(runes[runeCount-maxLen+1:])
-}
-
-// PadRight pads a string to the specified width with spaces on the right.
-// If the string is longer than width, it is truncated.
+// PadRight pads a string to the specified display width with spaces on the right.
+// If the string is wider than width, it is truncated.
 func PadRight(s string, width int) string {
 	if width <= 0 {
 		return ""
 	}
 
-	runeCount := utf8.RuneCountInString(s)
-	if runeCount >= width {
+	strWidth := runewidth.StringWidth(s)
+	if strWidth >= width {
 		return TruncateWithEllipsis(s, width)
 	}
 
-	return s + strings.Repeat(" ", width-runeCount)
+	return s + strings.Repeat(" ", width-strWidth)
 }
 
-// PadLeft pads a string to the specified width with spaces on the left.
-// If the string is longer than width, it is truncated.
+// PadLeft pads a string to the specified display width with spaces on the left.
+// If the string is wider than width, it is truncated.
 func PadLeft(s string, width int) string {
 	if width <= 0 {
 		return ""
 	}
 
-	runeCount := utf8.RuneCountInString(s)
-	if runeCount >= width {
+	strWidth := runewidth.StringWidth(s)
+	if strWidth >= width {
 		return TruncateWithEllipsis(s, width)
 	}
 
-	return strings.Repeat(" ", width-runeCount) + s
+	return strings.Repeat(" ", width-strWidth) + s
 }
 
-// PadCenter centers a string within the specified width.
-// If the string is longer than width, it is truncated.
+// PadCenter centers a string within the specified display width.
+// If the string is wider than width, it is truncated.
 func PadCenter(s string, width int) string {
 	if width <= 0 {
 		return ""
 	}
 
-	runeCount := utf8.RuneCountInString(s)
-	if runeCount >= width {
+	strWidth := runewidth.StringWidth(s)
+	if strWidth >= width {
 		return TruncateWithEllipsis(s, width)
 	}
 
-	totalPadding := width - runeCount
+	totalPadding := width - strWidth
 	leftPadding := totalPadding / 2
 	rightPadding := totalPadding - leftPadding
 
