@@ -3,7 +3,7 @@
 package dns
 
 /*
-#cgo LDFLAGS: -lresolv
+#cgo linux LDFLAGS: -lresolv
 #include <stdlib.h>
 #include <string.h>
 #include <netdb.h>
