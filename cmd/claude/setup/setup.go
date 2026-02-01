@@ -66,16 +66,17 @@ func runSetup(params *Params) error {
 		fmt.Println("✓ Hooks installed")
 	}
 
-	// 2. Register protocol handler (WSL/Windows only)
-	fmt.Println("\n=== Protocol Handler ===")
+	// 2. Platform-specific setup for clickable notifications
+	fmt.Println("\n=== Clickable Notifications ===")
 	if runtime.GOOS == "linux" && wsl.IsWSL() {
+		// WSL: Register protocol handler
 		registered, err := isProtocolRegistered()
 		if err != nil {
 			fmt.Printf("  Warning: could not check protocol status: %v\n", err)
 		}
 
 		if registered && !params.Force {
-			fmt.Println("✓ Protocol handler already registered")
+			fmt.Println("✓ Protocol handler already registered (tofu://)")
 		} else {
 			if params.Force {
 				fmt.Println("  Force re-registering protocol handler...")
@@ -87,11 +88,35 @@ func runSetup(params *Params) error {
 				fmt.Println("✓ Protocol handler registered (tofu://)")
 			}
 		}
+	} else if runtime.GOOS == "darwin" {
+		// macOS: Check for terminal-notifier
+		if isTerminalNotifierInstalled() {
+			fmt.Println("✓ terminal-notifier installed")
+		} else {
+			fmt.Println("✗ terminal-notifier not found")
+			if isBrewInstalled() {
+				if askYesNo("Install terminal-notifier via Homebrew?", true) {
+					fmt.Println("  Installing terminal-notifier...")
+					if err := installTerminalNotifier(); err != nil {
+						fmt.Printf("  Failed to install: %v\n", err)
+						fmt.Println("  Try manually: brew install terminal-notifier")
+					} else {
+						fmt.Println("✓ terminal-notifier installed")
+					}
+				} else {
+					fmt.Println("  Skipped. Notifications won't be clickable.")
+					fmt.Println("  Install later with: brew install terminal-notifier")
+				}
+			} else {
+				fmt.Println("  Homebrew not found. Install terminal-notifier manually:")
+				fmt.Println("  https://github.com/julienXX/terminal-notifier")
+				fmt.Println("  Without it, notifications won't be clickable")
+			}
+		}
 	} else if runtime.GOOS == "windows" {
-		// Native Windows - could register protocol directly
-		fmt.Println("  Skipped (not implemented for native Windows yet)")
+		fmt.Println("  Not implemented for native Windows yet")
 	} else {
-		fmt.Println("  Skipped (not needed on this platform)")
+		fmt.Println("  Not needed on this platform")
 	}
 
 	// 3. Configure notifications
@@ -166,8 +191,8 @@ func checkStatus() error {
 		fmt.Printf("✗ Missing hooks: %v\n", missing)
 	}
 
-	// Check protocol handler
-	fmt.Println("\n=== Protocol Handler ===")
+	// Check clickable notifications setup
+	fmt.Println("\n=== Clickable Notifications ===")
 	if runtime.GOOS == "linux" && wsl.IsWSL() {
 		registered, err := isProtocolRegistered()
 		if err != nil {
@@ -176,6 +201,13 @@ func checkStatus() error {
 			fmt.Println("✓ Protocol handler registered (tofu://)")
 		} else {
 			fmt.Println("✗ Protocol handler not registered")
+		}
+	} else if runtime.GOOS == "darwin" {
+		if isTerminalNotifierInstalled() {
+			fmt.Println("✓ terminal-notifier installed")
+		} else {
+			fmt.Println("✗ terminal-notifier not installed")
+			fmt.Println("  Install with: brew install terminal-notifier")
 		}
 	} else if runtime.GOOS == "windows" {
 		fmt.Println("  Not implemented for native Windows yet")
@@ -276,4 +308,24 @@ func IsProtocolRegistered() bool {
 	}
 	registered, _ := isProtocolRegistered()
 	return registered
+}
+
+// isTerminalNotifierInstalled checks if terminal-notifier is available on macOS.
+func isTerminalNotifierInstalled() bool {
+	_, err := exec.LookPath("terminal-notifier")
+	return err == nil
+}
+
+// isBrewInstalled checks if Homebrew is available.
+func isBrewInstalled() bool {
+	_, err := exec.LookPath("brew")
+	return err == nil
+}
+
+// installTerminalNotifier installs terminal-notifier via Homebrew.
+func installTerminalNotifier() error {
+	cmd := exec.Command("brew", "install", "terminal-notifier")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }

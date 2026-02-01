@@ -141,15 +141,17 @@ func sendWSLClickable(sessionID, title, body string) error {
 	return notifyWSLClickable(title, body, sessionID)
 }
 
-// sendDarwinClickable sends a notification with click-to-attach on macOS.
+// sendDarwinClickable sends a notification with click-to-focus on macOS.
 func sendDarwinClickable(sessionID, title, body string) error {
 	// Check for terminal-notifier (supports -execute)
 	if _, err := exec.LookPath("terminal-notifier"); err == nil {
-		attachCmd := fmt.Sprintf("tofu claude session attach %s", sessionID)
+		// Use focus command to bring terminal to front
+		focusCmd := fmt.Sprintf("tofu claude session focus %s", sessionID)
 		return exec.Command("terminal-notifier",
 			"-title", title,
 			"-message", body,
-			"-execute", attachCmd,
+			"-execute", focusCmd,
+			"-sender", "com.apple.Terminal", // Shows Terminal icon
 		).Run()
 	}
 
