@@ -185,6 +185,11 @@ func SessionStatePath(id string) string {
 	return filepath.Join(SessionsDir(), id+".json")
 }
 
+// DebugLogPath returns the path to the debug log file
+func DebugLogPath() string {
+	return filepath.Join(SessionsDir(), "debug.log")
+}
+
 // SaveSessionState saves session state to disk
 func SaveSessionState(state *SessionState) error {
 	if err := EnsureSessionsDir(); err != nil {

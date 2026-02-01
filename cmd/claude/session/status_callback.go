@@ -66,6 +66,17 @@ func runStatusCallback(params *StatusCallbackParams) error {
 		json.Unmarshal(stdinData, &hookInput)
 	}
 
+	// Debug logging - useful for troubleshooting hook issues
+	// Log is stored in ~/.tofu/claude-sessions/debug.log
+	_ = EnsureSessionsDir()
+	debugFile, _ := os.OpenFile(DebugLogPath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if debugFile != nil {
+		fmt.Fprintf(debugFile, "--- %s ---\n", time.Now().Format(time.RFC3339))
+		fmt.Fprintf(debugFile, "Status: %s\n", params.Status)
+		fmt.Fprintf(debugFile, "Stdin: %s\n", string(stdinData))
+		debugFile.Close()
+	}
+
 
 	// Get tofu session ID from environment
 	tofuSessionID := os.Getenv("TOFU_SESSION_ID")
