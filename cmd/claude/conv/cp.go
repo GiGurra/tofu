@@ -192,16 +192,3 @@ func RunCp(params *CpParams, stdout, stderr *os.File, stdin *os.File) int {
 	fmt.Fprintf(stdout, "Copied conversation %s -> %s in %s\n", oldConvID[:8], newConvID[:8], params.DestPath)
 	return 0
 }
-
-// CopyConversationFile copies a conversation file and updates sessionId references
-func CopyConversationFile(src, dst, oldID, newID string) error {
-	data, err := os.ReadFile(src)
-	if err != nil {
-		return err
-	}
-
-	// Replace old session ID with new one in the content
-	content := strings.ReplaceAll(string(data), oldID, newID)
-
-	return os.WriteFile(dst, []byte(content), 0600)
-}

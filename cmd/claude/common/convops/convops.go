@@ -123,6 +123,17 @@ func FindSessionByID(index *SessionsIndex, sessionID string) (*SessionEntry, int
 	return nil, -1
 }
 
+// RemoveSessionByID removes a session from the index by its ID
+func RemoveSessionByID(index *SessionsIndex, sessionID string) bool {
+	for i, entry := range index.Entries {
+		if entry.SessionID == sessionID {
+			index.Entries = append(index.Entries[:i], index.Entries[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
 // CopyConversationFile copies a conversation file and updates sessionId references
 func CopyConversationFile(src, dst, oldID, newID string) error {
 	data, err := os.ReadFile(src)

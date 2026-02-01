@@ -8,15 +8,18 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/gigurra/tofu/cmd/claude/common/convops"
 )
 
-// SessionsIndex represents the sessions-index.json file
+// SessionsIndex represents the sessions-index.json file (minimal version for fast loading)
 type SessionsIndex struct {
 	Version int            `json:"version"`
 	Entries []SessionEntry `json:"entries"`
 }
 
-// SessionEntry represents a single session/conversation in the index
+// SessionEntry represents a minimal session/conversation entry for fast lookups.
+// This is a subset of convops.SessionEntry - only fields needed for title display.
 type SessionEntry struct {
 	SessionID   string `json:"sessionId"`
 	FirstPrompt string `json:"firstPrompt"`
@@ -36,31 +39,12 @@ func (e *SessionEntry) DisplayTitle() string {
 	return e.FirstPrompt
 }
 
-// ClaudeProjectsDir returns the Claude projects directory path
-func ClaudeProjectsDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(home, ".claude", "projects")
-}
-
-// PathToProjectDir converts a real path to the Claude project directory name
-// e.g., /home/gigur/git/tofu -> -home-gigur-git-tofu
-func PathToProjectDir(realPath string) string {
-	absPath, err := filepath.Abs(realPath)
-	if err != nil {
-		absPath = realPath
-	}
-	projectDir := strings.ReplaceAll(absPath, string(filepath.Separator), "-")
-	projectDir = strings.ReplaceAll(projectDir, ":", "") // Windows drive letters
-	return projectDir
-}
-
-// GetClaudeProjectPath returns the full path to a Claude project directory
-func GetClaudeProjectPath(realPath string) string {
-	return filepath.Join(ClaudeProjectsDir(), PathToProjectDir(realPath))
-}
+// Re-export path functions from convops for backward compatibility
+var (
+	ClaudeProjectsDir    = convops.ClaudeProjectsDir
+	PathToProjectDir     = convops.PathToProjectDir
+	GetClaudeProjectPath = convops.GetClaudeProjectPath
+)
 
 // LoadSessionsIndexFast loads just the sessions index JSON without scanning.
 func LoadSessionsIndexFast(projectPath string) (*SessionsIndex, error) {
