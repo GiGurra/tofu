@@ -184,3 +184,40 @@ tmux attach -t tofu-claude-abc123
 # Detach from inside tmux
 Ctrl+B D
 ```
+
+### Recommended Tmux Configuration
+
+There are two approaches for scroll support - **choose one, not both**:
+
+#### Option 1: Tmux Mouse Mode
+
+```bash
+# Enable mouse support (scroll, click, resize panes)
+set -g mouse on
+```
+
+Scroll wheel works inside tmux, but the native terminal scrollbar is hidden.
+
+#### Option 2: Native Terminal Scrollbar
+
+```bash
+# Disable alternate screen buffer - keeps native scrollbar
+set -ga terminal-overrides ',*256color*:smcup@:rmcup@'
+```
+
+Keeps your terminal's native scrollbar visible. This disables the `smcup` (enter alternate screen) and `rmcup` (exit alternate screen) terminal capabilities.
+
+**Trade-off:** Full-screen applications (vim, less, etc.) will leave their content in your scrollback history instead of restoring the previous screen when they exit.
+
+#### Why Not Both?
+
+Using both options simultaneously causes conflicts - the scroll wheel behavior becomes unpredictable. Pick whichever suits your workflow better.
+
+### Other Useful Settings
+
+```bash
+# Increase scrollback buffer (default is 2000)
+set -g history-limit 10000
+```
+
+Reload config after changes: `tmux source ~/.tmux.conf`
