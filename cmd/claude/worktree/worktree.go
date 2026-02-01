@@ -24,6 +24,7 @@ func Cmd() *cobra.Command {
 			AddCmd(),
 			ListCmd(),
 			RemoveCmd(),
+			SwitchCmd(),
 		},
 		RunFunc: func(params *Params, cmd *cobra.Command, args []string) {
 			// Default to list
