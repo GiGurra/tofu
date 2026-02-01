@@ -6,11 +6,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/gen2brain/beeep"
 	"github.com/gigurra/tofu/cmd/claude/common/config"
+	"github.com/gigurra/tofu/cmd/claude/common/terminal"
 )
 
 // stateDir returns the directory for notification state files.
@@ -83,17 +85,77 @@ func send(sessionID, to, cwd, convTitle string) {
 		body = fmt.Sprintf("%s | %s", shortID(sessionID), projectName)
 	}
 
-	// Try beeep first (works on native Linux/macOS/Windows)
-	err := beeep.Notify(title, body, "")
-	if err != nil && isWSL() {
-		// Fallback to PowerShell for WSL
-		err = notifyWSL(title, body)
+	var err error
+
+	// Try platform-specific clickable notifications first
+	if isWSL() {
+		err = sendWSLClickable(sessionID, title, body)
+	} else if runtime.GOOS == "linux" {
+		err = sendLinuxClickable(sessionID, title, body)
+	} else if runtime.GOOS == "darwin" {
+		err = sendDarwinClickable(sessionID, title, body)
+	} else {
+		// Windows native or unknown - use beeep
+		err = beeep.Notify(title, body, "")
 	}
 
 	if err != nil {
-		// Fallback to stderr (though this may not be visible in hooks)
-		fmt.Fprintf(os.Stderr, "[notify] %s: %s\n", title, body)
+		// Fallback to beeep
+		if beeepErr := beeep.Notify(title, body, ""); beeepErr != nil {
+			// Final fallback to stderr
+			fmt.Fprintf(os.Stderr, "[notify] %s: %s\n", title, body)
+		}
 	}
+}
+
+// sendLinuxClickable sends a notification with click-to-attach on native Linux.
+func sendLinuxClickable(sessionID, title, body string) error {
+	// Check for dunstify (supports actions)
+	if _, err := exec.LookPath("dunstify"); err == nil {
+		// Run in goroutine since dunstify blocks waiting for action
+		go func() {
+			cmd := exec.Command("dunstify", "-A", "attach,Attach", title, body)
+			output, err := cmd.Output()
+			if err == nil && strings.TrimSpace(string(output)) == "attach" {
+				attachCmd := fmt.Sprintf("tofu claude session attach %s", sessionID)
+				_ = terminal.OpenWithCommand(attachCmd)
+			}
+		}()
+		return nil
+	}
+
+	// Fallback to notify-send (no action support, but still works)
+	if _, err := exec.LookPath("notify-send"); err == nil {
+		return exec.Command("notify-send", title, body).Run()
+	}
+
+	return fmt.Errorf("no notification tool found")
+}
+
+// sendWSLClickable sends a Windows Toast notification with attach hint.
+func sendWSLClickable(sessionID, title, body string) error {
+	// Add hint about how to attach
+	bodyWithHint := body + "\n\nRun: tofu claude session attach " + shortID(sessionID)
+	return notifyWSL(title, bodyWithHint)
+}
+
+// sendDarwinClickable sends a notification with click-to-attach on macOS.
+func sendDarwinClickable(sessionID, title, body string) error {
+	// Check for terminal-notifier (supports -execute)
+	if _, err := exec.LookPath("terminal-notifier"); err == nil {
+		attachCmd := fmt.Sprintf("tofu claude session attach %s", sessionID)
+		return exec.Command("terminal-notifier",
+			"-title", title,
+			"-message", body,
+			"-execute", attachCmd,
+		).Run()
+	}
+
+	// Fallback to osascript notification (no click action)
+	script := fmt.Sprintf(`display notification "%s" with title "%s"`,
+		strings.ReplaceAll(body, "\"", "\\\""),
+		strings.ReplaceAll(title, "\"", "\\\""))
+	return exec.Command("osascript", "-e", script).Run()
 }
 
 // isWSL detects if we're running in Windows Subsystem for Linux.
