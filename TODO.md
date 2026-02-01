@@ -46,4 +46,4 @@
 
 ## Claude Session Management
 
-- [ ] Auto git worktrees - When creating multiple sessions in the same repo, automatically use git worktrees to avoid conflicts
+- [x] Auto git worktrees - `tofu claude worktree add <branch>` creates worktrees for parallel Claude sessions
