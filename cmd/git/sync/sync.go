@@ -17,7 +17,7 @@ import (
 
 type Params struct {
 	Dir              string `pos:"true" optional:"true" help:"Parent directory containing git repos (defaults to current directory)" default:"."`
-	Prune            bool   `short:"p" help:"Delete all local branches except the default branch"`
+	Prune            bool   `short:"p" help:"Delete non-default worktrees and branches"`
 	DryRun           bool   `short:"n" name:"dry-run" help:"Show what would be done without making changes"`
 	Pattern          string `name:"pattern" req:"false" help:"Only process directories matching this regex pattern"`
 	Parallel         int    `short:"P" name:"parallel" help:"Number of repos to process in parallel" default:"10"`
@@ -34,7 +34,8 @@ type RepoResult struct {
 	DefaultBranch  string
 	PullOutput     string
 	NewCommits     int
-	PrunedBranches []string
+	PrunedWorktrees []string
+	PrunedBranches  []string
 	Stashed        bool
 	Dropped        bool
 	// Post-sync state
@@ -55,13 +56,13 @@ For each git repository:
   - Checks for uncommitted changes
   - Switches to the default branch
   - Pulls the latest changes
-  - Optionally prunes non-default local branches
+  - Optionally prunes non-default worktrees and branches
 
 Examples:
   tofu git sync                    # Sync current dir (if git repo) or all repos in subdirs
   tofu git sync ~/projects         # Sync all repos in ~/projects
   tofu git sync ~/projects/myrepo  # Sync single repo
-  tofu git sync --prune            # Also delete non-default branches
+  tofu git sync --prune            # Delete non-default worktrees and branches
   tofu git sync --dry-run          # Preview what would happen
   tofu git sync --parallel 1       # Process repos sequentially
   tofu git sync --stash            # Stash uncommitted changes, sync, then pop
@@ -260,8 +261,26 @@ func processRepo(parentDir, name string, params *Params) RepoResult {
 		result.NewCommits = commits
 	}
 
-	// Prune branches if requested
+	// Prune worktrees and branches if requested
 	if params.Prune {
+		// First prune worktrees (must happen before branch deletion)
+		worktrees, err := getNonDefaultWorktrees(repoPath, defaultBranch)
+		if err != nil {
+			result.Error = fmt.Errorf("failed to list worktrees: %w", err)
+			return result
+		}
+
+		for _, wt := range worktrees {
+			result.PrunedWorktrees = append(result.PrunedWorktrees, filepath.Base(wt.Path))
+			if !params.DryRun {
+				if err := removeWorktree(repoPath, wt.Path); err != nil {
+					result.Error = fmt.Errorf("failed to remove worktree %s: %w", wt.Path, err)
+					return result
+				}
+			}
+		}
+
+		// Then prune branches
 		branches, err := getNonDefaultBranches(repoPath, defaultBranch)
 		if err != nil {
 			result.Error = fmt.Errorf("failed to list branches: %w", err)
@@ -464,6 +483,84 @@ func deleteBranch(repoPath, branch string) error {
 	return result.Err
 }
 
+// WorktreeInfo represents a git worktree
+type WorktreeInfo struct {
+	Path   string
+	Branch string
+	IsMain bool
+}
+
+// listWorktrees returns all git worktrees for a repository
+func listWorktrees(repoPath string) ([]WorktreeInfo, error) {
+	result := cmder.New("git", "-C", repoPath, "worktree", "list", "--porcelain").
+		WithAttemptTimeout(10 * time.Second).
+		Run(context.Background())
+
+	if result.Err != nil {
+		return nil, result.Err
+	}
+
+	var worktrees []WorktreeInfo
+	var current WorktreeInfo
+
+	lines := strings.Split(result.StdOut, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			if current.Path != "" {
+				worktrees = append(worktrees, current)
+				current = WorktreeInfo{}
+			}
+			continue
+		}
+
+		if strings.HasPrefix(line, "worktree ") {
+			current.Path = strings.TrimPrefix(line, "worktree ")
+		} else if strings.HasPrefix(line, "branch ") {
+			ref := strings.TrimPrefix(line, "branch ")
+			// refs/heads/main -> main
+			current.Branch = strings.TrimPrefix(ref, "refs/heads/")
+		}
+	}
+
+	// Add last worktree if any
+	if current.Path != "" {
+		worktrees = append(worktrees, current)
+	}
+
+	// Mark the main worktree (first one is always the main worktree)
+	if len(worktrees) > 0 {
+		worktrees[0].IsMain = true
+	}
+
+	return worktrees, nil
+}
+
+// getNonDefaultWorktrees returns worktrees that are not on the default branch and are not the main worktree
+func getNonDefaultWorktrees(repoPath, defaultBranch string) ([]WorktreeInfo, error) {
+	worktrees, err := listWorktrees(repoPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []WorktreeInfo
+	for _, wt := range worktrees {
+		if !wt.IsMain && wt.Branch != "" && wt.Branch != defaultBranch {
+			result = append(result, wt)
+		}
+	}
+
+	return result, nil
+}
+
+// removeWorktree removes a git worktree
+func removeWorktree(repoPath, worktreePath string) error {
+	result := cmder.New("git", "-C", repoPath, "worktree", "remove", "--force", worktreePath).
+		WithAttemptTimeout(30 * time.Second).
+		Run(context.Background())
+	return result.Err
+}
+
 func printProgress(result RepoResult, dryRun bool) {
 	prefix := ""
 	if dryRun {
@@ -495,8 +592,12 @@ func printProgress(result RepoResult, dryRun bool) {
 		fmt.Printf("  = %s already up to date\n", result.DefaultBranch)
 	}
 
+	if len(result.PrunedWorktrees) > 0 {
+		fmt.Printf("  - Pruned worktrees: %s\n", strings.Join(result.PrunedWorktrees, ", "))
+	}
+
 	if len(result.PrunedBranches) > 0 {
-		fmt.Printf("  - Pruned: %s\n", strings.Join(result.PrunedBranches, ", "))
+		fmt.Printf("  - Pruned branches: %s\n", strings.Join(result.PrunedBranches, ", "))
 	}
 }
 
@@ -507,7 +608,8 @@ func printReport(results []RepoResult, params *Params) {
 
 	var synced, skipped, errored int
 	var totalNewCommits int
-	var totalPruned int
+	var totalPrunedWorktrees int
+	var totalPrunedBranches int
 
 	for _, r := range results {
 		if r.Error != nil {
@@ -517,7 +619,8 @@ func printReport(results []RepoResult, params *Params) {
 		} else {
 			synced++
 			totalNewCommits += r.NewCommits
-			totalPruned += len(r.PrunedBranches)
+			totalPrunedWorktrees += len(r.PrunedWorktrees)
+			totalPrunedBranches += len(r.PrunedBranches)
 		}
 	}
 
@@ -533,8 +636,11 @@ func printReport(results []RepoResult, params *Params) {
 	if totalNewCommits > 0 {
 		fmt.Printf("\nNew commits pulled: %d\n", totalNewCommits)
 	}
-	if totalPruned > 0 {
-		fmt.Printf("Branches pruned:    %d\n", totalPruned)
+	if totalPrunedWorktrees > 0 {
+		fmt.Printf("Worktrees pruned:   %d\n", totalPrunedWorktrees)
+	}
+	if totalPrunedBranches > 0 {
+		fmt.Printf("Branches pruned:    %d\n", totalPrunedBranches)
 	}
 
 	if params.DryRun {
