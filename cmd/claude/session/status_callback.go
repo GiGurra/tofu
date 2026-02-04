@@ -111,9 +111,8 @@ func runStatusCallback(params *StatusCallbackParams) error {
 	state.Status = params.Status
 	state.Updated = time.Now()
 
-	// Update ConvID from hook input if we don't have it yet
-	// This happens when a session is started fresh (not resuming)
-	if state.ConvID == "" && hookInput.SessionID != "" {
+	// Update ConvID from hook input (tracks conversation changes on resume)
+	if hookInput.SessionID != "" && state.ConvID != hookInput.SessionID {
 		state.ConvID = hookInput.SessionID
 	}
 

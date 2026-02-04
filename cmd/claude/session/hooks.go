@@ -95,6 +95,13 @@ var RequiredHooks = map[string][]HookMatcher{
 			},
 		},
 	},
+	"SessionStart": {
+		{
+			Hooks: []HookConfig{
+				{Type: "command", Command: TofuHookCommand},
+			},
+		},
+	},
 }
 
 // ClaudeSettingsPath returns the path to ~/.claude/settings.json
