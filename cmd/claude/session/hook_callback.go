@@ -104,6 +104,11 @@ func runHookCallback() error {
 		newStatus = StatusIdle
 		statusDetail = ""
 
+	case "SessionStart":
+		// Session started or resumed - update ConvID and set to idle
+		newStatus = StatusIdle
+		statusDetail = ""
+
 	case "PermissionRequest":
 		newStatus = StatusAwaitingPermission
 		statusDetail = input.ToolName
