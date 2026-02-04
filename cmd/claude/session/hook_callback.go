@@ -149,8 +149,8 @@ func runHookCallback() error {
 	state.StatusDetail = statusDetail
 	state.Updated = time.Now()
 
-	// Update ConvID from hook input if we don't have it yet
-	if state.ConvID == "" && input.SessionID != "" {
+	// Update ConvID from hook input (tracks conversation changes on resume)
+	if input.SessionID != "" && state.ConvID != input.SessionID {
 		state.ConvID = input.SessionID
 	}
 
