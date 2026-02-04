@@ -138,9 +138,9 @@ func runUsage(interactive bool) error {
 				accumulated.Write(data[len(data)-500:])
 			}
 
-			// Detect when Claude is ready (shows "? for shortcuts")
+			// Detect when Claude is ready (shows "shortcuts" hint)
 			if !ready {
-				if bytes.Contains(accumulated.Bytes(), []byte("for shortcuts")) {
+				if bytes.Contains(accumulated.Bytes(), []byte("shortcuts")) {
 					ready = true
 					select {
 					case claudeReady <- struct{}{}:
@@ -149,10 +149,10 @@ func runUsage(interactive bool) error {
 				}
 			}
 
-			// Detect when usage data has loaded (contains "%" or "resets" which appears in actual data)
+			// Detect when usage data has loaded (contains "%" which appears in usage percentages)
 			if waitingForUsageData && !usageLoaded {
 				accBytes := accumulated.Bytes()
-				if bytes.Contains(accBytes, []byte("% used")) || bytes.Contains(accBytes, []byte("resets")) {
+				if bytes.Contains(accBytes, []byte("%")) {
 					usageLoaded = true
 					select {
 					case usageDataLoaded <- struct{}{}:
@@ -179,7 +179,7 @@ func runUsage(interactive bool) error {
 
 	// Type /usage after Claude is ready, then exit
 	go func() {
-		// Wait for Claude to show "? for shortcuts"
+		// Wait for Claude to show shortcuts hint
 		<-claudeReady
 
 		// Wait for UI to finish rendering
@@ -222,19 +222,11 @@ func runUsage(interactive bool) error {
 		}
 
 		if interactive {
-			// In interactive mode, wait 5 seconds before exiting gracefully
-			time.Sleep(5 * time.Second)
-			ptmx.Write([]byte{27}) // ESC
-			waitForSettle()
-			for _, ch := range []byte("/exit") {
-				ptmx.Write([]byte{ch})
-				waitForSettle()
-			}
-			ptmx.Write([]byte{13})
-		} else {
-			// Non-interactive: just kill the process, we have what we need
-			c.Process.Kill() // SIGKILL on Unix, TerminateProcess on Windows
+			// In interactive mode, wait a bit then kill (graceful /exit unreliable)
+			time.Sleep(3 * time.Second)
 		}
+		// Kill the process - we have what we need
+		c.Process.Kill()
 	}()
 
 	// Allow user to interrupt with Ctrl+C
