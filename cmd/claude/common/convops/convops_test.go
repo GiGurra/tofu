@@ -193,7 +193,7 @@ func TestLoadAndSaveSessionsIndex(t *testing.T) {
 
 	entry := loaded.Entries[0]
 	if entry.SessionID != "test-session-id" {
-		t.Errorf("SessionID mismatch: %q", entry.SessionID)
+		t.Errorf("ConvID mismatch: %q", entry.SessionID)
 	}
 	if entry.Summary != "Test summary" {
 		t.Errorf("Summary mismatch: %q", entry.Summary)
@@ -280,7 +280,7 @@ func TestCopyConversationFile(t *testing.T) {
 	}
 	if err := json.Unmarshal([]byte(`{"sessionId":"new-id-67890"}`), &msg); err == nil {
 		if msg.SessionID != newID {
-			t.Errorf("SessionID not replaced correctly")
+			t.Errorf("ConvID not replaced correctly")
 		}
 	}
 }

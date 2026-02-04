@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
@@ -15,7 +16,7 @@ import (
 
 // HookCallbackInput represents the JSON input from any Claude Code hook
 type HookCallbackInput struct {
-	SessionID        string `json:"session_id"`
+	ConvID           string `json:"session_id"` // claude's session id, what we call conv_id
 	TranscriptPath   string `json:"transcript_path"`
 	Cwd              string `json:"cwd"`
 	PermissionMode   string `json:"permission_mode,omitempty"`
@@ -36,8 +37,11 @@ func HookCallbackCmd() *cobra.Command {
 		Long:   "Unified callback for all Claude Code hooks. Reads hook data from stdin and updates session state accordingly.",
 		Hidden: true,
 		Run: func(cmd *cobra.Command, args []string) {
+			// Set up logging to both stderr and ~/.tofu/hooks.log
+			SetupHookLogging()
+
 			if err := runHookCallback(); err != nil {
-				// Silent failure - don't disrupt Claude's flow
+				slog.Error("hook callback failed", "error", err)
 				os.Exit(1)
 			}
 		},
@@ -59,23 +63,14 @@ func runHookCallback() error {
 		}
 	}
 
-	// Log for debugging if TOFU_HOOK_DEBUG=true
-	if os.Getenv("TOFU_HOOK_DEBUG") == "true" {
-		_ = EnsureSessionsDir()
-		debugFile, _ := os.OpenFile(DebugLogPath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if debugFile != nil {
-			fmt.Fprintf(debugFile, "--- %s ---\n", time.Now().Format(time.RFC3339))
-			fmt.Fprintf(debugFile, "Event: %s\n", input.HookEventName)
-			if input.NotificationType != "" {
-				fmt.Fprintf(debugFile, "NotificationType: %s\n", input.NotificationType)
-			}
-			if input.Message != "" {
-				fmt.Fprintf(debugFile, "Message: %s\n", input.Message)
-			}
-			fmt.Fprintf(debugFile, "Raw: %s\n", string(stdinData))
-			debugFile.Close()
-		}
-	}
+	// Log hook event
+	slog.Info("hook received",
+		"event", input.HookEventName,
+		"conv_id", input.ConvID,
+		"notification_type", input.NotificationType,
+		"tool_name", input.ToolName,
+		"cwd", input.Cwd,
+	)
 
 	// Determine status based on hook event
 	var newStatus string
@@ -140,6 +135,7 @@ func runHookCallback() error {
 	if err != nil || state == nil {
 		return err
 	}
+	slog.Info("session found", "session_id", state.ID, "status", state.Status)
 
 	// Capture previous status for notification
 	prevStatus := state.Status
@@ -150,8 +146,13 @@ func runHookCallback() error {
 	state.Updated = time.Now()
 
 	// Update ConvID from hook input (tracks conversation changes on resume)
-	if input.SessionID != "" && state.ConvID != input.SessionID {
-		state.ConvID = input.SessionID
+	if input.ConvID != "" && state.ConvID != input.ConvID {
+		slog.Info("updating conversation ID",
+			"old_conv_id", state.ConvID,
+			"new_conv_id", input.ConvID,
+			"session_id", state.ID,
+		)
+		state.ConvID = input.ConvID
 	}
 
 	// Update PID if stale
@@ -196,12 +197,12 @@ func getOrCreateSessionState(input HookCallbackInput) (*SessionState, error) {
 	}
 
 	// Session wasn't started via tofu - try to auto-register
-	if input.SessionID == "" {
+	if input.ConvID == "" {
 		return nil, nil
 	}
 
 	// Check if we already have a session for this Claude conversation
-	state := findSessionByConvID(input.SessionID)
+	state := findSessionByConvID(input.ConvID)
 	if state != nil {
 		return state, nil
 	}
@@ -223,7 +224,7 @@ func autoRegisterSessionFromHook(input HookCallbackInput) *SessionState {
 	tmuxSession := GetCurrentTmuxSession()
 
 	// Generate a session ID (first 8 chars of Claude's session ID)
-	sessionID := input.SessionID
+	sessionID := input.ConvID
 	if len(sessionID) > 8 {
 		sessionID = sessionID[:8]
 	}
@@ -239,7 +240,7 @@ func autoRegisterSessionFromHook(input HookCallbackInput) *SessionState {
 		TmuxSession: tmuxSession,
 		PID:         claudePID,
 		Cwd:         cwd,
-		ConvID:      input.SessionID,
+		ConvID:      input.ConvID,
 		Status:      StatusWorking,
 		Created:     time.Now(),
 		Updated:     time.Now(),
@@ -254,7 +255,7 @@ func autoRegisterSessionFromHook(input HookCallbackInput) *SessionState {
 	existingPath := SessionStatePath(sessionID)
 	if _, err := os.Stat(existingPath); err == nil {
 		existing, err := LoadSessionState(sessionID)
-		if err == nil && existing.ConvID == input.SessionID {
+		if err == nil && existing.ConvID == input.ConvID {
 			return existing
 		}
 		for i := 1; i < 100; i++ {
