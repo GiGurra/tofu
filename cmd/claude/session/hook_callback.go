@@ -59,6 +59,7 @@ func runHookCallback() error {
 	var input HookCallbackInput
 	if len(stdinData) > 0 {
 		if err := json.Unmarshal(stdinData, &input); err != nil {
+			slog.Error("failed to parse hook input", "error", err, "raw_input", string(stdinData))
 			return fmt.Errorf("failed to parse hook input: %w", err)
 		}
 	}

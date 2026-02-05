@@ -1,8 +1,10 @@
 package session
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -200,7 +202,8 @@ func DebugLogPath() string {
 	return filepath.Join(SessionsDir(), "debug.log")
 }
 
-// SaveSessionState saves session state to disk
+// SaveSessionState saves session state to disk using atomic write (temp file + rename)
+// to avoid race conditions when multiple hook callbacks fire concurrently.
 func SaveSessionState(state *SessionState) error {
 	if err := EnsureSessionsDir(); err != nil {
 		return err
@@ -210,18 +213,44 @@ func SaveSessionState(state *SessionState) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(SessionStatePath(state.ID), data, 0644)
+
+	targetPath := SessionStatePath(state.ID)
+	tmpFile, err := os.CreateTemp(SessionsDir(), state.ID+".tmp.*")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmpFile.Name()
+
+	if _, err := tmpFile.Write(data); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpPath)
+		return err
+	}
+	if err := tmpFile.Close(); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+
+	return os.Rename(tmpPath, targetPath)
 }
 
 // LoadSessionState loads session state from disk
 func LoadSessionState(id string) (*SessionState, error) {
-	data, err := os.ReadFile(SessionStatePath(id))
+	path := SessionStatePath(id)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 	var state SessionState
 	if err := json.Unmarshal(data, &state); err != nil {
-		return nil, err
+		// Try json.Decoder which tolerates trailing garbage after a valid JSON object.
+		// This handles files corrupted by pre-atomic-write race conditions.
+		dec := json.NewDecoder(bytes.NewReader(data))
+		if decErr := dec.Decode(&state); decErr != nil {
+			slog.Error("corrupt session state file", "path", path, "error", err, "raw_content", string(data))
+			return nil, err
+		}
+		slog.Warn("session state file had trailing garbage, repaired", "path", path)
 	}
 	return &state, nil
 }
