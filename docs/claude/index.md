@@ -66,6 +66,7 @@ tofu claude conv ls -w
 | `session ls` | List sessions (`-w` for interactive) |
 | `session attach` | Attach to a session |
 | `session kill` | Kill sessions |
+| `web` | Serve a session via web terminal |
 | `conv ls` | List conversations (`-w` for interactive, `-g` for global) |
 | `conv search` | Search conversation text |
 | `conv resume` | Resume a conversation |
@@ -100,6 +101,7 @@ Session watch also supports:
 - [Git Worktrees](worktrees.md) - Parallel development with multiple branches
 - [OS Notifications](notifications.md) - Get notified when sessions need attention
 - [Status Bar](status-bar.md) - Rich status bar for Claude Code's statusline
+- [Web Terminal](web-terminal.md) - Access sessions from your phone or browser
 - [Git Sync](git-sync.md) - Sync conversations across devices
 
 ## Recording a Demo

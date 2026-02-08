@@ -55,6 +55,7 @@ import (
 	"github.com/gigurra/tofu/cmd/ping"
 	"github.com/gigurra/tofu/cmd/pomodoro"
 	"github.com/gigurra/tofu/cmd/port"
+	"github.com/gigurra/tofu/cmd/proxy"
 	"github.com/gigurra/tofu/cmd/ps"
 	"github.com/gigurra/tofu/cmd/pwd"
 	"github.com/gigurra/tofu/cmd/qr"
@@ -147,6 +148,7 @@ func main() {
 			withGroup(dns.Cmd(), groupNetwork),
 			withGroup(http.Cmd(), groupNetwork),
 			withGroup(nc.Cmd(), groupNetwork),
+			withGroup(proxy.Cmd(), groupNetwork),
 			withGroup(ping.Cmd(), groupNetwork),
 			withGroup(wget.Cmd(), groupNetwork),
 			withGroup(weather.Cmd(), groupNetwork),

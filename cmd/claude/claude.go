@@ -12,6 +12,7 @@ import (
 	"github.com/gigurra/tofu/cmd/claude/stats"
 	"github.com/gigurra/tofu/cmd/claude/statusbar"
 	"github.com/gigurra/tofu/cmd/claude/usage"
+	"github.com/gigurra/tofu/cmd/claude/web"
 	"github.com/gigurra/tofu/cmd/claude/worktree"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
@@ -32,6 +33,7 @@ func Cmd() *cobra.Command {
 			usage.Cmd(),
 			setup.Cmd(),
 			statusbar.Cmd(),
+			web.Cmd(),
 		},
 		RunFunc: func(params *session.NewParams, cmd *cobra.Command, args []string) {
 			// Default to starting a new session
