@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -29,8 +30,9 @@ const (
 	colorCyan   = "\033[36m"
 	colorDim    = "\033[2m"
 	colorReset  = "\033[0m"
-	barWidth    = 10
-	gitCacheTTL = 15 * time.Second
+	barWidth           = 10
+	gitCacheTTL        = 15 * time.Second
+	compactionBuffer   = 16.5 // percent reserved for compaction
 )
 
 // StatusLineInput represents the JSON Claude Code sends to the statusline command
@@ -165,8 +167,6 @@ func run() error {
 		}
 	}
 
-	slog.Info("status-bar input received", "data", string(stdinData))
-
 	// === Line 1: [model version] dir | git-links ===
 	var line1 []string
 
@@ -202,7 +202,7 @@ func run() error {
 	}
 
 	var line2 []string
-	line2 = append(line2, fmt.Sprintf("ctx %s %d%%", progressBar(ctxPct), ctxPct))
+	line2 = append(line2, fmt.Sprintf("ctx %s %d%%", contextBar(ctxPct), ctxPct))
 
 	// Usage limits (subscription plan) or cost (API plan)
 	usage, err := usageapi.GetCached()
@@ -335,6 +335,51 @@ func getPRURL(branch string) string {
 		return ""
 	}
 	return strings.TrimSpace(string(out))
+}
+
+// contextBar returns a progress bar for context usage with a compaction marker.
+// The bar shows usable space (before compaction) as ░ and the compaction buffer as ▒.
+// Color thresholds are relative to the effective max (~83.5%).
+func contextBar(pct int) string {
+	if pct < 0 {
+		pct = 0
+	}
+	if pct > 100 {
+		pct = 100
+	}
+
+	effectiveMax := 100.0 - compactionBuffer
+	compactionCells := int(math.Round(compactionBuffer * float64(barWidth) / 100))
+	usableCells := barWidth - compactionCells
+	filled := int(float64(pct) * float64(barWidth) / 100)
+	if filled > barWidth {
+		filled = barWidth
+	}
+
+	// Color based on how close we are to the effective max
+	usageFraction := float64(pct) / effectiveMax * 100
+	color := colorGreen
+	if usageFraction >= 85 {
+		color = colorRed
+	} else if usageFraction >= 60 {
+		color = colorYellow
+	}
+
+	// Build bar: filled cells, then empty usable cells (░), then compaction cells (▒)
+	filledInUsable := filled
+	if filledInUsable > usableCells {
+		filledInUsable = usableCells
+	}
+	filledInCompaction := filled - filledInUsable
+	emptyUsable := usableCells - filledInUsable
+	emptyCompaction := compactionCells - filledInCompaction
+
+	return fmt.Sprintf("%s%s%s%s%s%s%s%s",
+		color, strings.Repeat("█", filledInUsable),
+		colorDim, strings.Repeat("░", emptyUsable),
+		color, strings.Repeat("█", filledInCompaction),
+		colorDim+strings.Repeat("▒", emptyCompaction),
+		colorReset)
 }
 
 // progressBar returns a colored progress bar like "█████░░░░░"
