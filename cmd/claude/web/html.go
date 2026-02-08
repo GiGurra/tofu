@@ -20,9 +20,22 @@ const indexHTML = `<!DOCTYPE html>
     }
     #status.connected { background: rgba(0,120,0,0.8); }
     #status.disconnected { background: rgba(180,0,0,0.8); }
+    #esc-btn {
+      position: fixed; top: 8px; left: 8px;
+      padding: 8px 16px; border-radius: 6px;
+      font-family: monospace; font-size: 14px; font-weight: bold;
+      color: #fff; background: rgba(180,40,40,0.85);
+      border: 1px solid rgba(255,255,255,0.2);
+      z-index: 10; cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    #esc-btn:active { background: rgba(220,60,60,0.95); }
   </style>
 </head>
 <body>
+  <div id="esc-btn">ESC</div>
   <div id="status">connecting...</div>
   <div id="terminal"></div>
 
@@ -114,6 +127,15 @@ const indexHTML = `<!DOCTYPE html>
     // Also send resize when fit changes dimensions
     term.onResize(() => {
       sendResize();
+    });
+
+    // ESC button sends escape key to terminal
+    document.getElementById('esc-btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(new TextEncoder().encode('\x1b'));
+      }
+      term.focus();
     });
 
     // Two-finger scroll sends mouse wheel escape sequences to tmux
