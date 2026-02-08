@@ -319,7 +319,7 @@ func buildGitLinksFromData(data *cachedGitData) string {
 	diffURL := fmt.Sprintf("%s/compare/%s...%s", data.RepoURL, data.DefaultBranch, data.Branch)
 
 	if data.PRURL != "" {
-		return diffURL + " | " + data.PRURL
+		return data.PRURL
 	}
 
 	return diffURL
