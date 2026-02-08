@@ -43,6 +43,7 @@ nav:
     - Conversation Management: claude/conversations.md
     - Git Worktrees: claude/worktrees.md
     - Notifications: claude/notifications.md
+    - Status Bar: claude/status-bar.md
     - Git Sync: claude/git-sync.md
   - File Operations:
     - cat: commands/cat.md
