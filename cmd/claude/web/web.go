@@ -14,7 +14,7 @@ type Params struct {
 	User    string `long:"user" short:"u" help:"Username for basic auth (required)"`
 	Pass    string `long:"pass" help:"Password for basic auth (required)"`
 	Session string `pos:"true" optional:"true" help:"Session ID to attach to (auto-detects if only one running)"`
-	Bind    string `long:"bind" help:"Address to bind to" default:"0.0.0.0"`
+	Bind    string `long:"bind" help:"Address to bind to (use 0.0.0.0 for all interfaces)" default:"127.0.0.1"`
 	NoTLS   bool   `long:"no-tls" help:"Disable TLS (not recommended)"`
 	NewCert bool   `long:"new-cert" help:"Force regenerate TLS certificate"`
 }
