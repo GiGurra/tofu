@@ -10,7 +10,7 @@ import (
 )
 
 type Params struct {
-	Port    int    `long:"port" short:"p" help:"Port to listen on" default:"8080"`
+	Port    int    `long:"port" short:"p" help:"Port to listen on" default:"8443"`
 	User    string `long:"user" short:"u" help:"Username for basic auth (required)"`
 	Pass    string `long:"pass" help:"Password for basic auth (required)"`
 	Session string `pos:"true" optional:"true" help:"Session ID to attach to (auto-detects if only one running)"`
