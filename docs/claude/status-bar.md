@@ -114,7 +114,7 @@ The status bar caches data to stay fast (it runs after every assistant message):
 | Data | Cache Location | TTL |
 |------|---------------|-----|
 | Git info (repo, branch, PR) | `~/.cache/tofu-claude-git-<hash>.json` | 15 seconds |
-| Subscription limits | `~/.cache/tofu-claude-usage.json` | 60 seconds |
+| Subscription limits | `~/.cache/tofu-claude-usage.json` | 15 seconds |
 
 - Git cache is **per-repo** (keyed by repo root hash), so parallel sessions in different repos don't interfere
 - Usage cache is **shared** since it's account-level data

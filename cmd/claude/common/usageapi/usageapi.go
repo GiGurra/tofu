@@ -14,7 +14,7 @@ import (
 
 const (
 	usageEndpoint = "https://api.anthropic.com/api/oauth/usage"
-	cacheTTL      = 60 * time.Second
+	cacheTTL      = 15 * time.Second
 )
 
 // Response represents the API response from the usage endpoint.
@@ -208,7 +208,7 @@ func parseBucket(b Bucket) CachedBucket {
 	return cb
 }
 
-// GetCached returns usage percentages, using a 60s file cache to avoid hammering the API.
+// GetCached returns usage percentages, using a 15s file cache to avoid hammering the API.
 func GetCached() (*CachedUsage, error) {
 	if cached := loadCache(); cached != nil {
 		return cached, nil
