@@ -231,6 +231,24 @@ func run() error {
 
 	fmt.Println(strings.Join(line2, " | "))
 
+	// === Line 3: extra usage (only if available) ===
+	if usage != nil && usage.ExtraUsage != nil {
+		eu := usage.ExtraUsage
+		if eu.IsEnabled {
+			var parts []string
+			parts = append(parts, "extra usage: on")
+			if eu.UsedCredits != nil && eu.MonthlyLimit != nil {
+				parts = append(parts, fmt.Sprintf("$%.2f / $%.2f", *eu.UsedCredits, *eu.MonthlyLimit))
+			}
+			if eu.Utilization != nil {
+				parts = append(parts, fmt.Sprintf("%s %.0f%%", progressBar(int(*eu.Utilization)), *eu.Utilization))
+			}
+			fmt.Println(strings.Join(parts, " | "))
+		} else {
+			fmt.Printf("%sextra usage: off%s\n", colorDim, colorReset)
+		}
+	}
+
 	return nil
 }
 

@@ -58,6 +58,20 @@ func runUsage(params *Params) error {
 	if resp.SevenDaySonnet != nil {
 		fmt.Printf("7-day sonnet utilization: %.1f%%\n", resp.SevenDaySonnet.Utilization)
 	}
+	if resp.ExtraUsage != nil {
+		eu := resp.ExtraUsage
+		if eu.IsEnabled {
+			fmt.Printf("extra usage:              enabled\n")
+			if eu.UsedCredits != nil && eu.MonthlyLimit != nil {
+				fmt.Printf("  used:                   $%.2f / $%.2f\n", *eu.UsedCredits, *eu.MonthlyLimit)
+			}
+			if eu.Utilization != nil {
+				fmt.Printf("  utilization:            %.1f%%\n", *eu.Utilization)
+			}
+		} else {
+			fmt.Printf("extra usage:              disabled\n")
+		}
+	}
 
 	return nil
 }

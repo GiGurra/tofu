@@ -20,15 +20,24 @@ const (
 // Response represents the API response from the usage endpoint.
 // All buckets are optional since they are only present on subscription plans.
 type Response struct {
-	FiveHour       *Bucket `json:"five_hour"`
-	SevenDay       *Bucket `json:"seven_day"`
-	SevenDaySonnet *Bucket `json:"seven_day_sonnet"`
+	FiveHour       *Bucket     `json:"five_hour"`
+	SevenDay       *Bucket     `json:"seven_day"`
+	SevenDaySonnet *Bucket     `json:"seven_day_sonnet"`
+	ExtraUsage     *ExtraUsage `json:"extra_usage"`
 }
 
 // Bucket represents a single usage time bucket
 type Bucket struct {
 	Utilization float64 `json:"utilization"`
 	ResetsAt    string  `json:"resets_at"`
+}
+
+// ExtraUsage represents the extra usage / overuse allowance
+type ExtraUsage struct {
+	IsEnabled    bool     `json:"is_enabled"`
+	MonthlyLimit *float64 `json:"monthly_limit"`
+	UsedCredits  *float64 `json:"used_credits"`
+	Utilization  *float64 `json:"utilization"`
 }
 
 // CachedBucket stores utilization percentage and reset time for a single bucket
@@ -43,6 +52,7 @@ type CachedUsage struct {
 	FiveHour       *CachedBucket `json:"five_hour,omitempty"`
 	SevenDay       *CachedBucket `json:"seven_day,omitempty"`
 	SevenDaySonnet *CachedBucket `json:"seven_day_sonnet,omitempty"` // only for premium/max
+	ExtraUsage     *ExtraUsage   `json:"extra_usage,omitempty"`
 	FetchedAt      time.Time     `json:"fetched_at"`
 }
 
@@ -228,6 +238,9 @@ func GetCached() (*CachedUsage, error) {
 	if resp.SevenDaySonnet != nil {
 		b := parseBucket(*resp.SevenDaySonnet)
 		cached.SevenDaySonnet = &b
+	}
+	if resp.ExtraUsage != nil {
+		cached.ExtraUsage = resp.ExtraUsage
 	}
 
 	saveCache(cached)
