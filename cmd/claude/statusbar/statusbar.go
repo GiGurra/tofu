@@ -184,9 +184,7 @@ func run() error {
 		line1 = append(line1, "📂 "+dir)
 	}
 
-	fmt.Println(strings.Join(line1, " | "))
-
-	// === Line 2: context bar | limit bars with reset timers | cost ===
+	// === Line 1: context bar | limit bars with reset timers | cost ===
 	ctxPct := 0
 	if input.ContextWindow.UsedPercentage != nil {
 		ctxPct = int(*input.ContextWindow.UsedPercentage)
@@ -223,6 +221,9 @@ func run() error {
 	}
 
 	fmt.Println(strings.Join(line2, " | "))
+
+	// === Line 2: [model] | git-links ===
+	fmt.Println(strings.Join(line1, " | "))
 
 	// === Line 3: extra usage (only if available) ===
 	if usage != nil && usage.ExtraUsage != nil {
