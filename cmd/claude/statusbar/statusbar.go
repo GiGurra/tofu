@@ -2,6 +2,8 @@
 package statusbar
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -103,7 +105,13 @@ func gitCachePath() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".cache", "tofu-claude-git.json")
+	// Key cache per git repo root so parallel sessions in different repos don't clash
+	repoRoot := gitCmd("rev-parse", "--show-toplevel")
+	if repoRoot == "" {
+		return ""
+	}
+	h := sha256.Sum256([]byte(repoRoot))
+	return filepath.Join(home, ".cache", "tofu-claude-git-"+hex.EncodeToString(h[:8])+".json")
 }
 
 func loadGitCache() *cachedGitData {
