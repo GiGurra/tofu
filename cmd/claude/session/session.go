@@ -396,9 +396,9 @@ func ParsePIDFromTmux(sessionName string) int {
 	return pid
 }
 
-// getSessionCompletions returns completions for session IDs
+// GetSessionCompletions returns completions for session IDs
 // If includeExited is true, includes exited sessions (for kill command)
-func getSessionCompletions(includeExited bool) []string {
+func GetSessionCompletions(includeExited bool) []string {
 	states, err := ListSessionStates()
 	if err != nil || len(states) == 0 {
 		return nil

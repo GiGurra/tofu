@@ -5,7 +5,10 @@ import (
 	"os"
 
 	"github.com/GiGurra/boa/pkg/boa"
+	clcommon "github.com/gigurra/tofu/cmd/claude/common"
+	"github.com/gigurra/tofu/cmd/claude/session"
 	"github.com/gigurra/tofu/cmd/common"
+
 	"github.com/spf13/cobra"
 )
 
@@ -30,6 +33,12 @@ Both the desktop terminal and the web browser see the same session simultaneousl
 
 Requires basic auth credentials for access.`,
 		ParamEnrich: common.DefaultParamEnricher(),
+		ValidArgsFunc: func(p *Params, cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) > 0 {
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+			return session.GetSessionCompletions(false), cobra.ShellCompDirectiveKeepOrder | cobra.ShellCompDirectiveNoFileComp
+		},
 		RunFunc: func(params *Params, cmd *cobra.Command, args []string) {
 			if err := run(params); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -45,7 +54,8 @@ func run(params *Params) error {
 	}
 
 	// Resolve which session to attach to
-	tmuxSession, sessionID, err := resolveSession(params.Session)
+	sessionInput := clcommon.ExtractIDFromCompletion(params.Session)
+	tmuxSession, sessionID, err := resolveSession(sessionInput)
 	if err != nil {
 		return err
 	}
