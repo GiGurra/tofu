@@ -27,6 +27,7 @@ type Column struct {
 	Align        Alignment    // Left, Right, Center (default Left)
 	Truncate     bool         // Truncate with ellipsis if content too long
 	TruncateMode TruncateMode // How to truncate: TruncateEnd (default) or TruncateStart
+	SortKey      string       // When non-empty, column is sortable. Keys 1-9/F1-F9 map to sortable columns in order.
 }
 
 // IsFixed returns true if the column has a fixed width

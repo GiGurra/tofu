@@ -72,7 +72,7 @@ type model struct {
 	focusOnly      bool   // just focus, don't attach (session already attached elsewhere)
 	createNew     bool   // create a new session after quitting
 	includeAll    bool
-	sort          SortState
+	sort          table.SortState
 	statusFilter  []string        // which statuses to show (empty = all)
 	hideFilter    []string        // which statuses to hide
 	confirmMode   confirmMode     // current confirmation dialog
@@ -89,7 +89,7 @@ func initialModel(includeAll bool, statusFilter, hideFilter []string) model {
 		sessions:     []*SessionState{},
 		cursor:       0,
 		includeAll:   includeAll,
-		sort:         SortState{Column: SortNone},
+		sort:         table.SortState{},
 		statusFilter: statusFilter,
 		hideFilter:   hideFilter,
 	}
@@ -205,7 +205,7 @@ func (m model) refreshSessions() model {
 	}
 
 	// Apply sorting
-	SortSessions(filtered, m.sort)
+	SortSessionsByKey(filtered, m.sort.Key, m.sort.Direction)
 	m.allSessions = filtered
 
 	// Apply search filter
@@ -262,7 +262,7 @@ func (m model) updateSingleSession(sessionID string, deleted bool) model {
 	// Add new session if not found and should be shown
 	if !found && shouldShow {
 		m.allSessions = append(m.allSessions, state)
-		SortSessions(m.allSessions, m.sort)
+		SortSessionsByKey(m.allSessions, m.sort.Key, m.sort.Direction)
 	}
 
 	return m.applySearchFilter()
@@ -567,21 +567,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Create a new session in current directory
 			m.createNew = true
 			return m, tea.Quit
-		case "f1", "1":
-			m.sort.Toggle(SortID)
-			m = m.refreshSessions()
-		case "f2", "2":
-			m.sort.Toggle(SortDirectory)
-			m = m.refreshSessions()
-		case "f3", "3":
-			m.sort.Toggle(SortStatus)
-			m = m.refreshSessions()
-		case "f4", "4":
-			m.sort.Toggle(SortAge)
-			m = m.refreshSessions()
-		case "f5", "5":
-			m.sort.Toggle(SortUpdated)
-			m = m.refreshSessions()
+		default:
+			if m.sort.HandleSortKey(m.columns(), msg.String()) {
+				m = m.refreshSessions()
+			}
 		}
 
 	case tea.WindowSizeMsg:
@@ -606,6 +595,19 @@ var (
 	menuStyle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("214"))
 	filterBadge  = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
 )
+
+// columns returns the column definitions for the session table.
+// Used by both Update (for sort key handling) and View (for rendering).
+func (m model) columns() []table.Column {
+	return []table.Column{
+		{Header: "", Width: 2},                                                                         // Attached indicator
+		{Header: "ID", Width: 10, SortKey: "id"},                                                       // ID
+		{Header: "PROJECT", MinWidth: 15, Weight: 0.25, Truncate: true, TruncateMode: table.TruncateStart, SortKey: "project"}, // Project
+		{Header: "TITLE/PROMPT", MinWidth: 20, Weight: 0.5, Truncate: true},                            // Title/prompt (not sortable)
+		{Header: "STATUS", MinWidth: 15, Weight: 0.25, Truncate: true, SortKey: "status"},              // Status
+		{Header: "UPDATED", Width: 10, SortKey: "updated"},                                             // Updated
+	}
+}
 
 func (m model) View() string {
 	// Help view overlay
@@ -656,16 +658,10 @@ func (m model) View() string {
 		return b.String()
 	}
 
-	// Build table - PROJECT, TITLE/PROMPT and STATUS are flexible
+	// Build table using shared column definitions
 	tableWidth := max(m.width-3, 60)
-	tbl := table.New(
-		table.Column{Header: "", Width: 2},                                                                                               // Attached indicator
-		table.Column{Header: "ID" + m.sort.Indicator(SortID), Width: 10},                                                                 // ID
-		table.Column{Header: "PROJECT" + m.sort.Indicator(SortDirectory), MinWidth: 15, Weight: 0.25, Truncate: true, TruncateMode: table.TruncateStart}, // Project (full path, truncate from start)
-		table.Column{Header: "TITLE/PROMPT", MinWidth: 20, Weight: 0.5, Truncate: true},                                                  // Title/prompt (flexible)
-		table.Column{Header: "STATUS" + m.sort.Indicator(SortStatus), MinWidth: 15, Weight: 0.25, Truncate: true},                        // Status (flexible)
-		table.Column{Header: "UPDATED" + m.sort.Indicator(SortUpdated), Width: 10},                                                       // Updated
-	)
+	cols := m.columns()
+	tbl := table.New(cols...)
 	tbl.Padding = 3
 	tbl.SetTerminalWidth(tableWidth)
 	tbl.HeaderStyle = headerStyle
@@ -673,6 +669,7 @@ func (m model) View() string {
 	tbl.SelectedIndex = m.cursor
 	tbl.ViewportOffset = m.viewportOffset
 	tbl.ViewportHeight = m.viewportHeight
+	tbl.Sort = m.sort.ToConfig(cols)
 
 	// Add rows
 	for _, state := range m.sessions {
@@ -810,12 +807,10 @@ func (m model) renderHelpView() string {
 
 	b.WriteString(headerStyle.Render("  Sorting"))
 	b.WriteString("\n")
-	b.WriteString("    1/F1      Sort by ID\n")
-	b.WriteString("    2/F2      Sort by Directory\n")
-	b.WriteString("    3/F3      Sort by Status\n")
-	b.WriteString("    4/F4      Sort by Age\n")
-	b.WriteString("    5/F5      Sort by Updated\n")
-	b.WriteString("              (press again to toggle asc/desc/off)\n")
+	for _, line := range table.SortableColumnsHelp(m.columns()) {
+		b.WriteString(line)
+		b.WriteString("\n")
+	}
 	b.WriteString("\n")
 
 	b.WriteString(headerStyle.Render("  Session Indicators"))
@@ -847,7 +842,7 @@ func getRowStyle(status string) lipgloss.Style {
 
 // WatchState holds state that persists between attach cycles
 type WatchState struct {
-	Sort         SortState
+	Sort         table.SortState
 	StatusFilter []string
 	HideFilter   []string
 	SearchInput  string
@@ -902,7 +897,7 @@ func RunInteractive(includeAll bool, state WatchState) (AttachResult, WatchState
 }
 
 // RunWatchMode runs the interactive watch mode with attach support
-func RunWatchMode(includeAll bool, initialSort SortState, initialFilter, initialHide []string) error {
+func RunWatchMode(includeAll bool, initialSort table.SortState, initialFilter, initialHide []string) error {
 	_, err := exec.LookPath("tmux")
 	if err != nil {
 		return fmt.Errorf("tmux not found: %w", err)

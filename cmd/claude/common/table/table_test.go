@@ -541,6 +541,178 @@ func TestTableRowStyle(t *testing.T) {
 	}
 }
 
+func TestSortStateToggle(t *testing.T) {
+	s := SortState{}
+
+	// First toggle: none -> asc
+	s.Toggle("id")
+	if s.Key != "id" || s.Direction != SortAsc {
+		t.Errorf("after first toggle: Key=%q Dir=%v, want id/Asc", s.Key, s.Direction)
+	}
+
+	// Second toggle same key: asc -> desc
+	s.Toggle("id")
+	if s.Key != "id" || s.Direction != SortDesc {
+		t.Errorf("after second toggle: Key=%q Dir=%v, want id/Desc", s.Key, s.Direction)
+	}
+
+	// Third toggle same key: desc -> none
+	s.Toggle("id")
+	if s.Key != "" || s.Direction != SortNone {
+		t.Errorf("after third toggle: Key=%q Dir=%v, want empty/None", s.Key, s.Direction)
+	}
+
+	// Toggle different key while sorted
+	s.Toggle("id")
+	s.Toggle("name")
+	if s.Key != "name" || s.Direction != SortAsc {
+		t.Errorf("after switching column: Key=%q Dir=%v, want name/Asc", s.Key, s.Direction)
+	}
+}
+
+func TestSortStateToConfig(t *testing.T) {
+	columns := []Column{
+		{Header: "", Width: 2},
+		{Header: "ID", Width: 10, SortKey: "id"},
+		{Header: "NAME", MinWidth: 20, SortKey: "name"},
+		{Header: "DATE", Width: 16, SortKey: "date"},
+	}
+
+	// No sort
+	s := SortState{}
+	cfg := s.ToConfig(columns)
+	if cfg.Column != -1 || cfg.Direction != SortNone {
+		t.Errorf("empty sort: Column=%d Dir=%v, want -1/None", cfg.Column, cfg.Direction)
+	}
+
+	// Sort by name (column index 2)
+	s = SortState{Key: "name", Direction: SortDesc}
+	cfg = s.ToConfig(columns)
+	if cfg.Column != 2 || cfg.Direction != SortDesc {
+		t.Errorf("sort by name: Column=%d Dir=%v, want 2/Desc", cfg.Column, cfg.Direction)
+	}
+
+	// Sort by unknown key
+	s = SortState{Key: "unknown", Direction: SortAsc}
+	cfg = s.ToConfig(columns)
+	if cfg.Column != -1 {
+		t.Errorf("sort by unknown: Column=%d, want -1", cfg.Column)
+	}
+}
+
+func TestHandleSortKey(t *testing.T) {
+	columns := []Column{
+		{Header: "", Width: 2},             // Not sortable
+		{Header: "ID", Width: 10, SortKey: "id"},       // Sortable #1
+		{Header: "NAME", MinWidth: 20, SortKey: "name"}, // Sortable #2
+		{Header: "TITLE", MinWidth: 30},    // Not sortable
+		{Header: "DATE", Width: 16, SortKey: "date"},    // Sortable #3
+	}
+
+	s := SortState{}
+
+	// Press "1" -> sorts by ID (1st sortable column)
+	if !s.HandleSortKey(columns, "1") {
+		t.Error("HandleSortKey('1') should return true")
+	}
+	if s.Key != "id" {
+		t.Errorf("after pressing 1: Key=%q, want 'id'", s.Key)
+	}
+
+	// Press "2" -> sorts by NAME (2nd sortable column)
+	s = SortState{}
+	s.HandleSortKey(columns, "2")
+	if s.Key != "name" {
+		t.Errorf("after pressing 2: Key=%q, want 'name'", s.Key)
+	}
+
+	// Press "3" -> sorts by DATE (3rd sortable column, skipping non-sortable TITLE)
+	s = SortState{}
+	s.HandleSortKey(columns, "3")
+	if s.Key != "date" {
+		t.Errorf("after pressing 3: Key=%q, want 'date'", s.Key)
+	}
+
+	// Press "4" -> no 4th sortable column, should not change
+	s = SortState{}
+	if s.HandleSortKey(columns, "4") {
+		t.Error("HandleSortKey('4') should return false (no 4th sortable column)")
+	}
+
+	// F-keys work too
+	s = SortState{}
+	s.HandleSortKey(columns, "f2")
+	if s.Key != "name" {
+		t.Errorf("after pressing f2: Key=%q, want 'name'", s.Key)
+	}
+
+	// Non-sort key returns false
+	s = SortState{}
+	if s.HandleSortKey(columns, "q") {
+		t.Error("HandleSortKey('q') should return false")
+	}
+}
+
+func TestSortableColumnIndex(t *testing.T) {
+	columns := []Column{
+		{Header: "A"},                      // Not sortable
+		{Header: "B", SortKey: "b"},        // Sortable #1
+		{Header: "C"},                      // Not sortable
+		{Header: "D", SortKey: "d"},        // Sortable #2
+	}
+
+	if idx := SortableColumnIndex(columns, 1); idx != 1 {
+		t.Errorf("SortableColumnIndex(1) = %d, want 1", idx)
+	}
+	if idx := SortableColumnIndex(columns, 2); idx != 3 {
+		t.Errorf("SortableColumnIndex(2) = %d, want 3", idx)
+	}
+	if idx := SortableColumnIndex(columns, 3); idx != -1 {
+		t.Errorf("SortableColumnIndex(3) = %d, want -1", idx)
+	}
+}
+
+func TestSortableColumnsHelp(t *testing.T) {
+	columns := []Column{
+		{Header: "", Width: 2},
+		{Header: "ID", SortKey: "id"},
+		{Header: "NAME", SortKey: "name"},
+	}
+
+	lines := SortableColumnsHelp(columns)
+	if len(lines) != 3 { // 2 columns + toggle hint
+		t.Errorf("expected 3 help lines, got %d", len(lines))
+	}
+	if !strings.Contains(lines[0], "1/F1") || !strings.Contains(lines[0], "ID") {
+		t.Errorf("first line should mention 1/F1 and ID, got: %s", lines[0])
+	}
+	if !strings.Contains(lines[1], "2/F2") || !strings.Contains(lines[1], "NAME") {
+		t.Errorf("second line should mention 2/F2 and NAME, got: %s", lines[1])
+	}
+
+	// No sortable columns
+	noSort := []Column{{Header: "A"}, {Header: "B"}}
+	if lines := SortableColumnsHelp(noSort); len(lines) != 0 {
+		t.Errorf("expected 0 help lines for no sortable columns, got %d", len(lines))
+	}
+}
+
+func TestParseSortKeyNumber(t *testing.T) {
+	tests := []struct {
+		key  string
+		want int
+	}{
+		{"1", 1}, {"2", 2}, {"9", 9},
+		{"f1", 1}, {"f5", 5}, {"f9", 9},
+		{"q", 0}, {"enter", 0}, {"", 0},
+	}
+	for _, tt := range tests {
+		if got := ParseSortKeyNumber(tt.key); got != tt.want {
+			t.Errorf("ParseSortKeyNumber(%q) = %d, want %d", tt.key, got, tt.want)
+		}
+	}
+}
+
 func TestFormatCell(t *testing.T) {
 	tests := []struct {
 		name  string

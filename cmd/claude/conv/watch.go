@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -62,6 +63,9 @@ type watchModel struct {
 	// Worktree branch input
 	worktreeInput   string
 	worktreeFocused bool
+
+	// Sort
+	sort table.SortState
 
 	// UI state
 	width       int
@@ -224,8 +228,12 @@ func (m watchModel) loadConversations() watchModel {
 	// Filter by time if specified
 	allEntries, _ = FilterEntriesByTime(allEntries, m.since, m.before)
 
-	// Sort by modified date descending (most recent first)
-	sortEntries(allEntries, "modified", false)
+	// Sort by current sort state, defaulting to modified descending
+	if m.sort.Key != "" {
+		sortConvEntriesByKey(allEntries, m.sort.Key, m.sort.Direction)
+	} else {
+		sortEntries(allEntries, "modified", false)
+	}
 
 	m.entries = allEntries
 	m = m.applySearchFilter()
@@ -642,6 +650,10 @@ func (m watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Delete conversation (with confirmation)
 			// Note: ctrl+d is what macOS sends for forward delete key
 			m = m.triggerDelete()
+		default:
+			if m.sort.HandleSortKey(m.columns(), msg.String()) {
+				m = m.loadConversations()
+			}
 		}
 
 	case tea.WindowSizeMsg:
@@ -663,6 +675,26 @@ func (m watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// columns returns the column definitions for the conversation table.
+// Used by both Update (for sort key handling) and View (for rendering).
+func (m watchModel) columns() []table.Column {
+	if m.global {
+		return []table.Column{
+			{Header: "", Width: 2},                                                                                  // Session indicator
+			{Header: "ID", Width: 10, SortKey: "id"},                                                                // ID
+			{Header: "PROJECT", MinWidth: 20, Weight: 0.4, Truncate: true, TruncateMode: table.TruncateStart, SortKey: "project"}, // Project
+			{Header: "TITLE/PROMPT", MinWidth: 30, Weight: 0.6, Truncate: true, SortKey: "title"},                   // Title
+			{Header: "MODIFIED", Width: 16, SortKey: "modified"},                                                    // Modified
+		}
+	}
+	return []table.Column{
+		{Header: "", Width: 2},                                                    // Session indicator
+		{Header: "ID", Width: 10, SortKey: "id"},                                  // ID
+		{Header: "TITLE/PROMPT", MinWidth: 30, Truncate: true, SortKey: "title"},  // Title
+		{Header: "MODIFIED", Width: 16, SortKey: "modified"},                      // Modified
+	}
 }
 
 func (m watchModel) View() string {
@@ -705,27 +737,10 @@ func (m watchModel) View() string {
 		return b.String()
 	}
 
-	// Build table - use flexible column for TITLE/PROMPT
-	// Calculate table width with some padding for aesthetics
+	// Build table using shared column definitions
 	tableWidth := max(m.width-3, 60)
-
-	var tbl *table.Table
-	if m.global {
-		tbl = table.New(
-			table.Column{Header: "", Width: 2},                                                      // Session indicator
-			table.Column{Header: "ID", Width: 10},                                                   // ID
-			table.Column{Header: "PROJECT", MinWidth: 20, Weight: 0.4, Truncate: true, TruncateMode: table.TruncateStart}, // Project (flexible)
-			table.Column{Header: "TITLE/PROMPT", MinWidth: 30, Weight: 0.6, Truncate: true},         // Title (flexible)
-			table.Column{Header: "MODIFIED", Width: 16},                                             // Modified
-		)
-	} else {
-		tbl = table.New(
-			table.Column{Header: "", Width: 2},                                                      // Session indicator
-			table.Column{Header: "ID", Width: 10},                                                   // ID
-			table.Column{Header: "TITLE/PROMPT", MinWidth: 30, Truncate: true},                      // Title (flexible)
-			table.Column{Header: "MODIFIED", Width: 16},                                             // Modified
-		)
-	}
+	cols := m.columns()
+	tbl := table.New(cols...)
 	tbl.Padding = 3
 	tbl.SetTerminalWidth(tableWidth)
 	tbl.HeaderStyle = wHeaderStyle
@@ -733,6 +748,7 @@ func (m watchModel) View() string {
 	tbl.SelectedIndex = m.cursor
 	tbl.ViewportOffset = m.viewportOffset
 	tbl.ViewportHeight = m.viewportHeight
+	tbl.Sort = m.sort.ToConfig(cols)
 
 	// Add rows for all filtered entries
 	for _, e := range m.filtered {
@@ -830,6 +846,14 @@ func (m watchModel) renderHelpView() string {
 	b.WriteString("    r         Refresh conversation list\n")
 	b.WriteString("\n")
 
+	b.WriteString(wHeaderStyle.Render("  Sorting"))
+	b.WriteString("\n")
+	for _, line := range table.SortableColumnsHelp(m.columns()) {
+		b.WriteString(line)
+		b.WriteString("\n")
+	}
+	b.WriteString("\n")
+
 	b.WriteString(wHeaderStyle.Render("  Indicators"))
 	b.WriteString("\n")
 	b.WriteString("    ⚡        Tmux session with attached clients\n")
@@ -858,6 +882,7 @@ type ConvWatchState struct {
 	SearchInput    string
 	Cursor         int
 	ViewportOffset int
+	Sort           table.SortState
 }
 
 // RunConvWatch runs the interactive watch mode and returns the result
@@ -868,6 +893,7 @@ func RunConvWatch(global bool, since, before string, state ConvWatchState) (Watc
 	m.searchInput = state.SearchInput
 	m.cursor = state.Cursor
 	m.viewportOffset = state.ViewportOffset
+	m.sort = state.Sort
 
 	m = m.loadConversations()
 
@@ -888,6 +914,7 @@ func RunConvWatch(global bool, since, before string, state ConvWatchState) (Watc
 		SearchInput:    fm.searchInput,
 		Cursor:         fm.cursor,
 		ViewportOffset: fm.viewportOffset,
+		Sort:           fm.sort,
 	}
 	return WatchResult{
 		Conv:           fm.selectedConv,
@@ -963,6 +990,32 @@ func RunConvWatchMode(global bool, since, before string) error {
 
 		// After detach or session end, loop back to watch mode
 	}
+}
+
+// sortConvEntriesByKey sorts conversation entries by the given sort key and direction.
+func sortConvEntriesByKey(entries []SessionEntry, key string, dir table.SortDirection) {
+	if key == "" || len(entries) < 2 {
+		return
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		var less bool
+		switch key {
+		case "id":
+			less = entries[i].SessionID < entries[j].SessionID
+		case "project":
+			less = entries[i].ProjectPath < entries[j].ProjectPath
+		case "title":
+			less = strings.ToLower(entries[i].DisplayTitle()) < strings.ToLower(entries[j].DisplayTitle())
+		case "modified":
+			less = entries[i].Modified < entries[j].Modified
+		default:
+			return false
+		}
+		if dir == table.SortDesc {
+			return !less
+		}
+		return less
+	})
 }
 
 // createSessionForConv creates a new session for a conversation

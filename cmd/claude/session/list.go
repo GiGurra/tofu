@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/GiGurra/boa/pkg/boa"
+	tbl "github.com/gigurra/tofu/cmd/claude/common/table"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
@@ -87,7 +88,7 @@ func runList(params *ListParams) error {
 	}
 
 	// Apply sorting
-	SortSessions(filtered, sortState)
+	SortSessionsByKey(filtered, sortState.Key, sortState.Direction)
 
 	if params.JSON {
 		data, err := json.MarshalIndent(filtered, "", "  ")
@@ -174,38 +175,38 @@ func getStatusColorFunc(status string) func(a ...interface{}) string {
 	}
 }
 
-func parseSortParams(sortBy string, asc, desc bool) SortState {
-	var col SortColumn
+func parseSortParams(sortBy string, asc, desc bool) tbl.SortState {
+	var key string
 	switch sortBy {
 	case "id":
-		col = SortID
+		key = "id"
 	case "directory", "dir":
-		col = SortDirectory
+		key = "project"
 	case "status":
-		col = SortStatus
+		key = "status"
 	case "age", "created":
-		col = SortAge
+		key = "updated" // Map age/created to updated (age column was removed)
 	case "updated", "time":
-		col = SortUpdated
+		key = "updated"
 	default:
-		col = SortNone
+		key = ""
 	}
 
 	// Default direction depends on column
 	// Time-based columns default to descending (most recent first)
 	// Others default to ascending
-	var dir SortDirection
+	var dir tbl.SortDirection
 	if asc {
-		dir = SortAsc
+		dir = tbl.SortAsc
 	} else if desc {
-		dir = SortDesc
-	} else if col == SortUpdated || col == SortAge {
-		dir = SortDesc // Smart default for time
+		dir = tbl.SortDesc
+	} else if key == "updated" {
+		dir = tbl.SortDesc // Smart default for time
 	} else {
-		dir = SortAsc
+		dir = tbl.SortAsc
 	}
 
-	return SortState{Column: col, Direction: dir}
+	return tbl.SortState{Key: key, Direction: dir}
 }
 
 // normalizeStatusFilter converts user-friendly names to internal status constants

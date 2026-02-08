@@ -8,11 +8,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/GiGurra/boa/pkg/boa"
+	"github.com/gigurra/tofu/cmd/claude/common/table"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
 )
@@ -39,97 +41,31 @@ const (
 	StatusExited            = "exited"
 )
 
-// SortColumn represents which column to sort by
-type SortColumn int
-
-const (
-	SortNone SortColumn = iota
-	SortID
-	SortDirectory
-	SortStatus
-	SortAge
-	SortUpdated
-)
-
-// SortDirection represents ascending or descending
-type SortDirection int
-
-const (
-	SortAsc SortDirection = iota
-	SortDesc
-)
-
-// SortState tracks current sort settings
-type SortState struct {
-	Column    SortColumn
-	Direction SortDirection
-}
-
-// NextState cycles through: none -> asc -> desc -> none
-func (s *SortState) Toggle(col SortColumn) {
-	if s.Column != col {
-		// New column: start with ascending
-		s.Column = col
-		s.Direction = SortAsc
-	} else if s.Direction == SortAsc {
-		// Same column, was asc: switch to desc
-		s.Direction = SortDesc
-	} else {
-		// Same column, was desc: reset to none
-		s.Column = SortNone
-	}
-}
-
-// SortIndicator returns a display indicator for the column header
-func (s *SortState) Indicator(col SortColumn) string {
-	if s.Column != col {
-		return ""
-	}
-	if s.Direction == SortAsc {
-		return " ▼"
-	}
-	return " ▲"
-}
-
-// SortSessions sorts sessions according to the current sort state
-func SortSessions(sessions []*SessionState, state SortState) {
-	if state.Column == SortNone || len(sessions) < 2 {
+// SortSessionsByKey sorts sessions by the given sort key and direction.
+func SortSessionsByKey(sessions []*SessionState, key string, dir table.SortDirection) {
+	if key == "" || len(sessions) < 2 {
 		return
 	}
-
-	// Simple bubble sort for small lists
-	for i := 0; i < len(sessions)-1; i++ {
-		for j := 0; j < len(sessions)-i-1; j++ {
-			if shouldSwap(sessions[j], sessions[j+1], state) {
-				sessions[j], sessions[j+1] = sessions[j+1], sessions[j]
-			}
+	sort.Slice(sessions, func(i, j int) bool {
+		a, b := sessions[i], sessions[j]
+		var less bool
+		switch key {
+		case "id":
+			less = a.ID < b.ID
+		case "project":
+			less = a.Cwd < b.Cwd
+		case "status":
+			less = statusPriority(a.Status) < statusPriority(b.Status)
+		case "updated":
+			less = a.Updated.Before(b.Updated)
+		default:
+			return false
 		}
-	}
-}
-
-func shouldSwap(a, b *SessionState, state SortState) bool {
-	var less bool
-
-	switch state.Column {
-	case SortID:
-		less = a.ID < b.ID
-	case SortDirectory:
-		less = a.Cwd < b.Cwd
-	case SortStatus:
-		// Custom status priority: red (needs attention) first, then yellow, then rest
-		less = statusPriority(a.Status) < statusPriority(b.Status)
-	case SortAge:
-		less = a.Created.Before(b.Created)
-	case SortUpdated:
-		less = a.Updated.Before(b.Updated)
-	default:
-		return false
-	}
-
-	if state.Direction == SortDesc {
-		return less // swap if a < b (to get descending)
-	}
-	return !less // swap if a > b (to get ascending)
+		if dir == table.SortDesc {
+			return !less
+		}
+		return less
+	})
 }
 
 // statusPriority returns sort priority for status (lower = shown first when ascending)
@@ -167,7 +103,7 @@ func Cmd() *cobra.Command {
 		},
 		RunFunc: func(_ *boa.NoParams, cmd *cobra.Command, args []string) {
 			// Default to interactive watch mode
-			if err := RunWatchMode(false, SortState{Column: SortNone}, nil, nil); err != nil {
+			if err := RunWatchMode(false, table.SortState{}, nil, nil); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}
