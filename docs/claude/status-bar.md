@@ -120,6 +120,7 @@ The status bar caches data to stay fast (it runs after every assistant message):
 - Usage cache is **shared** since it's account-level data
 - All cache writes are **atomic** (write to temp file + rename) to avoid corruption from parallel sessions
 - Context window percentage, cost, and model info come fresh from Claude Code on each invocation
+- **Eager refresh:** Hook callbacks automatically refresh the usage cache when Claude becomes idle, awaits permission, or awaits input — so the status bar shows fresh data right when you're looking at it
 
 ## How It Works
 

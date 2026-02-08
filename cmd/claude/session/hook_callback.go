@@ -11,6 +11,7 @@ import (
 
 	"github.com/gigurra/tofu/cmd/claude/common/convindex"
 	"github.com/gigurra/tofu/cmd/claude/common/notify"
+	"github.com/gigurra/tofu/cmd/claude/common/usageapi"
 	"github.com/spf13/cobra"
 )
 
@@ -170,6 +171,13 @@ func runHookCallback() error {
 	// Save updated state
 	if err := SaveSessionState(state); err != nil {
 		return err
+	}
+
+	// Refresh usage cache when user is likely looking at the status bar.
+	// Runs synchronously — hook callbacks are separate processes so this
+	// just keeps the process alive a bit longer without blocking Claude.
+	if newStatus == StatusIdle || newStatus == StatusAwaitingPermission || newStatus == StatusAwaitingInput {
+		usageapi.RefreshCache()
 	}
 
 	// Look up conversation title for notification

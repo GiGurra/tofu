@@ -208,6 +208,38 @@ func parseBucket(b Bucket) CachedBucket {
 	return cb
 }
 
+// RefreshCache forces a fresh fetch and updates the cache, ignoring TTL.
+// Intended to be called from hooks when the user is likely looking at the status bar.
+func RefreshCache() {
+	token, err := GetAccessToken()
+	if err != nil {
+		return
+	}
+	resp, err := Fetch(token)
+	if err != nil {
+		return
+	}
+	cached := &CachedUsage{
+		FetchedAt: time.Now(),
+	}
+	if resp.FiveHour != nil {
+		b := parseBucket(*resp.FiveHour)
+		cached.FiveHour = &b
+	}
+	if resp.SevenDay != nil {
+		b := parseBucket(*resp.SevenDay)
+		cached.SevenDay = &b
+	}
+	if resp.SevenDaySonnet != nil {
+		b := parseBucket(*resp.SevenDaySonnet)
+		cached.SevenDaySonnet = &b
+	}
+	if resp.ExtraUsage != nil {
+		cached.ExtraUsage = resp.ExtraUsage
+	}
+	saveCache(cached)
+}
+
 // GetCached returns usage percentages, using a 15s file cache to avoid hammering the API.
 func GetCached() (*CachedUsage, error) {
 	if cached := loadCache(); cached != nil {
