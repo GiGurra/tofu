@@ -17,6 +17,7 @@ Powerful session and conversation management for [Claude Code](https://claude.ai
 
 - 📺 **Session Management** - Run Claude in tmux sessions, attach/detach anytime
 - 🔮 **Status Tracking** - See when Claude is working, idle, or waiting for input
+- 📊 **Status Bar** - Rich statusline with context usage, rate limits, git links
 - 🔔 **OS Notifications** - Get notified when sessions need attention (opt-in)
 - 🔍 **Interactive Watch Modes** - Browse sessions and conversations with search, filtering, sorting
 - ⚡ **Session Indicators** - Know which conversations have active sessions (⚡ attached, ○ active)
@@ -36,6 +37,7 @@ tofu claude setup
 This will:
 - Check that tmux is installed (required for session management)
 - Install hooks in `~/.claude/settings.json` for status tracking
+- Install the status bar for Claude Code's statusline
 - Check for notification tools (terminal-notifier on macOS, dunstify/notify-send on Linux)
 - Register the protocol handler for clickable notifications (WSL)
 - Ask if you want to enable desktop notifications
@@ -97,6 +99,7 @@ Session watch also supports:
 - [Conversation Management](conversations.md) - Detailed conversation commands
 - [Git Worktrees](worktrees.md) - Parallel development with multiple branches
 - [OS Notifications](notifications.md) - Get notified when sessions need attention
+- [Status Bar](status-bar.md) - Rich status bar for Claude Code's statusline
 - [Git Sync](git-sync.md) - Sync conversations across devices
 
 ## Recording a Demo
