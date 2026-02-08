@@ -167,31 +167,37 @@ func run() error {
 		}
 	}
 
-	// === Line 1: [model version] dir | git-links ===
+	// Short model label: "Opus 4.6" -> "o4.6"
+	model := input.Model.DisplayName
+	modelLabel := "ctx"
+	if parts := strings.Fields(model); len(parts) >= 2 {
+		modelLabel = strings.ToLower(string([]rune(parts[0])[0])) + strings.Join(parts[1:], "")
+	}
+
+	// === Line 1: git-links ===
 	var line1 []string
 
-	// Model (display_name only, strip Claude Code version if appended)
-	model := input.Model.DisplayName
-	if model == "" {
-		model = "Claude"
+	// Git info (skip directory display when in a git repo)
+	branch, links := getGitInfo()
+	if branch != "" {
+		line1 = append(line1, fmt.Sprintf("%s[%s]%s", colorCyan, branch, colorReset))
 	}
-	line1 = append(line1, fmt.Sprintf("%s[%s]%s", colorCyan, model, colorReset))
-
-	// Git links (skip directory display when in a git repo)
-	if links := getGitLinks(); links != "" {
+	if links != "" {
 		line1 = append(line1, "🔗 "+links)
-	} else if dir := input.Workspace.CurrentDir; dir != "" {
-		line1 = append(line1, "📂 "+dir)
+	} else if branch == "" {
+		if dir := input.Workspace.CurrentDir; dir != "" {
+			line1 = append(line1, "📂 "+dir)
+		}
 	}
 
-	// === Line 1: context bar | limit bars with reset timers | cost ===
+	// === Line 2: model+context bar | limit bars with reset timers | cost ===
 	ctxPct := 0
 	if input.ContextWindow.UsedPercentage != nil {
 		ctxPct = int(*input.ContextWindow.UsedPercentage)
 	}
 
 	var line2 []string
-	line2 = append(line2, fmt.Sprintf("ctx %s %d%%", contextBar(ctxPct), ctxPct))
+	line2 = append(line2, fmt.Sprintf("%s %s %d%%", modelLabel, contextBar(ctxPct), ctxPct))
 
 	// Usage limits (subscription plan) or cost (API plan)
 	usage, err := usageapi.GetCached()
@@ -222,8 +228,10 @@ func run() error {
 
 	fmt.Println(strings.Join(line2, " | "))
 
-	// === Line 2: [model] | git-links ===
-	fmt.Println(strings.Join(line1, " | "))
+	// === Line 3: git-links ===
+	if len(line1) > 0 {
+		fmt.Println(strings.Join(line1, " | "))
+	}
 
 	// === Line 3: extra usage (only if available) ===
 	if usage != nil && usage.ExtraUsage != nil {
@@ -267,17 +275,17 @@ func getRepoHTTPS() string {
 	return url
 }
 
-// getGitLinks builds a line with repo URL, and optionally branch diff and PR URLs.
+// getGitInfo returns the current branch and a link string (repo URL, diff URL, or PR URL).
 // Uses a 15s file cache to avoid repeated git/gh calls.
-func getGitLinks() string {
+func getGitInfo() (branch string, links string) {
 	// Try cache first
 	if cached := loadGitCache(); cached != nil {
-		return buildGitLinksFromData(cached)
+		return cached.Branch, buildGitLinksFromData(cached)
 	}
 
 	// Check we're in a git repo
 	if gitCmd("rev-parse", "--git-dir") == "" {
-		return ""
+		return "", ""
 	}
 
 	data := &cachedGitData{
@@ -293,7 +301,7 @@ func getGitLinks() string {
 	}
 
 	saveGitCache(data)
-	return buildGitLinksFromData(data)
+	return data.Branch, buildGitLinksFromData(data)
 }
 
 // buildGitLinksFromData renders git link text from cached data.
