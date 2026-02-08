@@ -947,6 +947,7 @@ func RunWatchMode(includeAll bool, initialSort table.SortState, initialFilter, i
 
 		// Focus only - just focus the window and return to watch mode
 		if result.FocusOnly {
+			os.Setenv("TOFU_SESSION_ID", result.SessionID)
 			TryFocusAttachedSession(result.TmuxSession)
 			continue
 		}

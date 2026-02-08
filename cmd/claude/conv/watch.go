@@ -85,6 +85,7 @@ type watchModel struct {
 	forceAttach     bool
 	focusOnly       bool   // Just focus the window, don't attach
 	focusTmux       string // Tmux session to focus
+	focusSessionID  string // Session ID for focus (needed for WSL window title search)
 	createWorktree  bool   // true = create worktree for selected conv
 	worktreeBranch  string // Branch name for worktree
 
@@ -622,6 +623,7 @@ func (m watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						// Session already has clients attached - just focus the window
 						m.focusOnly = true
 						m.focusTmux = existing.TmuxSession
+						m.focusSessionID = existing.ID
 						return m, tea.Quit
 					} else {
 						m.selectedConv = &conv
@@ -873,6 +875,7 @@ type WatchResult struct {
 	ForceAttach    bool   // Detach other clients when attaching
 	FocusOnly      bool   // Just focus the window, don't attach
 	TmuxSession    string // Tmux session to focus (when FocusOnly is true)
+	FocusSessionID string // Session ID for focus (needed for WSL window title search)
 	CreateWorktree bool   // true = create worktree for selected conv
 	WorktreeBranch string // Branch name for worktree
 }
@@ -922,6 +925,7 @@ func RunConvWatch(global bool, since, before string, state ConvWatchState) (Watc
 		ForceAttach:    fm.forceAttach,
 		FocusOnly:      fm.focusOnly,
 		TmuxSession:    fm.focusTmux,
+		FocusSessionID: fm.focusSessionID,
 		CreateWorktree: fm.createWorktree,
 		WorktreeBranch: fm.worktreeBranch,
 	}, newState, nil
@@ -944,6 +948,7 @@ func RunConvWatchMode(global bool, since, before string) error {
 
 		// Focus only - just focus the window and return to watch mode
 		if result.FocusOnly {
+			os.Setenv("TOFU_SESSION_ID", result.FocusSessionID)
 			session.TryFocusAttachedSession(result.TmuxSession)
 			continue
 		}
