@@ -13,6 +13,7 @@ import (
 	"github.com/gigurra/tofu/cmd/claude/common/config"
 	"github.com/gigurra/tofu/cmd/claude/common/wsl"
 	"github.com/gigurra/tofu/cmd/claude/session"
+	"github.com/gigurra/tofu/cmd/claude/statusbar"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
 )
@@ -108,7 +109,23 @@ func runSetup(params *Params) error {
 		fmt.Println("✓ Hooks installed")
 	}
 
-	// 2. Platform-specific setup for clickable notifications
+	// 2. Status bar
+	fmt.Println("\n=== Status Bar ===")
+	if statusbar.CheckInstalled() {
+		fmt.Println("✓ Status bar already configured")
+	} else {
+		if askYesNo("Install tofu status bar for Claude Code?", true) {
+			if err := statusbar.Install(); err != nil {
+				fmt.Printf("  Warning: failed to install status bar: %v\n", err)
+			} else {
+				fmt.Println("✓ Status bar installed")
+			}
+		} else {
+			fmt.Println("  Skipped. Install later with: tofu claude setup")
+		}
+	}
+
+	// 3. Platform-specific setup for clickable notifications
 	fmt.Println("\n=== Clickable Notifications ===")
 	if runtime.GOOS == "linux" && wsl.IsWSL() {
 		// WSL: Register protocol handler
@@ -183,7 +200,7 @@ func runSetup(params *Params) error {
 		fmt.Println("  Not needed on this platform")
 	}
 
-	// 3. Configure notifications
+	// 4. Configure notifications
 	fmt.Println("\n=== Notifications ===")
 	cfg, err := config.Load()
 	if err != nil {
@@ -261,6 +278,15 @@ func checkStatus() error {
 		fmt.Println("✓ All hooks installed")
 	} else {
 		fmt.Printf("✗ Missing hooks: %v\n", missing)
+	}
+
+	// Check status bar
+	fmt.Println("\n=== Status Bar ===")
+	if statusbar.CheckInstalled() {
+		fmt.Println("✓ Status bar configured")
+	} else {
+		fmt.Println("✗ Status bar not configured")
+		fmt.Println("  Run 'tofu claude setup' to install")
 	}
 
 	// Check clickable notifications setup

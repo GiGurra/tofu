@@ -1,0 +1,235 @@
+// Package usageapi provides access to the Anthropic OAuth usage API
+// for fetching subscription usage limits.
+package usageapi
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"time"
+)
+
+const (
+	usageEndpoint = "https://api.anthropic.com/api/oauth/usage"
+	cacheTTL      = 60 * time.Second
+)
+
+// Response represents the API response from the usage endpoint.
+// All buckets are optional since they are only present on subscription plans.
+type Response struct {
+	FiveHour       *Bucket `json:"five_hour"`
+	SevenDay       *Bucket `json:"seven_day"`
+	SevenDaySonnet *Bucket `json:"seven_day_sonnet"`
+}
+
+// Bucket represents a single usage time bucket
+type Bucket struct {
+	Utilization float64 `json:"utilization"`
+	ResetsAt    string  `json:"resets_at"`
+}
+
+// CachedBucket stores utilization percentage and reset time for a single bucket
+type CachedBucket struct {
+	Pct      float64   `json:"pct"`
+	ResetsAt time.Time `json:"resets_at"`
+}
+
+// CachedUsage is persisted to disk for caching. All buckets are optional
+// since they are only available on subscription plans.
+type CachedUsage struct {
+	FiveHour       *CachedBucket `json:"five_hour,omitempty"`
+	SevenDay       *CachedBucket `json:"seven_day,omitempty"`
+	SevenDaySonnet *CachedBucket `json:"seven_day_sonnet,omitempty"` // only for premium/max
+	FetchedAt      time.Time     `json:"fetched_at"`
+}
+
+func cachePath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".cache", "tofu-claude-usage.json")
+}
+
+func credentialsPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".claude", ".credentials.json")
+}
+
+// GetAccessToken reads the OAuth access token from Claude credentials
+func GetAccessToken() (string, error) {
+	path := credentialsPath()
+	if path == "" {
+		return "", fmt.Errorf("cannot determine credentials path")
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("cannot read credentials: %w", err)
+	}
+
+	var creds struct {
+		ClaudeAiOauth struct {
+			AccessToken string `json:"accessToken"`
+		} `json:"claudeAiOauth"`
+	}
+	if err := json.Unmarshal(data, &creds); err != nil {
+		return "", fmt.Errorf("cannot parse credentials: %w", err)
+	}
+
+	if creds.ClaudeAiOauth.AccessToken == "" {
+		return "", fmt.Errorf("no access token found in credentials")
+	}
+
+	return creds.ClaudeAiOauth.AccessToken, nil
+}
+
+// loadCache returns cached usage if still fresh
+func loadCache() *CachedUsage {
+	path := cachePath()
+	if path == "" {
+		return nil
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+
+	var cached CachedUsage
+	if err := json.Unmarshal(data, &cached); err != nil {
+		return nil
+	}
+
+	if time.Since(cached.FetchedAt) > cacheTTL {
+		return nil
+	}
+
+	return &cached
+}
+
+// saveCache persists usage data to disk using atomic write (tmp + rename).
+func saveCache(usage *CachedUsage) {
+	path := cachePath()
+	if path == "" {
+		return
+	}
+	dir := filepath.Dir(path)
+	_ = os.MkdirAll(dir, 0755)
+	data, err := json.Marshal(usage)
+	if err != nil {
+		return
+	}
+	tmp, err := os.CreateTemp(dir, filepath.Base(path)+".tmp.*")
+	if err != nil {
+		return
+	}
+	tmpPath := tmp.Name()
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		os.Remove(tmpPath)
+		return
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpPath)
+		return
+	}
+	_ = os.Rename(tmpPath, path)
+}
+
+// FetchRaw calls the Anthropic usage API and returns the raw JSON response body.
+func FetchRaw(token string) ([]byte, error) {
+	req, err := http.NewRequest("GET", usageEndpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("anthropic-beta", "oauth-2025-04-20")
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("API returned %d: %s", resp.StatusCode, string(body))
+	}
+
+	return body, nil
+}
+
+// Fetch calls the Anthropic usage API and returns the parsed response.
+func Fetch(token string) (*Response, error) {
+	body, err := FetchRaw(token)
+	if err != nil {
+		return nil, err
+	}
+
+	var usage Response
+	if err := json.Unmarshal(body, &usage); err != nil {
+		return nil, fmt.Errorf("cannot parse usage response: %w", err)
+	}
+
+	return &usage, nil
+}
+
+// parseBucket converts an API Bucket to a CachedBucket
+func parseBucket(b Bucket) CachedBucket {
+	cb := CachedBucket{Pct: b.Utilization}
+	if b.ResetsAt != "" {
+		t, err := time.Parse(time.RFC3339, b.ResetsAt)
+		if err == nil {
+			cb.ResetsAt = t
+		}
+	}
+	return cb
+}
+
+// GetCached returns usage percentages, using a 60s file cache to avoid hammering the API.
+func GetCached() (*CachedUsage, error) {
+	if cached := loadCache(); cached != nil {
+		return cached, nil
+	}
+
+	token, err := GetAccessToken()
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := Fetch(token)
+	if err != nil {
+		return nil, err
+	}
+
+	cached := &CachedUsage{
+		FetchedAt: time.Now(),
+	}
+	if resp.FiveHour != nil {
+		b := parseBucket(*resp.FiveHour)
+		cached.FiveHour = &b
+	}
+	if resp.SevenDay != nil {
+		b := parseBucket(*resp.SevenDay)
+		cached.SevenDay = &b
+	}
+	if resp.SevenDaySonnet != nil {
+		b := parseBucket(*resp.SevenDaySonnet)
+		cached.SevenDaySonnet = &b
+	}
+
+	saveCache(cached)
+	return cached, nil
+}

@@ -1,0 +1,375 @@
+// Package statusbar provides the tofu claude status-bar command for Claude Code's statusline feature.
+package statusbar
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"log/slog"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/GiGurra/boa/pkg/boa"
+	"github.com/gigurra/tofu/cmd/claude/common/usageapi"
+	"github.com/gigurra/tofu/cmd/claude/session"
+	"github.com/gigurra/tofu/cmd/common"
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
+)
+
+const (
+	colorGreen  = "\033[32m"
+	colorYellow = "\033[33m"
+	colorRed    = "\033[31m"
+	colorCyan   = "\033[36m"
+	colorDim    = "\033[2m"
+	colorReset  = "\033[0m"
+	barWidth    = 10
+	gitCacheTTL = 15 * time.Second
+)
+
+// StatusLineInput represents the JSON Claude Code sends to the statusline command
+type StatusLineInput struct {
+	Model struct {
+		DisplayName string `json:"display_name"`
+	} `json:"model"`
+	Version   string `json:"version"`
+	Workspace struct {
+		CurrentDir string `json:"current_dir"`
+	} `json:"workspace"`
+	ContextWindow struct {
+		UsedPercentage *float64 `json:"used_percentage"`
+	} `json:"context_window"`
+	Cost struct {
+		TotalCostUSD float64 `json:"total_cost_usd"`
+	} `json:"cost"`
+}
+
+// cachedGitData holds cached results from git/gh commands
+type cachedGitData struct {
+	RepoURL       string `json:"repo_url"`
+	Branch        string `json:"branch"`
+	DefaultBranch string `json:"default_branch"`
+	PRURL         string `json:"pr_url"`
+	FetchedAt     time.Time `json:"fetched_at"`
+}
+
+type Params struct{}
+
+func Cmd() *cobra.Command {
+	cmd := boa.CmdT[Params]{
+		Use:   "status-bar",
+		Short: "Status bar output for Claude Code statusline",
+		Long:  "Reads JSON session data from stdin (provided by Claude Code) and prints status bar output.\nConfigure in ~/.claude/settings.json as a statusLine command.",
+		ParamEnrich: common.DefaultParamEnricher(),
+		RunFunc: func(params *Params, cmd *cobra.Command, args []string) {
+			session.SetupHookLogging()
+			if err := run(); err != nil {
+				slog.Error("status-bar failed", "error", err)
+				os.Exit(1)
+			}
+		},
+	}.ToCobra()
+	cmd.Hidden = true
+	return cmd
+}
+
+// atomicWrite writes data to a temp file then renames it to path, avoiding partial reads.
+func atomicWrite(path string, data []byte) error {
+	dir := filepath.Dir(path)
+	_ = os.MkdirAll(dir, 0755)
+	tmp, err := os.CreateTemp(dir, filepath.Base(path)+".tmp.*")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		os.Remove(tmpPath)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+	return os.Rename(tmpPath, path)
+}
+
+func gitCachePath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".cache", "tofu-claude-git.json")
+}
+
+func loadGitCache() *cachedGitData {
+	path := gitCachePath()
+	if path == "" {
+		return nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var cached cachedGitData
+	if err := json.Unmarshal(data, &cached); err != nil {
+		return nil
+	}
+	if time.Since(cached.FetchedAt) > gitCacheTTL {
+		return nil
+	}
+	return &cached
+}
+
+func saveGitCache(g *cachedGitData) {
+	path := gitCachePath()
+	if path == "" {
+		return
+	}
+	data, err := json.Marshal(g)
+	if err != nil {
+		return
+	}
+	_ = atomicWrite(path, data)
+}
+
+func run() error {
+	// Read JSON from stdin (only if piped, not a terminal)
+	var stdinData []byte
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		var err error
+		stdinData, err = io.ReadAll(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("failed to read stdin: %w", err)
+		}
+	}
+
+	// Parse input
+	var input StatusLineInput
+	if len(stdinData) > 0 {
+		if err := json.Unmarshal(stdinData, &input); err != nil {
+			slog.Error("status-bar: failed to parse input", "error", err, "raw_input", string(stdinData))
+			return fmt.Errorf("failed to parse stdin JSON: %w", err)
+		}
+	}
+
+	slog.Info("status-bar input received", "data", string(stdinData))
+
+	// === Line 1: [model version] dir | git-links ===
+	var line1 []string
+
+	// Model + version
+	model := input.Model.DisplayName
+	if model == "" {
+		model = "Claude"
+	}
+	version := input.Version
+	if version != "" {
+		line1 = append(line1, fmt.Sprintf("%s[%s %s]%s", colorCyan, model, version, colorReset))
+	} else {
+		line1 = append(line1, fmt.Sprintf("%s[%s]%s", colorCyan, model, colorReset))
+	}
+
+	// Directory
+	dir := input.Workspace.CurrentDir
+	if dir != "" {
+		line1 = append(line1, "📂 "+dir)
+	}
+
+	// Git links
+	if links := getGitLinks(); links != "" {
+		line1 = append(line1, "🔗 "+links)
+	}
+
+	fmt.Println(strings.Join(line1, " | "))
+
+	// === Line 2: context bar | limit bars with reset timers | cost ===
+	ctxPct := 0
+	if input.ContextWindow.UsedPercentage != nil {
+		ctxPct = int(*input.ContextWindow.UsedPercentage)
+	}
+
+	var line2 []string
+	line2 = append(line2, fmt.Sprintf("ctx %s %d%%", progressBar(ctxPct), ctxPct))
+
+	// Usage limits (subscription plan) or cost (API plan)
+	usage, err := usageapi.GetCached()
+	hasLimits := false
+	if err != nil {
+		slog.Warn("status-bar: failed to fetch usage", "error", err)
+	} else {
+		if usage.FiveHour != nil {
+			hasLimits = true
+			line2 = append(line2, fmt.Sprintf("5h %s %.0f%% %s", progressBar(int(usage.FiveHour.Pct)), usage.FiveHour.Pct, resetTimer(usage.FiveHour.ResetsAt)))
+		}
+		if usage.SevenDay != nil {
+			hasLimits = true
+			line2 = append(line2, fmt.Sprintf("7d %s %.0f%% %s", progressBar(int(usage.SevenDay.Pct)), usage.SevenDay.Pct, resetTimer(usage.SevenDay.ResetsAt)))
+		}
+		if usage.SevenDaySonnet != nil {
+			hasLimits = true
+			line2 = append(line2, fmt.Sprintf("sonnet %s %.0f%% %s", progressBar(int(usage.SevenDaySonnet.Pct)), usage.SevenDaySonnet.Pct, resetTimer(usage.SevenDaySonnet.ResetsAt)))
+		}
+	}
+
+	// Cost only shown on API plan (no limit buckets available)
+	if !hasLimits && input.Cost.TotalCostUSD > 0 {
+		line2 = append(line2, fmt.Sprintf("$%.2f", input.Cost.TotalCostUSD))
+	}
+
+	fmt.Println(strings.Join(line2, " | "))
+
+	return nil
+}
+
+// gitCmd runs a git command and returns trimmed stdout, or empty string on error.
+func gitCmd(args ...string) string {
+	out, err := exec.Command("git", args...).Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// getRepoHTTPS returns the HTTPS URL for the origin remote, or empty string.
+func getRepoHTTPS() string {
+	raw := gitCmd("remote", "get-url", "origin")
+	if raw == "" {
+		return ""
+	}
+	url := raw
+	if strings.HasPrefix(url, "git@github.com:") {
+		url = strings.Replace(url, "git@github.com:", "https://github.com/", 1)
+	}
+	url = strings.TrimSuffix(url, ".git")
+	return url
+}
+
+// getGitLinks builds a line with repo URL, and optionally branch diff and PR URLs.
+// Uses a 15s file cache to avoid repeated git/gh calls.
+func getGitLinks() string {
+	// Try cache first
+	if cached := loadGitCache(); cached != nil {
+		return buildGitLinksFromData(cached)
+	}
+
+	// Check we're in a git repo
+	if gitCmd("rev-parse", "--git-dir") == "" {
+		return ""
+	}
+
+	data := &cachedGitData{
+		RepoURL:       getRepoHTTPS(),
+		Branch:        gitCmd("branch", "--show-current"),
+		DefaultBranch: getDefaultBranch(),
+		FetchedAt:     time.Now(),
+	}
+
+	// Only check for PR on feature branches (gh pr view is the slowest call)
+	if data.RepoURL != "" && data.Branch != "" && data.DefaultBranch != "" && data.Branch != data.DefaultBranch {
+		data.PRURL = getPRURL(data.Branch)
+	}
+
+	saveGitCache(data)
+	return buildGitLinksFromData(data)
+}
+
+// buildGitLinksFromData renders git link text from cached data.
+func buildGitLinksFromData(data *cachedGitData) string {
+	if data.RepoURL == "" {
+		return ""
+	}
+
+	// On default branch or no branch: just show repo URL
+	if data.Branch == "" || data.Branch == data.DefaultBranch || data.DefaultBranch == "" {
+		return data.RepoURL
+	}
+
+	// On a feature branch: show branch diff URL
+	diffURL := fmt.Sprintf("%s/compare/%s...%s", data.RepoURL, data.DefaultBranch, data.Branch)
+
+	if data.PRURL != "" {
+		return diffURL + " | " + data.PRURL
+	}
+
+	return diffURL
+}
+
+// getDefaultBranch returns the default branch name (main/master).
+func getDefaultBranch() string {
+	// Try symbolic ref of origin/HEAD
+	ref := gitCmd("symbolic-ref", "refs/remotes/origin/HEAD", "--short")
+	if ref != "" {
+		// Returns something like "origin/main"
+		parts := strings.SplitN(ref, "/", 2)
+		if len(parts) == 2 {
+			return parts[1]
+		}
+	}
+	// Fallback: check if main or master exist
+	if gitCmd("rev-parse", "--verify", "refs/heads/main") != "" {
+		return "main"
+	}
+	if gitCmd("rev-parse", "--verify", "refs/heads/master") != "" {
+		return "master"
+	}
+	return ""
+}
+
+// getPRURL checks for an open PR for the given branch using gh CLI.
+func getPRURL(branch string) string {
+	out, err := exec.Command("gh", "pr", "view", branch, "--json", "url", "--jq", ".url").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// progressBar returns a colored progress bar like "█████░░░░░"
+func progressBar(pct int) string {
+	if pct < 0 {
+		pct = 0
+	}
+	if pct > 100 {
+		pct = 100
+	}
+	filled := pct * barWidth / 100
+	empty := barWidth - filled
+
+	color := colorGreen
+	if pct >= 80 {
+		color = colorRed
+	} else if pct >= 60 {
+		color = colorYellow
+	}
+
+	return fmt.Sprintf("%s%s%s%s%s",
+		color, strings.Repeat("█", filled),
+		colorDim, strings.Repeat("░", empty),
+		colorReset)
+}
+
+// resetTimer returns a human-readable time-until-reset like "4d11h", "2h30m", or "45m"
+func resetTimer(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	d := time.Until(t)
+	if d <= 0 {
+		return colorDim + "(reset)" + colorReset
+	}
+	days := int(d.Hours()) / 24
+	h := int(d.Hours()) % 24
+	m := int(d.Minutes()) % 60
+	if days > 0 {
+		return fmt.Sprintf("%s(%dd%dh)%s", colorDim, days, h, colorReset)
+	}
+	if h > 0 {
+		return fmt.Sprintf("%s(%dh%dm)%s", colorDim, h, m, colorReset)
+	}
+	return fmt.Sprintf("%s(%dm)%s", colorDim, m, colorReset)
+}
