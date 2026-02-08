@@ -98,9 +98,9 @@ func handleWS(tmuxSession string) func(http.ResponseWriter, *http.Request) {
 		}
 		defer conn.Close()
 
-		// Set window-size to largest so the phone's smaller screen
-		// doesn't shrink the desktop terminal view
-		exec.Command("tmux", "set-option", "-t", tmuxSession, "window-size", "largest").Run()
+		// Set window-size to smallest so all clients (desktop + phone)
+		// see the same content fitted to the smallest screen
+		exec.Command("tmux", "set-option", "-t", tmuxSession, "window-size", "smallest").Run()
 
 		// Spawn tmux attach in a PTY
 		cmd := exec.Command("tmux", "attach-session", "-t", tmuxSession)
