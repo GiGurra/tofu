@@ -8,7 +8,10 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"time"
 )
 
@@ -72,16 +75,33 @@ func credentialsPath() string {
 	return filepath.Join(home, ".claude", ".credentials.json")
 }
 
-// GetAccessToken reads the OAuth access token from Claude credentials
-func GetAccessToken() (string, error) {
+// readCredentialsJSON returns the raw credentials JSON, trying the file first
+// and falling back to the macOS keychain if the file is unavailable.
+func readCredentialsJSON() ([]byte, error) {
+	// Try the credentials file first
 	path := credentialsPath()
-	if path == "" {
-		return "", fmt.Errorf("cannot determine credentials path")
+	if path != "" {
+		if data, err := os.ReadFile(path); err == nil {
+			return data, nil
+		}
 	}
 
-	data, err := os.ReadFile(path)
+	// On macOS, fall back to the keychain
+	if runtime.GOOS == "darwin" {
+		out, err := exec.Command("security", "find-generic-password", "-s", "Claude Code-credentials", "-w").Output()
+		if err == nil {
+			return []byte(strings.TrimSpace(string(out))), nil
+		}
+	}
+
+	return nil, fmt.Errorf("cannot read credentials from file or keychain")
+}
+
+// GetAccessToken reads the OAuth access token from Claude credentials
+func GetAccessToken() (string, error) {
+	data, err := readCredentialsJSON()
 	if err != nil {
-		return "", fmt.Errorf("cannot read credentials: %w", err)
+		return "", err
 	}
 
 	var creds struct {
