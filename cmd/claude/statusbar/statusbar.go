@@ -170,39 +170,31 @@ func run() error {
 	// === Line 1: [model version] dir | git-links ===
 	var line1 []string
 
-	// Model + version
+	// Model (display_name only, strip Claude Code version if appended)
 	model := input.Model.DisplayName
 	if model == "" {
 		model = "Claude"
 	}
-	version := input.Version
-	if version != "" {
-		line1 = append(line1, fmt.Sprintf("%s[%s %s]%s", colorCyan, model, version, colorReset))
-	} else {
-		line1 = append(line1, fmt.Sprintf("%s[%s]%s", colorCyan, model, colorReset))
-	}
-
-	// Directory
-	dir := input.Workspace.CurrentDir
-	if dir != "" {
-		line1 = append(line1, "📂 "+dir)
-	}
-
-	// Git links
-	if links := getGitLinks(); links != "" {
-		line1 = append(line1, "🔗 "+links)
-	}
-
-	fmt.Println(strings.Join(line1, " | "))
-
-	// === Line 2: context bar | limit bars with reset timers | cost ===
+	// Context bar
 	ctxPct := 0
 	if input.ContextWindow.UsedPercentage != nil {
 		ctxPct = int(*input.ContextWindow.UsedPercentage)
 	}
+	line1 = append(line1, fmt.Sprintf("ctx %s %d%%", contextBar(ctxPct), ctxPct))
 
+	line1 = append(line1, fmt.Sprintf("%s[%s]%s", colorCyan, model, colorReset))
+
+	// Git links (skip directory display when in a git repo)
+	if links := getGitLinks(); links != "" {
+		line1 = append(line1, "🔗 "+links)
+	} else if dir := input.Workspace.CurrentDir; dir != "" {
+		line1 = append(line1, "📂 "+dir)
+	}
+
+	fmt.Println(strings.Join(line1, " | "))
+
+	// === Line 2: limit bars with reset timers | cost ===
 	var line2 []string
-	line2 = append(line2, fmt.Sprintf("ctx %s %d%%", contextBar(ctxPct), ctxPct))
 
 	// Usage limits (subscription plan) or cost (API plan)
 	usage, err := usageapi.GetCached()
@@ -212,7 +204,7 @@ func run() error {
 	} else {
 		if usage.FiveHour != nil {
 			hasLimits = true
-			line2 = append(line2, fmt.Sprintf("5h %s %.0f%% %s", progressBar(int(usage.FiveHour.Pct)), usage.FiveHour.Pct, resetTimer(usage.FiveHour.ResetsAt)))
+			line2 = append(line2, fmt.Sprintf("5h  %s %.0f%% %s", progressBar(int(usage.FiveHour.Pct)), usage.FiveHour.Pct, resetTimer(usage.FiveHour.ResetsAt)))
 		}
 		if usage.SevenDay != nil {
 			hasLimits = true
@@ -220,7 +212,7 @@ func run() error {
 		}
 		if usage.SevenDaySonnet != nil {
 			hasLimits = true
-			line2 = append(line2, fmt.Sprintf("sonnet %s %.0f%% %s", progressBar(int(usage.SevenDaySonnet.Pct)), usage.SevenDaySonnet.Pct, resetTimer(usage.SevenDaySonnet.ResetsAt)))
+			line2 = append(line2, fmt.Sprintf("sonnet %.0f%% %s", usage.SevenDaySonnet.Pct, resetTimer(usage.SevenDaySonnet.ResetsAt)))
 		}
 	}
 
@@ -244,8 +236,6 @@ func run() error {
 				parts = append(parts, fmt.Sprintf("%s %.0f%%", progressBar(int(*eu.Utilization)), *eu.Utilization))
 			}
 			fmt.Println(strings.Join(parts, " | "))
-		} else {
-			fmt.Printf("%sextra usage: off%s\n", colorDim, colorReset)
 		}
 	}
 
