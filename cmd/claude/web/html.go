@@ -116,6 +116,32 @@ const indexHTML = `<!DOCTYPE html>
       sendResize();
     });
 
+    // Two-finger scroll sends mouse wheel escape sequences to tmux
+    const termEl = document.getElementById('terminal');
+    let twoFingerY = null;
+    termEl.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        twoFingerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        e.preventDefault();
+      }
+    }, { passive: false });
+    termEl.addEventListener('touchmove', (e) => {
+      if (e.touches.length !== 2 || twoFingerY === null) return;
+      e.preventDefault();
+      const y = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      const dy = twoFingerY - y;
+      if (Math.abs(dy) < 10) return;
+      twoFingerY = y;
+      // SGR mouse wheel: \x1b[<64;1;1M = scroll up, \x1b[<65;1;1M = scroll down
+      const seq = dy > 0 ? '\x1b[<65;1;1M' : '\x1b[<64;1;1M';
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(new TextEncoder().encode(seq));
+      }
+    }, { passive: false });
+    termEl.addEventListener('touchend', (e) => {
+      if (e.touches.length < 2) twoFingerY = null;
+    }, { passive: false });
+
     connect();
   </script>
 </body>
