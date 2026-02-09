@@ -220,8 +220,8 @@ func parseFirstPromptFromJSONL(projectPath, sessionID string) string {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	// Increase buffer for large lines
-	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
+	// Large buffer for lines with embedded images/screenshots (can exceed 2MB)
+	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
 
 	for scanner.Scan() {
 		var msg jsonlMessage
