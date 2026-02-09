@@ -154,7 +154,8 @@ func GetConvTitleAndPrompt(convID, cwd string) string {
 	return cleanTitle(parseFirstPromptFromJSONL(projectPath, convID))
 }
 
-// cleanTitle removes XML-like tags, newlines, and truncates the title for display.
+// cleanTitle removes XML-like tags and normalizes whitespace for display.
+// Does NOT truncate - callers (table rendering, notifications) handle truncation.
 func cleanTitle(title string) string {
 	if title == "" {
 		return ""
@@ -174,15 +175,7 @@ func cleanTitle(title string) string {
 	}
 
 	// Trim whitespace
-	result = strings.TrimSpace(result)
-
-	// Truncate to reasonable length for notifications
-	const maxLen = 80
-	if len(result) > maxLen {
-		result = result[:maxLen-3] + "..."
-	}
-
-	return result
+	return strings.TrimSpace(result)
 }
 
 // stripXMLTags removes XML-like tags from a string.
