@@ -8,7 +8,7 @@ Cross-platform CLI tools written in Go. 50+ commands that work consistently on W
 ```bash
 go install github.com/gigurra/tofu@latest
 # Install Claude hooks (optional, enables status tracking)
-tofu claude session install-hooks
+tofu claude setup
 ```
 
 ---
