@@ -1,6 +1,7 @@
 package session
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -59,10 +60,12 @@ func runHookCallback() error {
 
 	var input HookCallbackInput
 	if len(stdinData) > 0 {
-		if err := json.Unmarshal(stdinData, &input); err != nil {
+		if err := json.NewDecoder(bytes.NewReader(stdinData)).Decode(&input); err != nil {
 			slog.Error("failed to parse hook input", "error", err, "raw_input", string(stdinData))
 			return fmt.Errorf("failed to parse hook input: %w", err)
 		}
+	} else {
+		return fmt.Errorf("no input received on stdin")
 	}
 
 	// Log hook event

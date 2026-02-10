@@ -2,6 +2,7 @@
 package statusbar
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -24,15 +25,15 @@ import (
 )
 
 const (
-	colorGreen  = "\033[32m"
-	colorYellow = "\033[33m"
-	colorRed    = "\033[31m"
-	colorCyan   = "\033[36m"
-	colorDim    = "\033[2m"
-	colorReset  = "\033[0m"
-	barWidth           = 10
-	gitCacheTTL        = 15 * time.Second
-	compactionBuffer   = 16.5 // percent reserved for compaction
+	colorGreen       = "\033[32m"
+	colorYellow      = "\033[33m"
+	colorRed         = "\033[31m"
+	colorCyan        = "\033[36m"
+	colorDim         = "\033[2m"
+	colorReset       = "\033[0m"
+	barWidth         = 10
+	gitCacheTTL      = 15 * time.Second
+	compactionBuffer = 16.5 // percent reserved for compaction
 )
 
 // StatusLineInput represents the JSON Claude Code sends to the statusline command
@@ -54,10 +55,10 @@ type StatusLineInput struct {
 
 // cachedGitData holds cached results from git/gh commands
 type cachedGitData struct {
-	RepoURL       string `json:"repo_url"`
-	Branch        string `json:"branch"`
-	DefaultBranch string `json:"default_branch"`
-	PRURL         string `json:"pr_url"`
+	RepoURL       string    `json:"repo_url"`
+	Branch        string    `json:"branch"`
+	DefaultBranch string    `json:"default_branch"`
+	PRURL         string    `json:"pr_url"`
 	FetchedAt     time.Time `json:"fetched_at"`
 }
 
@@ -65,9 +66,9 @@ type Params struct{}
 
 func Cmd() *cobra.Command {
 	cmd := boa.CmdT[Params]{
-		Use:   "status-bar",
-		Short: "Status bar output for Claude Code statusline",
-		Long:  "Reads JSON session data from stdin (provided by Claude Code) and prints status bar output.\nConfigure in ~/.claude/settings.json as a statusLine command.",
+		Use:         "status-bar",
+		Short:       "Status bar output for Claude Code statusline",
+		Long:        "Reads JSON session data from stdin (provided by Claude Code) and prints status bar output.\nConfigure in ~/.claude/settings.json as a statusLine command.",
 		ParamEnrich: common.DefaultParamEnricher(),
 		RunFunc: func(params *Params, cmd *cobra.Command, args []string) {
 			session.SetupHookLogging()
@@ -161,10 +162,12 @@ func run() error {
 	// Parse input
 	var input StatusLineInput
 	if len(stdinData) > 0 {
-		if err := json.Unmarshal(stdinData, &input); err != nil {
+		if err := json.NewDecoder(bytes.NewReader(stdinData)).Decode(&input); err != nil {
 			slog.Error("status-bar: failed to parse input", "error", err, "raw_input", string(stdinData))
 			return fmt.Errorf("failed to parse stdin JSON: %w", err)
 		}
+	} else {
+		return fmt.Errorf("no input received on stdin")
 	}
 
 	// Short model label: "Opus 4.6" -> "o4.6"

@@ -1,6 +1,7 @@
 package session
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -63,7 +64,7 @@ func runStatusCallback(params *StatusCallbackParams) error {
 	var hookInput HookInput
 	stdinData, err := io.ReadAll(os.Stdin)
 	if err == nil && len(stdinData) > 0 {
-		json.Unmarshal(stdinData, &hookInput)
+		json.NewDecoder(bytes.NewReader(stdinData)).Decode(&hookInput)
 	}
 
 	// Debug logging - useful for troubleshooting hook issues
