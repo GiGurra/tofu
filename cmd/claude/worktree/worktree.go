@@ -24,6 +24,7 @@ func Cmd() *cobra.Command {
 			AddCmd(),
 			ListCmd(),
 			RemoveCmd(),
+			RestoreCmd(),
 			SwitchCmd(),
 		},
 		RunFunc: func(params *Params, cmd *cobra.Command, args []string) {

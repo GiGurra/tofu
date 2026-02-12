@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/GiGurra/boa/pkg/boa"
+	"github.com/gigurra/tofu/cmd/claude/common/table"
 	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
 )
@@ -54,17 +55,34 @@ func runList(params *ListParams) error {
 	cwd, _ := os.Getwd()
 	cwd, _ = filepath.EvalSymlinks(cwd) // Resolve symlinks for comparison
 
-	// Find the longest path for alignment
+	// Find the longest path and branch for alignment
 	maxPathLen := 0
+	maxBranchLen := 0
 	for _, wt := range worktrees {
 		if len(wt.Path) > maxPathLen {
 			maxPathLen = len(wt.Path)
 		}
+		b := wt.Branch
+		if b == "" {
+			b = "(detached)"
+		}
+		if wt.IsMain {
+			b += " [root]"
+		}
+		if len(b) > maxBranchLen {
+			maxBranchLen = len(b)
+		}
 	}
 
-	// Cap at reasonable width
-	if maxPathLen > 60 {
-		maxPathLen = 60
+	// Cap path width based on terminal width, leaving room for marker + gaps + branch
+	// Layout: "* " (2) + path + "  " (2) + branch
+	termWidth := table.GetTerminalWidth()
+	maxAllowed := termWidth - 2 - 2 - maxBranchLen
+	if maxAllowed < 20 {
+		maxAllowed = 20
+	}
+	if maxPathLen > maxAllowed {
+		maxPathLen = maxAllowed
 	}
 
 	for _, wt := range worktrees {
