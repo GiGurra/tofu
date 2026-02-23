@@ -104,8 +104,8 @@ func atomicWrite(path string, data []byte) error {
 }
 
 func gitCachePath() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
+	cacheDir := common.CacheDir()
+	if cacheDir == "" {
 		return ""
 	}
 	// Key cache per git repo root so parallel sessions in different repos don't clash
@@ -114,7 +114,7 @@ func gitCachePath() string {
 		return ""
 	}
 	h := sha256.Sum256([]byte(repoRoot))
-	return filepath.Join(home, ".cache", "tofu-claude-git-"+hex.EncodeToString(h[:8])+".json")
+	return filepath.Join(cacheDir, "claude-git-"+hex.EncodeToString(h[:8])+".json")
 }
 
 func loadGitCache() *cachedGitData {

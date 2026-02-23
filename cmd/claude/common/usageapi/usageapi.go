@@ -13,6 +13,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/gigurra/tofu/cmd/common"
 )
 
 const (
@@ -60,11 +62,11 @@ type CachedUsage struct {
 }
 
 func cachePath() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
+	cacheDir := common.CacheDir()
+	if cacheDir == "" {
 		return ""
 	}
-	return filepath.Join(home, ".cache", "tofu-claude-usage.json")
+	return filepath.Join(cacheDir, "claude-usage.json")
 }
 
 func credentialsPath() string {
