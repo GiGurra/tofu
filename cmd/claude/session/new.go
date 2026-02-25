@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/GiGurra/boa/pkg/boa"
@@ -13,7 +14,7 @@ import (
 )
 
 type NewParams struct {
-	Dir      string `pos:"true" optional:"true" help:"Directory to start session in (defaults to current directory)"`
+	Dir      string `short:"C" long:"dir" optional:"true" help:"Directory to start session in (defaults to current directory)"`
 	Resume   string `long:"resume" short:"r" optional:"true" help:"Resume an existing conversation by ID"`
 	Global   bool   `short:"g" help:"Search for conversation across all projects (with --resume)"`
 	Label    string `long:"label" optional:"true" help:"Custom label for the session"`
@@ -34,6 +35,9 @@ func NewCmd() *cobra.Command {
 		},
 	}.ToCobra()
 
+	// Allow arbitrary args so post-'--' args pass through to claude without cobra rejecting them.
+	cmd.Args = cobra.ArbitraryArgs
+
 	// Register completion for --resume flag
 	cmd.RegisterFlagCompletionFunc("resume", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		// Check if -g flag is set (params may not be populated during completion)
@@ -50,6 +54,17 @@ func RunNew(params *NewParams) error {
 }
 
 func runNew(params *NewParams) error {
+	extraArgs := clcommon.ExtractClaudeExtraArgs()
+
+	// Pass-through mode: --help, --version etc. — run claude directly, no tmux.
+	if clcommon.ShouldRunClaudeDirect(extraArgs) {
+		cmd := exec.Command("claude", extraArgs...)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		return cmd.Run()
+	}
+
 	// Check tmux is installed
 	if err := CheckTmuxInstalled(); err != nil {
 		return err
@@ -116,6 +131,13 @@ func runNew(params *NewParams) error {
 	claudeCmd := fmt.Sprintf("TOFU_SESSION_ID=%s claude", sessionID)
 	if fullConvID != "" {
 		claudeCmd += " --resume " + fullConvID
+	}
+	if len(extraArgs) > 0 {
+		quoted := make([]string, len(extraArgs))
+		for i, a := range extraArgs {
+			quoted[i] = clcommon.ShellQuoteArg(a)
+		}
+		claudeCmd += " " + strings.Join(quoted, " ")
 	}
 
 	// Create tmux session with claude

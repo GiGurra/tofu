@@ -19,7 +19,7 @@ import (
 )
 
 func Cmd() *cobra.Command {
-	return boa.CmdT[session.NewParams]{
+	cmd := boa.CmdT[session.NewParams]{
 		Use:         "claude",
 		Short:       "Claude Code utilities",
 		Long:        "Claude Code utilities.\n\nWhen run without a subcommand, starts a new Claude session in the current directory.",
@@ -43,4 +43,7 @@ func Cmd() *cobra.Command {
 			}
 		},
 	}.ToCobra()
+	// Allow arbitrary args so post-'--' args pass through to claude without cobra rejecting them.
+	cmd.Args = cobra.ArbitraryArgs
+	return cmd
 }

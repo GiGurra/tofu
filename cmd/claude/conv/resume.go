@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/GiGurra/boa/pkg/boa"
@@ -83,7 +84,8 @@ func RunResume(params *ResumeParams, stdout, stderr *os.File) int {
 	fmt.Fprintf(stdout, "Resuming [%s] in %s\n\n", displayName, projectPath)
 
 	// Run claude --resume as a subprocess with connected I/O
-	cmd := exec.Command("claude", "--resume", convInfo.SessionID)
+	claudeArgs := append([]string{"--resume", convInfo.SessionID}, clcommon.ExtractClaudeExtraArgs()...)
+	cmd := exec.Command("claude", claudeArgs...)
 	cmd.Dir = projectPath
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -128,6 +130,13 @@ func runResumeWithSession(convInfo *clcommon.ConvInfo, projectPath, displayName 
 
 	// Build claude command with TOFU_SESSION_ID env var
 	claudeCmd := fmt.Sprintf("TOFU_SESSION_ID=%s claude --resume %s", sessionID, convInfo.SessionID)
+	if extraArgs := clcommon.ExtractClaudeExtraArgs(); len(extraArgs) > 0 {
+		quoted := make([]string, len(extraArgs))
+		for i, a := range extraArgs {
+			quoted[i] = clcommon.ShellQuoteArg(a)
+		}
+		claudeCmd += " " + strings.Join(quoted, " ")
+	}
 
 	// Create tmux session
 	tmuxArgs := []string{

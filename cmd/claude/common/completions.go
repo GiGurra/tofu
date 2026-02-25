@@ -185,6 +185,37 @@ func findConvInProject(shortID, projPath string) *ConvInfo {
 	return nil
 }
 
+// ExtractClaudeExtraArgs finds the first '--' in os.Args and returns everything after it.
+// These args are forwarded directly to the claude binary.
+func ExtractClaudeExtraArgs() []string {
+	for i, arg := range os.Args {
+		if arg == "--" {
+			return os.Args[i+1:]
+		}
+	}
+	return nil
+}
+
+// ShouldRunClaudeDirect returns true when the extra args indicate claude should be
+// run directly in the foreground, bypassing tmux/session management (e.g. --help, --version).
+func ShouldRunClaudeDirect(extraArgs []string) bool {
+	for _, arg := range extraArgs {
+		switch arg {
+		case "--help", "-h", "--version":
+			return true
+		}
+	}
+	return false
+}
+
+// ShellQuoteArg quotes a single argument for safe inclusion in a sh -c command string.
+func ShellQuoteArg(s string) string {
+	if !strings.ContainsAny(s, " \t\n\"'\\$`|&;<>(){}*?[]#~!") {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+}
+
 // FormatConvCompletion formats a conversation entry for shell completion
 func FormatConvCompletion(e ConvEntry) string {
 	sanitize := func(s string) string {

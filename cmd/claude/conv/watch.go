@@ -13,6 +13,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/fsnotify/fsnotify"
+	clcommon "github.com/gigurra/tofu/cmd/claude/common"
 	"github.com/gigurra/tofu/cmd/claude/common/convindex"
 	"github.com/gigurra/tofu/cmd/claude/common/table"
 	"github.com/gigurra/tofu/cmd/claude/session"
@@ -1057,6 +1058,13 @@ func createSessionForConv(conv *SessionEntry) error {
 
 	// Build claude command with TOFU_SESSION_ID env var
 	claudeCmd := fmt.Sprintf("TOFU_SESSION_ID=%s claude --resume %s", sessionID, conv.SessionID)
+	if extraArgs := clcommon.ExtractClaudeExtraArgs(); len(extraArgs) > 0 {
+		quoted := make([]string, len(extraArgs))
+		for i, a := range extraArgs {
+			quoted[i] = clcommon.ShellQuoteArg(a)
+		}
+		claudeCmd += " " + strings.Join(quoted, " ")
+	}
 
 	// Create tmux session
 	tmuxArgs := []string{

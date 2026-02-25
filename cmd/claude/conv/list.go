@@ -18,7 +18,7 @@ import (
 )
 
 type ListParams struct {
-	Dir    string `pos:"true" optional:"true" help:"Directory to list conversations from (defaults to current directory)"`
+	Dir    string `short:"C" long:"dir" optional:"true" help:"Directory to list conversations from (defaults to current directory)"`
 	Global bool   `short:"g" help:"List conversations from all projects"`
 	SortBy string `long:"sort-by" help:"Sort by: created, modified, messages, prompt, project" default:"modified"`
 	Asc    bool   `long:"asc" help:"Sort ascending (default is descending)"`
