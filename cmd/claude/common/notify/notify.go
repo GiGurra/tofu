@@ -4,15 +4,10 @@ package notify
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
-	"strings"
 	"time"
 
-	"github.com/gen2brain/beeep"
 	"github.com/gigurra/tofu/cmd/claude/common/config"
-	"github.com/gigurra/tofu/cmd/claude/common/wsl"
 )
 
 // stateDir returns the directory for notification state files.
@@ -85,204 +80,12 @@ func send(sessionID, to, cwd, convTitle string) {
 		body = fmt.Sprintf("%s | %s", shortID(sessionID), projectName)
 	}
 
-	var err error
-
-	// Try platform-specific clickable notifications first
-	if isWSL() {
-		err = sendWSLClickable(sessionID, title, body)
-	} else if runtime.GOOS == "linux" {
-		err = sendLinuxClickable(sessionID, title, body)
-	} else if runtime.GOOS == "darwin" {
-		err = sendDarwinClickable(sessionID, title, body)
-	} else {
-		err = beeep.Notify(title, body, "")
-	}
+	err := platformSend(sessionID, title, body)
 
 	if err != nil {
-		// Fallback to beeep
-		if beeepErr := beeep.Notify(title, body, ""); beeepErr != nil {
-			// Final fallback to stderr
-			fmt.Fprintf(os.Stderr, "[notify] %s: %s\n", title, body)
-		}
+		// Final fallback to stderr
+		fmt.Fprintf(os.Stderr, "[notify] %s: %s\n", title, body)
 	}
-}
-
-// sendLinuxClickable sends a notification with click-to-focus on native Linux.
-func sendLinuxClickable(sessionID, title, body string) error {
-	// Get full path to tofu executable
-	tofuPath, err := os.Executable()
-	if err != nil {
-		tofuPath = "tofu" // fallback
-	}
-
-	// Check for dunstify (supports actions)
-	if _, err := exec.LookPath("dunstify"); err == nil {
-		// Run in goroutine since dunstify blocks waiting for action
-		go func() {
-			cmd := exec.Command("dunstify", "-A", "focus,Focus", title, body)
-			output, err := cmd.Output()
-			if err == nil && strings.TrimSpace(string(output)) == "focus" {
-				// Focus the session window (or attach if not attached)
-				focusCmd := exec.Command(tofuPath, "claude", "session", "focus", sessionID)
-				_ = focusCmd.Run()
-			}
-		}()
-		return nil
-	}
-
-	// Fallback to notify-send (no action support, but still works)
-	if _, err := exec.LookPath("notify-send"); err == nil {
-		return exec.Command("notify-send", title, body).Run()
-	}
-
-	return fmt.Errorf("no notification tool found")
-}
-
-// sendWSLClickable sends a Windows Toast notification that focuses the terminal on click.
-// Note: Requires 'tofu claude setup' to have been run to register the protocol handler.
-// If not registered, the notification still shows but clicking won't focus the terminal.
-func sendWSLClickable(sessionID, title, body string) error {
-	return notifyWSLClickable(title, body, sessionID)
-}
-
-// sendDarwinClickable sends a notification with click-to-focus on macOS.
-func sendDarwinClickable(sessionID, title, body string) error {
-	// Check for terminal-notifier (supports -execute)
-	if _, err := exec.LookPath("terminal-notifier"); err == nil {
-		// Get full path to tofu executable
-		tofuPath, err := os.Executable()
-		if err != nil {
-			tofuPath = "tofu" // fallback
-		}
-
-		// Get full path to tmux (needed by focus command)
-		tmuxPath, err := exec.LookPath("tmux")
-		if err != nil {
-			tmuxPath = "" // will use PATH
-		}
-
-		// Build command - terminal-notifier runs with minimal PATH
-		var focusCmd string
-		if tmuxPath != "" {
-			// Add tmux's directory to PATH
-			tmuxDir := filepath.Dir(tmuxPath)
-			focusCmd = fmt.Sprintf("PATH=%s:$PATH %s claude session focus %s",
-				tmuxDir, tofuPath, sessionID)
-		} else {
-			focusCmd = fmt.Sprintf("%s claude session focus %s", tofuPath, sessionID)
-		}
-
-		return exec.Command("terminal-notifier",
-			"-title", title,
-			"-message", body,
-			"-execute", focusCmd,
-			"-sound", "default",
-		).Run()
-	}
-
-	// Fallback to osascript notification (no click action)
-	script := fmt.Sprintf(`display notification "%s" with title "%s"`,
-		strings.ReplaceAll(body, "\"", "\\\""),
-		strings.ReplaceAll(title, "\"", "\\\""))
-	return exec.Command("osascript", "-e", script).Run()
-}
-
-// isWSL detects if we're running in Windows Subsystem for Linux.
-func isWSL() bool {
-	return wsl.IsWSL()
-}
-
-// notifyWSLClickable sends a Windows Toast notification that runs a command on click.
-func notifyWSLClickable(title, body, sessionID string) error {
-	psPath := wsl.FindPowerShell()
-	if psPath == "" {
-		return fmt.Errorf("powershell not found")
-	}
-
-	// Escape for XML
-	title = escapeXML(title)
-	body = escapeXML(body)
-
-	// PowerShell script for clickable Windows Toast notification
-	// Uses protocol activation to trigger tofu://focus/SESSION_ID
-	// Uses Windows Terminal's AppUserModelID for a nicer notification appearance
-	script := fmt.Sprintf(`
-[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
-[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
-
-$template = @'
-<toast activationType="protocol" launch="tofu://focus/%s">
-  <visual>
-    <binding template="ToastGeneric">
-      <text>%s</text>
-      <text>%s</text>
-      <text placement="attribution">Click to focus terminal</text>
-    </binding>
-  </visual>
-</toast>
-'@
-
-$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
-$xml.LoadXml($template)
-$toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
-
-# Try to use Windows Terminal's AppUserModelID for nicer appearance
-$appId = 'Microsoft.WindowsTerminal_8wekyb3d8bbwe!App'
-try {
-    [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($appId).Show($toast)
-} catch {
-    # Fallback to generic notifier
-    [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Tofu').Show($toast)
-}
-`, sessionID, title, body)
-
-	cmd := exec.Command(psPath, "-NoProfile", "-NonInteractive", "-Command", script)
-	return cmd.Run()
-}
-
-// escapeXML escapes special characters for XML content.
-func escapeXML(s string) string {
-	s = strings.ReplaceAll(s, "&", "&amp;")
-	s = strings.ReplaceAll(s, "<", "&lt;")
-	s = strings.ReplaceAll(s, ">", "&gt;")
-	s = strings.ReplaceAll(s, "'", "&apos;")
-	s = strings.ReplaceAll(s, "\"", "&quot;")
-	return s
-}
-
-// notifyWSL sends a Windows Toast notification via PowerShell from WSL (non-clickable fallback).
-func notifyWSL(title, body string) error {
-	psPath := wsl.FindPowerShell()
-	if psPath == "" {
-		return fmt.Errorf("powershell not found")
-	}
-
-	// Escape single quotes for PowerShell
-	title = strings.ReplaceAll(title, "'", "''")
-	body = strings.ReplaceAll(body, "'", "''")
-
-	// PowerShell script for Windows Toast notification
-	script := fmt.Sprintf(`
-[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
-[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
-$template = @'
-<toast>
-  <visual>
-    <binding template="ToastText02">
-      <text id="1">%s</text>
-      <text id="2">%s</text>
-    </binding>
-  </visual>
-</toast>
-'@
-$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
-$xml.LoadXml($template)
-$toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
-[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Tofu').Show($toast)
-`, title, body)
-
-	cmd := exec.Command(psPath, "-NoProfile", "-NonInteractive", "-Command", script)
-	return cmd.Run()
 }
 
 // formatStatus returns a human-readable status string.

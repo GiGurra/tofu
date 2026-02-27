@@ -100,16 +100,15 @@ Notifications display:
 
 ## Platform Support
 
-| Platform | Status | Notifications | Clickable | Focus Method |
-|----------|--------|---------------|-----------|--------------|
-| macOS | ✅ Tested | `terminal-notifier` or osascript | ✅ Yes | iTerm2/Terminal.app AppleScript |
-| WSL | ✅ Tested | PowerShell toast notifications | ✅ Yes | Windows Terminal focus* |
-| Linux (native) | ⚠️ Untested | `dunstify` or `notify-send` | With dunstify | xdotool |
-| Windows (native) | ❌ Not implemented | - | - | - |
+| Platform         | Status            | Notifications                    | Clickable | Focus Method                    |
+|------------------|-------------------|----------------------------------|-----------|---------------------------------|
+| macOS            | ✅ Tested          | `terminal-notifier` or osascript | ✅ Yes     | iTerm2/Terminal.app AppleScript |
+| WSL              | ✅ Tested          | PowerShell toast notifications   | ✅ Yes     | Windows Terminal focus*         |
+| Linux (native)   | ✅ Tested          | D-Bus                            | ✅ Yes     | xdotool                         |
+| Windows (native) | ❌ Not implemented | -                                | -         | -                               |
 
 **Notes:**
 - \* WSL focus works best when the target session is the active tab. If it's in a background tab, clicking the notification will detach that tab and open a new window with the session.
-- Native Linux support uses standard tools (`dunstify`, `notify-send`, `xdotool`) but has not been tested on actual hardware. Feedback welcome!
 
 ## Prerequisites
 
@@ -131,19 +130,13 @@ The setup command will offer to install this automatically if Homebrew is availa
 
 ### Linux (native)
 
-For clickable notifications, install `dunstify` (part of dunst notification daemon):
-
-```bash
-sudo apt install dunst
-```
-
 For window focus when clicking notifications, install `xdotool`:
 
 ```bash
 sudo apt install xdotool
 ```
 
-Without these, notifications still work via `notify-send` but won't be clickable.
+Without it, notifications still work but won't be clickable.
 
 ### WSL
 

@@ -38,7 +38,7 @@ This will:
 - Check that tmux is installed (required for session management)
 - Install hooks in `~/.claude/settings.json` for status tracking
 - Install the status bar for Claude Code's statusline
-- Check for notification tools (terminal-notifier on macOS, dunstify/notify-send on Linux)
+- Check for notification tools (terminal-notifier on macOS, xdotool on Linux)
 - Register the protocol handler for clickable notifications (WSL)
 - Ask if you want to enable desktop notifications
 

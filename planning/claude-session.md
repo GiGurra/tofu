@@ -84,7 +84,7 @@ Before starting a session for a conversation:
 ### Notifications
 
 When status changes to `waiting_input` or `waiting_permission`:
-- Linux: `notify-send`
+- Linux: D-Bus
 - macOS: `osascript -e 'display notification ...'`
 - Could be opt-in via config or flag
 

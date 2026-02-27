@@ -261,46 +261,6 @@ func TestBuildTmuxDetachCmd(t *testing.T) {
 	}
 }
 
-func TestBuildLinuxDunstifyCmd(t *testing.T) {
-	cmd := BuildLinuxDunstifyCmd("Claude: Idle", "abc123 | myproject")
-
-	if cmd.Program != "dunstify" {
-		t.Errorf("Program = %q, want %q", cmd.Program, "dunstify")
-	}
-
-	wantArgs := []string{"-A", "focus,Focus", "Claude: Idle", "abc123 | myproject"}
-	if len(cmd.Args) != len(wantArgs) {
-		t.Errorf("Args = %v, want %v", cmd.Args, wantArgs)
-		return
-	}
-
-	for i, arg := range cmd.Args {
-		if arg != wantArgs[i] {
-			t.Errorf("Args[%d] = %q, want %q", i, arg, wantArgs[i])
-		}
-	}
-}
-
-func TestBuildLinuxNotifySendCmd(t *testing.T) {
-	cmd := BuildLinuxNotifySendCmd("Claude: Idle", "abc123 | myproject")
-
-	if cmd.Program != "notify-send" {
-		t.Errorf("Program = %q, want %q", cmd.Program, "notify-send")
-	}
-
-	wantArgs := []string{"Claude: Idle", "abc123 | myproject"}
-	if len(cmd.Args) != len(wantArgs) {
-		t.Errorf("Args = %v, want %v", cmd.Args, wantArgs)
-		return
-	}
-
-	for i, arg := range cmd.Args {
-		if arg != wantArgs[i] {
-			t.Errorf("Args[%d] = %q, want %q", i, arg, wantArgs[i])
-		}
-	}
-}
-
 func TestFocusCommandString(t *testing.T) {
 	tests := []struct {
 		name      string

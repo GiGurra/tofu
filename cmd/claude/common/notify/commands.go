@@ -173,28 +173,6 @@ func NotificationTitle(status string) string {
 	return fmt.Sprintf("Claude: %s", display)
 }
 
-// LinuxNotifyCmd represents the command to send a notification on Linux.
-type LinuxNotifyCmd struct {
-	Program string
-	Args    []string
-}
-
-// BuildLinuxDunstifyCmd builds the dunstify command for Linux notifications with click action.
-func BuildLinuxDunstifyCmd(title, body string) LinuxNotifyCmd {
-	return LinuxNotifyCmd{
-		Program: "dunstify",
-		Args:    []string{"-A", "focus,Focus", title, body},
-	}
-}
-
-// BuildLinuxNotifySendCmd builds the notify-send command for Linux notifications (no click action).
-func BuildLinuxNotifySendCmd(title, body string) LinuxNotifyCmd {
-	return LinuxNotifyCmd{
-		Program: "notify-send",
-		Args:    []string{title, body},
-	}
-}
-
 // FocusCommandString builds the shell command string for focusing a session.
 func FocusCommandString(tofuPath, tmuxDir, sessionID string) string {
 	if tofuPath == "" {
