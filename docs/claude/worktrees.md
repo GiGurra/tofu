@@ -23,16 +23,16 @@ Git worktrees allow you to have multiple branches checked out simultaneously in 
 
 ```bash
 # Create a new worktree for a feature branch
-tofu claude worktree add feat/my-feature
+tclaude worktree add feat/my-feature
 
 # Create from a specific base branch
-tofu claude worktree add feat/my-feature --from-branch develop
+tclaude worktree add feat/my-feature --from-branch develop
 
 # Copy a conversation to the new worktree
-tofu claude worktree add feat/my-feature --from-conv abc123
+tclaude worktree add feat/my-feature --from-conv abc123
 
 # Create without starting a session
-tofu claude worktree add feat/my-feature --detached
+tclaude worktree add feat/my-feature --detached
 ```
 
 This will:
@@ -91,7 +91,7 @@ The `switch` command requires a shell wrapper to actually change directories (a 
 
     Add to `~/.zshrc`:
     ```bash
-    source /path/to/tofu/scripts/tofu-worktree-switch.zsh
+    source /path/to/tofu/scripts/tclaude-worktree-switch.zsh
     ```
 
     Or copy the function directly:
@@ -117,7 +117,7 @@ The `switch` command requires a shell wrapper to actually change directories (a 
 
     Add to `~/.bashrc`:
     ```bash
-    source /path/to/tofu/scripts/tofu-worktree-switch.bash
+    source /path/to/tofu/scripts/tclaude-worktree-switch.bash
     ```
 
     Or copy the function directly:
@@ -143,7 +143,7 @@ The `switch` command requires a shell wrapper to actually change directories (a 
 
     Add to `~/.config/fish/config.fish`:
     ```fish
-    source /path/to/tofu/scripts/tofu-worktree-switch.fish
+    source /path/to/tofu/scripts/tclaude-worktree-switch.fish
     ```
 
     Or copy the function directly:

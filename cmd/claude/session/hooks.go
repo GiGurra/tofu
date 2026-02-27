@@ -20,13 +20,13 @@ type HookConfig struct {
 }
 
 // TofuHookMarker is used to identify tofu-managed hooks
-const TofuHookMarker = "tofu claude session hook-callback"
+const TofuHookMarker = "tclaude session hook-callback"
 
 // TofuHookCommand is the unified callback command for all hooks
-const TofuHookCommand = "tofu claude session hook-callback"
+const TofuHookCommand = "tclaude session hook-callback"
 
 // OldTofuHookMarker identifies old-style hooks that should be removed
-const OldTofuHookMarker = "tofu claude session status-callback"
+const OldTofuHookMarker = "tclaude session status-callback"
 
 // RequiredHooks defines the hooks tofu needs for status tracking
 // All hooks use the same unified callback - it reads stdin and figures out what to do
@@ -335,7 +335,7 @@ func EnsureHooksInstalled(autoInstall bool, stdout, stderr *os.File) bool {
 
 	if !autoInstall {
 		if hasOldHooks {
-			fmt.Fprintf(stderr, "Warning: Old-style tofu hooks detected. Run 'tofu claude session install-hooks' to upgrade.\n")
+			fmt.Fprintf(stderr, "Warning: Old-style tofu hooks detected. Run 'tclaude session install-hooks' to upgrade.\n")
 		}
 		if !installed {
 			fmt.Fprintf(stderr, "Warning: Tofu session hooks not installed in Claude settings.\n")

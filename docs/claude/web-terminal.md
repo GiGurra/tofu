@@ -10,10 +10,10 @@ The web terminal mirrors an existing tmux-based Claude session via xterm.js and 
 
 ```bash
 # Start a Claude session first
-tofu claude
+tclaude
 
 # In another terminal, start the web server
-tofu claude web --user myuser --pass mypass
+tclaude web --user myuser --pass mypass
 
 # Open https://localhost:8443 in your browser
 ```
@@ -23,7 +23,7 @@ tofu claude web --user myuser --pass mypass
 Bind to all interfaces so the server is reachable on your network:
 
 ```bash
-tofu claude web --user myuser --pass mypass --bind 0.0.0.0
+tclaude web --user myuser --pass mypass --bind 0.0.0.0
 ```
 
 Then open `https://<your-ip>:8443` on your phone and accept the self-signed certificate warning.
@@ -63,7 +63,7 @@ To trust the certificate in Chrome:
 To regenerate the certificate:
 
 ```bash
-tofu claude web --new-cert --user myuser --pass mypass
+tclaude web --new-cert --user myuser --pass mypass
 ```
 
 ## Multiple Sessions
@@ -72,10 +72,10 @@ If you have multiple Claude sessions running, specify which one to serve:
 
 ```bash
 # List sessions
-tofu claude session ls
+tclaude session ls
 
 # Serve a specific session
-tofu claude web --user myuser --pass mypass abc123
+tclaude web --user myuser --pass mypass abc123
 ```
 
 If only one session is running, it auto-detects.

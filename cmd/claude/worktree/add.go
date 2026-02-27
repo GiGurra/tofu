@@ -166,10 +166,10 @@ func RunAdd(branch, fromBranch, fromConv, path string, global, detached bool) er
 	}
 
 	fmt.Printf("\nTo start a session:\n")
-	fmt.Printf("  cd %s && tofu claude\n", worktreePath)
+	fmt.Printf("  cd %s && tclaude\n", worktreePath)
 	if copiedConvID != "" {
 		fmt.Printf("  # Or resume the copied conversation:\n")
-		fmt.Printf("  cd %s && tofu claude --resume %s\n", worktreePath, copiedConvID[:8])
+		fmt.Printf("  cd %s && tclaude --resume %s\n", worktreePath, copiedConvID[:8])
 	}
 
 	return nil

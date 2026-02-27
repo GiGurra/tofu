@@ -5,7 +5,8 @@
 The simplest way to install tofu:
 
 ```bash
-go install github.com/gigurra/tofu@latest
+go install github.com/gigurra/tofu/cmd/tofu@latest
+go install github.com/gigurra/tofu/cmd/tclaude@latest
 ```
 
 This requires Go 1.21 or later.

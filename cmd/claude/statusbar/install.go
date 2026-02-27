@@ -13,7 +13,7 @@ type StatusLineConfig struct {
 	Command string `json:"command"`
 }
 
-const StatusLineCommand = "tofu claude status-bar"
+const StatusLineCommand = "tclaude status-bar"
 
 // CheckInstalled checks if the tofu status-bar is configured in Claude settings
 func CheckInstalled() bool {

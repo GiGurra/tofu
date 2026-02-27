@@ -6,14 +6,14 @@ Get notified when Claude sessions need attention.
 
 Tofu can send OS notifications when Claude sessions transition to states that require user attention (idle, awaiting permission, awaiting input). This is useful when running multiple sessions or working in a different window.
 
-**Disabled by default** - run `tofu claude setup` to enable.
+**Disabled by default** - run `tclaude setup` to enable.
 
 ## Quick Setup
 
 The easiest way to enable notifications:
 
 ```bash
-tofu claude setup
+tclaude setup
 ```
 
 This will:
@@ -24,7 +24,7 @@ This will:
 You can check your setup status anytime:
 
 ```bash
-tofu claude setup --check
+tclaude setup --check
 ```
 
 ## Manual Configuration

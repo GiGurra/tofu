@@ -61,7 +61,7 @@ func runList(params *ListParams) error {
 
 	if len(states) == 0 {
 		fmt.Println("No sessions found")
-		fmt.Println("\nStart a new session with: tofu claude session new")
+		fmt.Println("\nStart a new session with: tclaude session new")
 		return nil
 	}
 
@@ -83,7 +83,7 @@ func runList(params *ListParams) error {
 
 	if len(filtered) == 0 {
 		fmt.Println("No active sessions found")
-		fmt.Println("\nStart a new session with: tofu claude session new")
+		fmt.Println("\nStart a new session with: tclaude session new")
 		return nil
 	}
 
@@ -138,7 +138,7 @@ func runList(params *ListParams) error {
 	t.Render()
 
 	// Show hint for attaching
-	fmt.Printf("\nAttach with: tofu claude session attach <id>\n")
+	fmt.Printf("\nAttach with: tclaude session attach <id>\n")
 
 	return nil
 }

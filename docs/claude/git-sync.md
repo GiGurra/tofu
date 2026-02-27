@@ -18,10 +18,10 @@ This feature keeps `~/.claude/projects_sync` as a git working directory separate
 gh repo create my-claude-sync --private
 
 # Initialize sync
-tofu claude git init git@github.com:username/my-claude-sync.git
+tclaude git init git@github.com:username/my-claude-sync.git
 
 # Sync conversations
-tofu claude git sync
+tclaude git sync
 ```
 
 ## Commands
@@ -31,7 +31,7 @@ tofu claude git sync
 Initialize git sync for Claude conversations.
 
 ```bash
-tofu claude git init <repo-url>
+tclaude git init <repo-url>
 ```
 
 **What it does:**
@@ -44,7 +44,7 @@ tofu claude git init <repo-url>
 Sync local conversations with the remote repository.
 
 ```bash
-tofu claude git sync [flags]
+tclaude git sync [flags]
 ```
 
 **Flags:**
@@ -67,7 +67,7 @@ tofu claude git sync [flags]
 Show the status of the sync repository.
 
 ```bash
-tofu claude git status
+tclaude git status
 ```
 
 Shows:
@@ -139,7 +139,7 @@ Keep which version? [l]ocal / [r]emote / [s]kip:
 
 ```bash
 # Install tofu
-go install github.com/gigurra/tofu@latest
+go install github.com/gigurra/tofu/cmd/tclaude@latest
 
 # Initialize with your existing sync repo
 tofu claude git init git@github.com:username/my-claude-sync.git

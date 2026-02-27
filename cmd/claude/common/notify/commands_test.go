@@ -27,7 +27,7 @@ func TestBuildDarwinNotifyCmd(t *testing.T) {
 			wantArgs: []string{
 				"-title", "Claude: Idle",
 				"-message", "abc123 | myproject - Working on feature",
-				"-execute", "PATH=/opt/homebrew/bin:$PATH /usr/local/bin/tofu claude session focus abc123",
+				"-execute", "PATH=/opt/homebrew/bin:$PATH /usr/local/bin/tclaude session focus abc123",
 				"-sound", "default",
 			},
 		},
@@ -41,7 +41,7 @@ func TestBuildDarwinNotifyCmd(t *testing.T) {
 			wantArgs: []string{
 				"-title", "Claude: Awaiting permission",
 				"-message", "def456 | otherproject",
-				"-execute", "/home/user/go/bin/tofu claude session focus def456",
+				"-execute", "/home/user/go/bin/tclaude session focus def456",
 				"-sound", "default",
 			},
 		},
@@ -55,7 +55,7 @@ func TestBuildDarwinNotifyCmd(t *testing.T) {
 			wantArgs: []string{
 				"-title", "Claude: Idle",
 				"-message", "test | proj",
-				"-execute", "tofu claude session focus test",
+				"-execute", "tclaude session focus test",
 				"-sound", "default",
 			},
 		},
@@ -275,7 +275,7 @@ func TestFocusCommandString(t *testing.T) {
 			tmuxDir:   "/opt/homebrew/bin",
 			sessionID: "abc123",
 			wantFunc: func(tmuxDir string) string {
-				return fmt.Sprintf("PATH=%s:$PATH /usr/bin/tofu claude session focus abc123", filepath.Clean(tmuxDir))
+				return fmt.Sprintf("PATH=%s:$PATH /usr/bin/tclaude session focus abc123", filepath.Clean(tmuxDir))
 			},
 		},
 		{
@@ -284,7 +284,7 @@ func TestFocusCommandString(t *testing.T) {
 			tmuxDir:   "",
 			sessionID: "abc123",
 			wantFunc: func(_ string) string {
-				return "/usr/bin/tofu claude session focus abc123"
+				return "/usr/bin/tclaude session focus abc123"
 			},
 		},
 		{
@@ -293,7 +293,7 @@ func TestFocusCommandString(t *testing.T) {
 			tmuxDir:   "",
 			sessionID: "xyz",
 			wantFunc: func(_ string) string {
-				return "tofu claude session focus xyz"
+				return "tclaude session focus xyz"
 			},
 		},
 	}

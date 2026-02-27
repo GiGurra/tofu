@@ -30,7 +30,7 @@ func resolveSession(sessionID string) (string, string, error) {
 	}
 
 	if len(alive) == 0 {
-		return "", "", fmt.Errorf("no running sessions found. Start one with: tofu claude")
+		return "", "", fmt.Errorf("no running sessions found. Start one with: tclaude")
 	}
 
 	if sessionID != "" {
@@ -53,5 +53,5 @@ func resolveSession(sessionID string) (string, string, error) {
 	for _, s := range alive {
 		fmt.Printf("  %s  %s  %s\n", s.ID, s.Status, s.Cwd)
 	}
-	return "", "", fmt.Errorf("specify a session ID: tofu claude web <session-id>")
+	return "", "", fmt.Errorf("specify a session ID: tclaude web <session-id>")
 }

@@ -1,8 +1,9 @@
-package claude
+package main
 
 import (
 	"fmt"
 	"os"
+	"runtime/debug"
 
 	"github.com/GiGurra/boa/pkg/boa"
 	"github.com/gigurra/tofu/cmd/claude/conv"
@@ -18,11 +19,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func Cmd() *cobra.Command {
+func main() {
 	cmd := boa.CmdT[session.NewParams]{
-		Use:         "claude",
+		Use:         "tclaude",
 		Short:       "Claude Code utilities",
 		Long:        "Claude Code utilities.\n\nWhen run without a subcommand, starts a new Claude session in the current directory.",
+		Version:     appVersion(),
 		ParamEnrich: common.DefaultParamEnricher(),
 		SubCmds: []*cobra.Command{
 			conv.Cmd(),
@@ -45,5 +47,21 @@ func Cmd() *cobra.Command {
 	}.ToCobra()
 	// Allow arbitrary args so post-'--' args pass through to claude without cobra rejecting them.
 	cmd.Args = cobra.ArbitraryArgs
-	return cmd
+	if err := cmd.Execute(); err != nil {
+		os.Exit(1)
+	}
+}
+
+func appVersion() string {
+	bi, hasBuilInfo := debug.ReadBuildInfo()
+	if !hasBuilInfo {
+		return "unknown-(no build info)"
+	}
+
+	versionString := bi.Main.Version
+	if versionString == "" {
+		versionString = "unknown-(no version)"
+	}
+
+	return versionString
 }

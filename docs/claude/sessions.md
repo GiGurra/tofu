@@ -5,7 +5,7 @@ Run Claude Code in persistent tmux sessions with status tracking.
 ## Prerequisites
 
 - **tmux** - Required for session management
-- **Run setup** - For status tracking and notifications: `tofu claude setup`
+- **Run setup** - For status tracking and notifications: `tclaude setup`
 
 ## Commands
 
@@ -15,16 +15,16 @@ Start Claude in a new tmux session.
 
 ```bash
 # Start a new session in current directory
-tofu claude session new
+tclaude session new
 
 # Start in a specific directory
-tofu claude session new /path/to/project
+tclaude session new /path/to/project
 
 # Resume an existing conversation
-tofu claude session new --resume <conv-id>
+tclaude session new --resume <conv-id>
 
 # Start detached (don't attach immediately)
-tofu claude session new -d
+tclaude session new -d
 ```
 
 **Flags:**

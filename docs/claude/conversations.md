@@ -10,10 +10,10 @@ List conversations.
 
 ```bash
 # List conversations for current project
-tofu claude conv ls
+tclaude conv ls
 
 # Interactive watch mode
-tofu claude conv ls -w
+tclaude conv ls -w
 
 # Global - all projects
 tofu claude conv ls -g

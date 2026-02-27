@@ -44,7 +44,7 @@ func sendLinuxClickable(sessionID, title, body string) error {
 }
 
 // sendWSLClickable sends a Windows Toast notification that focuses the terminal on click.
-// Note: Requires 'tofu claude setup' to have been run to register the protocol handler.
+// Note: Requires 'tclaude setup' to have been run to register the protocol handler.
 // If not registered, the notification still shows but clicking won't focus the terminal.
 func sendWSLClickable(sessionID, title, body string) error {
 	return notifyWSLClickable(title, body, sessionID)

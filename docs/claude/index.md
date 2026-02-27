@@ -24,14 +24,14 @@ Powerful session and conversation management for [Claude Code](https://claude.ai
 
 ## Installation
 
-After installing tofu, run the setup command:
+After installing tclaude, run the setup command:
 
 ```bash
 # Install tofu
-go install github.com/gigurra/tofu@latest
+go install github.com/gigurra/tofu/cmd/tclaude@latest
 
 # Set up Claude integration (hooks, notifications, protocol handler)
-tofu claude setup
+tclaude setup
 ```
 
 This will:
@@ -46,16 +46,16 @@ This will:
 
 ```bash
 # Start Claude in a new tmux session
-tofu claude session new
+tclaude session new
 
 # Or resume an existing conversation
-tofu claude session new --resume <conv-id>
+tclaude session new --resume <conv-id>
 
 # Interactive session browser
-tofu claude session ls -w
+tclaude session ls -w
 
 # Interactive conversation browser
-tofu claude conv ls -w
+tclaude conv ls -w
 ```
 
 ## Commands

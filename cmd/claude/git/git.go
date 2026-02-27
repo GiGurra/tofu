@@ -18,9 +18,9 @@ This keeps ~/.claude/projects_sync as a git working directory separate from
 the actual ~/.claude/projects, giving full control over the merge process.
 
 Usage:
-  tofu claude git init <repo-url>   # Set up sync with a remote repo
-  tofu claude git sync              # Sync local and remote conversations
-  tofu claude git status            # Show sync status`,
+  tclaude git init <repo-url>   # Set up sync with a remote repo
+  tclaude git sync              # Sync local and remote conversations
+  tclaude git status            # Show sync status`,
 		SubCmds: []*cobra.Command{
 			InitCmd(),
 			SyncCmd(),

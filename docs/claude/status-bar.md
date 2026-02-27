@@ -19,7 +19,7 @@ extra usage: off
 The easiest way to install:
 
 ```bash
-tofu claude setup
+tclaude setup
 ```
 
 This adds the status bar configuration to `~/.claude/settings.json`. You can also install it manually:
@@ -28,7 +28,7 @@ This adds the status bar configuration to `~/.claude/settings.json`. You can als
 {
   "statusLine": {
     "type": "command",
-    "command": "tofu claude status-bar"
+    "command": "tclaude status-bar"
   }
 }
 ```
@@ -36,7 +36,7 @@ This adds the status bar configuration to `~/.claude/settings.json`. You can als
 Check if it's installed:
 
 ```bash
-tofu claude setup --check
+tclaude setup --check
 ```
 
 ## What It Shows
@@ -101,10 +101,10 @@ You can also check your subscription limits directly:
 
 ```bash
 # Human-readable output
-tofu claude usage
+tclaude usage
 
 # Raw JSON from the API
-tofu claude usage --json
+tclaude usage --json
 ```
 
 ## Caching

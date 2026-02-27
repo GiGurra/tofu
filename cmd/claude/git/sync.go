@@ -44,7 +44,7 @@ func runSync(params *SyncParams) error {
 	projectsDir := ProjectsDir()
 
 	if !IsInitialized() {
-		return fmt.Errorf("git sync not initialized. Run 'tofu claude git init <repo-url>' first")
+		return fmt.Errorf("git sync not initialized. Run 'tclaude git init <repo-url>' first")
 	}
 
 	fmt.Printf("Syncing Claude conversations...\n\n")
@@ -547,7 +547,6 @@ func mergeSessionsIndex(srcProject, dstProject string) error {
 	if err != nil {
 		dstIndex = &conv.SessionsIndex{Version: 1}
 	}
-
 
 	// Merge: union of entries, prefer newer modified timestamp
 	// Skip tombstoned sessions

@@ -1,4 +1,4 @@
-// Package setup provides the tofu claude setup command for one-time configuration.
+// Package setup provides the tclaude setup command for one-time configuration.
 package setup
 
 import (
@@ -29,8 +29,8 @@ type Params struct {
 func Cmd() *cobra.Command {
 	return boa.CmdT[Params]{
 		Use:         "setup",
-		Short:       "Set up tofu claude integration (hooks, protocol handler)",
-		Long:        "One-time setup for tofu claude integration.\nInstalls hooks in ~/.claude/settings.json and registers the tofu:// protocol handler for clickable notifications.",
+		Short:       "Set up tclaude integration (hooks, protocol handler)",
+		Long:        "One-time setup for tclaude integration.\nInstalls hooks in ~/.claude/settings.json and registers the tofu:// protocol handler for clickable notifications.",
 		ParamEnrich: common.DefaultParamEnricher(),
 		RunFunc: func(params *Params, cmd *cobra.Command, args []string) {
 			if err := runSetup(params); err != nil {
@@ -46,7 +46,7 @@ func runSetup(params *Params) error {
 		return checkStatus()
 	}
 
-	fmt.Println("Setting up tofu claude integration...")
+	fmt.Println("Setting up tclaude integration...")
 	fmt.Println()
 
 	// 0. Check tmux
@@ -121,7 +121,7 @@ func runSetup(params *Params) error {
 				fmt.Println("✓ Status bar installed")
 			}
 		} else {
-			fmt.Println("  Skipped. Install later with: tofu claude setup")
+			fmt.Println("  Skipped. Install later with: tclaude setup")
 		}
 	}
 
@@ -443,4 +443,3 @@ func isXdotoolInstalled() bool {
 	_, err := exec.LookPath("xdotool")
 	return err == nil
 }
-

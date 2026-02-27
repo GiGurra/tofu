@@ -1,6 +1,6 @@
 # Terminal Window Management Research
 
-Research for implementing Shift+Enter feature in `tofu claude session` watch mode:
+Research for implementing Shift+Enter feature in `tclaude session` watch mode:
 - First press: Open new terminal window attached to selected session
 - Second press: Focus existing window if already open
 
@@ -206,7 +206,7 @@ focus_command = "wmctrl -a {{title}}"
 
 Instead of opening windows, send desktop notification with attach command:
 ```bash
-notify-send "Session ready" "Run: tofu claude session attach abc123"
+notify-send "Session ready" "Run: tclaude session attach abc123"
 ```
 
 ## Recommendations

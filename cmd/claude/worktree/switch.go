@@ -17,7 +17,7 @@ func SwitchCmd() *cobra.Command {
 	cmd := boa.CmdT[SwitchParams]{
 		Use:         "switch",
 		Short:       "Output worktree path for switching (use with shell wrapper)",
-		Long:        "Outputs the path of a worktree for use with cd.\n\nWith a shell wrapper, this enables: tofu claude worktree switch <branch>",
+		Long:        "Outputs the path of a worktree for use with cd.\n\nWith a shell wrapper, this enables: tclaude worktree switch <branch>",
 		Aliases:     []string{"s", "checkout", "c"},
 		ParamEnrich: common.DefaultParamEnricher(),
 		ValidArgsFunc: func(p *SwitchParams, cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
