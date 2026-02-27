@@ -341,7 +341,7 @@ func EnsureHooksInstalled(autoInstall bool, stdout, stderr *os.File) bool {
 			fmt.Fprintf(stderr, "Warning: Tofu session hooks not installed in Claude settings.\n")
 			fmt.Fprintf(stderr, "Missing hooks for: %v\n", missing)
 		}
-		fmt.Fprintf(stderr, "Status tracking may not work correctly. Install with: tofu claude session install-hooks\n\n")
+		fmt.Fprintf(stderr, "Status tracking may not work correctly. Install with: tclaude session install-hooks\n\n")
 		return false
 	}
 

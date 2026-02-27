@@ -112,7 +112,7 @@ Notifications display:
 
 ## Prerequisites
 
-- **tmux** - Required for session management (checked by `tofu claude setup`)
+- **tmux** - Required for session management (checked by `tclaude setup`)
 
 ## Clickable Notifications
 
@@ -140,19 +140,19 @@ Without it, notifications still work but won't be clickable.
 
 ### WSL
 
-On WSL, notifications use Windows Toast notifications via PowerShell. Clicking them will focus the Windows Terminal window. This requires the `tofu://` protocol handler to be registered, which `tofu claude setup` handles automatically.
+On WSL, notifications use Windows Toast notifications via PowerShell. Clicking them will focus the Windows Terminal window. This requires the `tofu://` protocol handler to be registered, which `tclaude setup` handles automatically.
 
 **Note:** If the target session is in a background tab, clicking the notification will detach that tab from tmux and open a new Windows Terminal window with the session attached.
 
 If clicking doesn't work:
-1. Run `tofu claude setup --check` to verify protocol handler is registered
-2. Run `tofu claude setup --force` to re-register the handler
+1. Run `tclaude setup --check` to verify protocol handler is registered
+2. Run `tclaude setup --force` to re-register the handler
 
 ## Troubleshooting
 
 ### Notifications not appearing
 
-1. Run `tofu claude setup --check` to verify everything is configured
+1. Run `tclaude setup --check` to verify everything is configured
 2. Check that `~/.tofu/config.json` has `"enabled": true`
 3. Check that the session state transition matches your configured rules
 
@@ -162,7 +162,7 @@ WSL requires PowerShell access for notifications. Tofu automatically uses PowerS
 
 1. Verify PowerShell is accessible: `ls /mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe`
 2. Check Windows notification settings allow toast notifications
-3. Run `tofu claude setup` to ensure hooks and protocol handler are configured
+3. Run `tclaude setup` to ensure hooks and protocol handler are configured
 
 ### Cooldown
 

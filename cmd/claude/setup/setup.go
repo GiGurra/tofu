@@ -216,7 +216,7 @@ func runSetup(params *Params) error {
 	}
 
 	fmt.Println("\n=== Setup Complete ===")
-	fmt.Println("You can verify with: tofu claude setup --check")
+	fmt.Println("You can verify with: tclaude setup --check")
 
 	return nil
 }
@@ -274,7 +274,7 @@ func checkStatus() error {
 		fmt.Println("✓ Status bar configured")
 	} else {
 		fmt.Println("✗ Status bar not configured")
-		fmt.Println("  Run 'tofu claude setup' to install")
+		fmt.Println("  Run 'tclaude setup' to install")
 	}
 
 	// Check clickable notifications setup
@@ -319,7 +319,7 @@ func checkStatus() error {
 		fmt.Printf("  Config: %s\n", config.ConfigPath())
 	} else {
 		fmt.Println("✗ Notifications disabled")
-		fmt.Printf("  Run 'tofu claude setup' to enable\n")
+		fmt.Printf("  Run 'tclaude setup' to enable\n")
 	}
 
 	return nil
@@ -376,7 +376,7 @@ New-Item -Path 'HKCU:\Software\Classes\tofu\shell\open\command' -Force | Out-Nul
 
 # The command extracts session ID and calls wsl to run tofu focus
 # %%1 will be like: tofu://focus/abc12345
-$cmd = 'powershell.exe -NoProfile -WindowStyle Hidden -Command "$url = ''%%1''; $sessionId = $url -replace ''tofu://focus/'',''''; wsl -- tofu claude session focus $sessionId"'
+$cmd = 'powershell.exe -NoProfile -WindowStyle Hidden -Command "$url = ''%%1''; $sessionId = $url -replace ''tofu://focus/'',''''; wsl -- tclaude session focus $sessionId"'
 Set-ItemProperty -Path 'HKCU:\Software\Classes\tofu\shell\open\command' -Name '(Default)' -Value $cmd
 
 Write-Output 'OK'

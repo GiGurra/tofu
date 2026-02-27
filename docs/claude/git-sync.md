@@ -81,7 +81,7 @@ Shows:
 Merge duplicate project directories caused by different paths across machines.
 
 ```bash
-tofu claude git repair [--dry-run]
+tclaude git repair [--dry-run]
 ```
 
 Uses `~/.claude/sync_config.json` to identify equivalent paths and merge them.
@@ -142,22 +142,22 @@ Keep which version? [l]ocal / [r]emote / [s]kip:
 go install github.com/gigurra/tofu/cmd/tclaude@latest
 
 # Initialize with your existing sync repo
-tofu claude git init git@github.com:username/my-claude-sync.git
+tclaude git init git@github.com:username/my-claude-sync.git
 
 # Pull down your conversations
-tofu claude git sync
+tclaude git sync
 ```
 
 ### Daily sync
 
 ```bash
 # Before starting work - pull latest
-tofu claude git sync
+tclaude git sync
 
 # ... use Claude Code ...
 
 # End of day - push your conversations
-tofu claude git sync
+tclaude git sync
 ```
 
 ## Privacy Considerations
@@ -172,7 +172,7 @@ tofu claude git sync
 
 ### "git sync not initialized"
 
-Run `tofu claude git init <repo-url>` first.
+Run `tclaude git init <repo-url>` first.
 
 ### Merge conflicts on every sync
 

@@ -9,8 +9,8 @@ tclaude session new [dir]       # Start new detached session (optionally in dir)
 tclaude session new --resume <conv-id>  # Resume existing conversation
 tclaude session ls              # List all sessions with status
 tclaude session attach <id>     # Attach to session (Ctrl+B D to detach)
-tofu claude session kill <id>       # Kill a session
-tofu claude session watch           # Live dashboard (like top)
+tclaude session kill <id>       # Kill a session
+tclaude session watch           # Live dashboard (like top)
 ```
 
 ## Architecture

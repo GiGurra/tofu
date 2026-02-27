@@ -56,10 +56,10 @@ This will:
 
 ```bash
 # List all worktrees
-tofu claude worktree ls
+tclaude worktree ls
 
 # Or just
-tofu claude worktree
+tclaude worktree
 ```
 
 Output shows the path, branch, and commit for each worktree:
@@ -76,11 +76,11 @@ The `switch` command outputs a worktree path, which a shell wrapper can use to `
 
 ```bash
 # With shell wrapper installed:
-tofu claude worktree switch feat/my-feature
+tclaude worktree switch feat/my-feature
 
 # Aliases also work:
-tofu claude worktree s main
-tofu claude worktree c develop  # checkout alias
+tclaude worktree s main
+tclaude worktree c develop  # checkout alias
 ```
 
 ### Shell Wrapper Setup
@@ -168,16 +168,16 @@ The `switch` command requires a shell wrapper to actually change directories (a 
 
 ```bash
 # Remove a worktree by branch name
-tofu claude worktree rm feat/my-feature
+tclaude worktree rm feat/my-feature
 
 # Remove by path
-tofu claude worktree rm /path/to/worktree
+tclaude worktree rm /path/to/worktree
 
 # Force remove (even if dirty)
-tofu claude worktree rm feat/my-feature --force
+tclaude worktree rm feat/my-feature --force
 
 # Also delete the branch
-tofu claude worktree rm feat/my-feature --delete-branch
+tclaude worktree rm feat/my-feature --delete-branch
 ```
 
 ### Options
@@ -189,7 +189,7 @@ tofu claude worktree rm feat/my-feature --delete-branch
 
 ## Interactive Mode
 
-The conversation watch mode (`tofu claude conv ls -w`) supports creating worktrees directly:
+The conversation watch mode (`tclaude conv ls -w`) supports creating worktrees directly:
 
 | Key | Action |
 |-----|--------|
@@ -201,20 +201,20 @@ This opens a prompt for the branch name and creates a worktree with the selected
 
 ```bash
 # Start working on a feature
-tofu claude worktree add feat/auth-refactor
+tclaude worktree add feat/auth-refactor
 
 # ... work on auth refactor with Claude ...
 
 # Need to fix an urgent bug? Create another worktree
-tofu claude worktree add fix/critical-bug --from-branch main
+tclaude worktree add fix/critical-bug --from-branch main
 
 # Switch between them
-tofu claude worktree switch feat/auth-refactor
-tofu claude worktree switch fix/critical-bug
+tclaude worktree switch feat/auth-refactor
+tclaude worktree switch fix/critical-bug
 
 # Done with the bug fix
-tofu claude worktree rm fix/critical-bug --delete-branch
+tclaude worktree rm fix/critical-bug --delete-branch
 
 # List what's still active
-tofu claude worktree ls
+tclaude worktree ls
 ```
