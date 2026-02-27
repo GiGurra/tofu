@@ -92,9 +92,9 @@ func runNotifyListen(sessionID, title, body string) error {
 						slog.Info("Notification clicked", "notifID", notifID)
 						tofuPath, err := os.Executable()
 						if err != nil {
-							tofuPath = "tofu"
+							tofuPath = "tclaude"
 						}
-						focusCmd := exec.Command(tofuPath, "claude", "session", "focus", sessionID)
+						focusCmd := exec.Command(tofuPath, "session", "focus", sessionID)
 						_ = focusCmd.Run()
 						return nil
 					}

@@ -29,9 +29,9 @@ func platformSend(sessionID, title, body string) error {
 func sendLinuxClickable(sessionID, title, body string) error {
 	tofuPath, err := os.Executable()
 	if err != nil {
-		tofuPath = "tofu"
+		tofuPath = "tclaude"
 	}
-	listener := exec.Command(tofuPath, "claude", "session", "notify-listen",
+	listener := exec.Command(tofuPath, "session", "notify-listen",
 		sessionID, title, body)
 	listener.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := listener.Start(); err != nil {

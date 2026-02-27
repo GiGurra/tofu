@@ -20,7 +20,7 @@ func sendDarwinClickable(sessionID, title, body string) error {
 		// Get full path to tofu executable
 		tofuPath, err := os.Executable()
 		if err != nil {
-			tofuPath = "tofu" // fallback
+			tclaudePath = "tclaude" // fallback
 		}
 
 		// Get full path to tmux (needed by focus command)
@@ -34,10 +34,10 @@ func sendDarwinClickable(sessionID, title, body string) error {
 		if tmuxPath != "" {
 			// Add tmux's directory to PATH
 			tmuxDir := filepath.Dir(tmuxPath)
-			focusCmd = fmt.Sprintf("PATH=%s:$PATH %s claude session focus %s",
+			focusCmd = fmt.Sprintf("PATH=%s:$PATH %s session focus %s",
 				tmuxDir, tofuPath, sessionID)
 		} else {
-			focusCmd = fmt.Sprintf("%s claude session focus %s", tofuPath, sessionID)
+			focusCmd = fmt.Sprintf("%s session focus %s", tofuPath, sessionID)
 		}
 
 		return exec.Command("terminal-notifier",
