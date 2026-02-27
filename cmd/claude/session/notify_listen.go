@@ -44,14 +44,6 @@ func runNotifyListen(sessionID, title, body string) error {
 	if err := conn.AddMatchSignal(
 		dbus.WithMatchObjectPath("/org/freedesktop/Notifications"),
 		dbus.WithMatchInterface("org.freedesktop.Notifications"),
-		dbus.WithMatchMember("ActionInvoked"),
-	); err != nil {
-		return fmt.Errorf("failed to add ActionInvoked match: %w", err)
-	}
-
-	if err := conn.AddMatchSignal(
-		dbus.WithMatchObjectPath("/org/freedesktop/Notifications"),
-		dbus.WithMatchInterface("org.freedesktop.Notifications"),
 		dbus.WithMatchMember("NotificationClosed"),
 	); err != nil {
 		return fmt.Errorf("failed to add NotificationClosed match: %w", err)
@@ -62,7 +54,7 @@ func runNotifyListen(sessionID, title, body string) error {
 
 	// Send the notification on this same connection
 	obj := conn.Object("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
-	actions := []string{"focus", "Focus"}
+	var actions []string
 
 	call := obj.Call("org.freedesktop.Notifications.Notify", 0,
 		"Claude Code",             // app_name
@@ -70,7 +62,7 @@ func runNotifyListen(sessionID, title, body string) error {
 		"",                        // app_icon
 		title,                     // summary
 		body,                      // body
-		actions,                   // actions
+		actions,                   // no actions
 		map[string]dbus.Variant{}, // hints
 		int32(-1),                 // expire_timeout (-1 = server default)
 	)
@@ -83,7 +75,7 @@ func runNotifyListen(sessionID, title, body string) error {
 		return fmt.Errorf("failed to get notification ID: %w", err)
 	}
 
-	slog.Info("Notification sent, waiting for action", "notifID", notifID)
+	slog.Info("Notification sent, waiting for callback", "notifID", notifID)
 
 	// Wait up to 5 minutes for an action or close
 	timeout := time.After(5 * time.Minute)
@@ -94,25 +86,16 @@ func runNotifyListen(sessionID, title, body string) error {
 				return nil
 			}
 			switch sig.Name {
-			case "org.freedesktop.Notifications.ActionInvoked":
-				if len(sig.Body) >= 2 {
-					id, ok1 := sig.Body[0].(uint32)
-					action, ok2 := sig.Body[1].(string)
-					if ok1 && ok2 && id == notifID && action == "focus" {
-						slog.Info("Focus action invoked", "notifID", notifID)
+			case "org.freedesktop.Notifications.NotificationClosed":
+				if len(sig.Body) >= 1 {
+					if id, ok := sig.Body[0].(uint32); ok && id == notifID {
+						slog.Info("Notification clicked", "notifID", notifID)
 						tofuPath, err := os.Executable()
 						if err != nil {
 							tofuPath = "tofu"
 						}
 						focusCmd := exec.Command(tofuPath, "claude", "session", "focus", sessionID)
 						_ = focusCmd.Run()
-						return nil
-					}
-				}
-			case "org.freedesktop.Notifications.NotificationClosed":
-				if len(sig.Body) >= 1 {
-					if id, ok := sig.Body[0].(uint32); ok && id == notifID {
-						slog.Info("Notification closed", "notifID", notifID)
 						return nil
 					}
 				}
