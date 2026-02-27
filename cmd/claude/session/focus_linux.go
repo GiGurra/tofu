@@ -727,15 +727,3 @@ func IsXdotoolInstalled() bool {
 	_, err := exec.LookPath("xdotool")
 	return err == nil
 }
-
-// IsNotifySendInstalled checks if notify-send is available.
-func IsNotifySendInstalled() bool {
-	_, err := exec.LookPath("notify-send")
-	return err == nil
-}
-
-// IsDunstifyInstalled checks if dunstify is available.
-func IsDunstifyInstalled() bool {
-	_, err := exec.LookPath("dunstify")
-	return err == nil
-}

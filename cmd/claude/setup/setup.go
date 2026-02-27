@@ -173,26 +173,14 @@ func runSetup(params *Params) error {
 			}
 		}
 	} else if runtime.GOOS == "linux" {
-		// Native Linux: Check for xdotool and notify-send/dunstify
-		fmt.Println("  Checking Linux notification tools...")
+		// Native Linux: Notifications use D-Bus directly, check xdotool for window focus
+		fmt.Println("✓ Notifications use D-Bus (no external tools needed)")
 
-		// Check xdotool for window focus
 		if isXdotoolInstalled() {
 			fmt.Println("✓ xdotool installed (for window focus)")
 		} else {
 			fmt.Println("✗ xdotool not found (optional, for window focus)")
 			fmt.Println("  Install with: sudo apt install xdotool")
-		}
-
-		// Check notify-send or dunstify
-		if isDunstifyInstalled() {
-			fmt.Println("✓ dunstify installed (supports click actions)")
-		} else if isNotifySendInstalled() {
-			fmt.Println("✓ notify-send installed (no click actions)")
-			fmt.Println("  For clickable notifications, install dunst: sudo apt install dunst")
-		} else {
-			fmt.Println("✗ No notification tool found")
-			fmt.Println("  Install with: sudo apt install libnotify-bin")
 		}
 	} else if runtime.GOOS == "windows" {
 		fmt.Println("  Not implemented for native Windows yet")
@@ -309,17 +297,11 @@ func checkStatus() error {
 		}
 	} else if runtime.GOOS == "linux" {
 		// Native Linux
+		fmt.Println("✓ Notifications use D-Bus (no external tools needed)")
 		if isXdotoolInstalled() {
 			fmt.Println("✓ xdotool installed (for window focus)")
 		} else {
 			fmt.Println("✗ xdotool not found (optional)")
-		}
-		if isDunstifyInstalled() {
-			fmt.Println("✓ dunstify installed (supports click actions)")
-		} else if isNotifySendInstalled() {
-			fmt.Println("✓ notify-send installed (no click actions)")
-		} else {
-			fmt.Println("✗ No notification tool found")
 		}
 	} else if runtime.GOOS == "windows" {
 		fmt.Println("  Not implemented for native Windows yet")
@@ -462,14 +444,3 @@ func isXdotoolInstalled() bool {
 	return err == nil
 }
 
-// isNotifySendInstalled checks if notify-send is available.
-func isNotifySendInstalled() bool {
-	_, err := exec.LookPath("notify-send")
-	return err == nil
-}
-
-// isDunstifyInstalled checks if dunstify is available.
-func isDunstifyInstalled() bool {
-	_, err := exec.LookPath("dunstify")
-	return err == nil
-}

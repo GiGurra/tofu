@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
-	"github.com/gen2brain/beeep"
 	"github.com/gigurra/tofu/cmd/claude/common/config"
 	"github.com/gigurra/tofu/cmd/claude/common/wsl"
 )
@@ -94,48 +94,35 @@ func send(sessionID, to, cwd, convTitle string) {
 		err = sendLinuxClickable(sessionID, title, body)
 	} else if runtime.GOOS == "darwin" {
 		err = sendDarwinClickable(sessionID, title, body)
-	} else {
-		err = beeep.Notify(title, body, "")
 	}
 
 	if err != nil {
-		// Fallback to beeep
-		if beeepErr := beeep.Notify(title, body, ""); beeepErr != nil {
-			// Final fallback to stderr
-			fmt.Fprintf(os.Stderr, "[notify] %s: %s\n", title, body)
-		}
+		// Final fallback to stderr
+		fmt.Fprintf(os.Stderr, "[notify] %s: %s\n", title, body)
 	}
 }
 
-// sendLinuxClickable sends a notification with click-to-focus on native Linux.
+// sendLinuxClickable sends a notification with click-to-focus on native Linux via D-Bus.
+// It spawns a detached background process that sends the notification and listens for
+// the click action on the same D-Bus connection. This is necessary because:
+// 1. The hook-callback process exits immediately, so goroutines can't be used
+// 2. D-Bus notification daemons send ActionInvoked signals only to the connection
+//    that created the notification, so send and listen must share a connection
 func sendLinuxClickable(sessionID, title, body string) error {
-	// Get full path to tofu executable
 	tofuPath, err := os.Executable()
 	if err != nil {
-		tofuPath = "tofu" // fallback
+		tofuPath = "tofu"
 	}
-
-	// Check for dunstify (supports actions)
-	if _, err := exec.LookPath("dunstify"); err == nil {
-		// Run in goroutine since dunstify blocks waiting for action
-		go func() {
-			cmd := exec.Command("dunstify", "-A", "focus,Focus", title, body)
-			output, err := cmd.Output()
-			if err == nil && strings.TrimSpace(string(output)) == "focus" {
-				// Focus the session window (or attach if not attached)
-				focusCmd := exec.Command(tofuPath, "claude", "session", "focus", sessionID)
-				_ = focusCmd.Run()
-			}
-		}()
-		return nil
+	listener := exec.Command(tofuPath, "claude", "session", "notify-listen",
+		sessionID, title, body)
+	listener.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err := listener.Start(); err != nil {
+		return fmt.Errorf("failed to start notify listener: %w", err)
 	}
+	// Detach - don't wait for the listener process
+	go listener.Wait()
 
-	// Fallback to notify-send (no action support, but still works)
-	if _, err := exec.LookPath("notify-send"); err == nil {
-		return exec.Command("notify-send", title, body).Run()
-	}
-
-	return fmt.Errorf("no notification tool found")
+	return nil
 }
 
 // sendWSLClickable sends a Windows Toast notification that focuses the terminal on click.
