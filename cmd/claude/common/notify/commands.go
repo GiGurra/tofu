@@ -20,13 +20,13 @@ func BuildDarwinNotifyCmd(title, body, sessionID, tofuPath, tmuxDir string) Darw
 	// Build the focus command that runs when notification is clicked
 	var focusCmd string
 	if tofuPath == "" {
-		tofuPath = "tofu"
+		tofuPath = "tclaude"
 	}
 	if tmuxDir != "" {
-		focusCmd = fmt.Sprintf("PATH=%s:$PATH %s claude session focus %s",
+		focusCmd = fmt.Sprintf("PATH=%s:$PATH %s session focus %s",
 			tmuxDir, tofuPath, sessionID)
 	} else {
-		focusCmd = fmt.Sprintf("%s claude session focus %s", tofuPath, sessionID)
+		focusCmd = fmt.Sprintf("%s session focus %s", tofuPath, sessionID)
 	}
 
 	return DarwinNotifyCmd{
@@ -176,11 +176,11 @@ func NotificationTitle(status string) string {
 // FocusCommandString builds the shell command string for focusing a session.
 func FocusCommandString(tofuPath, tmuxDir, sessionID string) string {
 	if tofuPath == "" {
-		tofuPath = "tofu"
+		tofuPath = "tclaude"
 	}
 	if tmuxDir != "" {
-		return fmt.Sprintf("PATH=%s:$PATH %s claude session focus %s",
+		return fmt.Sprintf("PATH=%s:$PATH %s session focus %s",
 			filepath.Clean(tmuxDir), tofuPath, sessionID)
 	}
-	return fmt.Sprintf("%s claude session focus %s", tofuPath, sessionID)
+	return fmt.Sprintf("%s session focus %s", tofuPath, sessionID)
 }

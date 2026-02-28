@@ -12,12 +12,12 @@ Git worktrees allow you to have multiple branches checked out simultaneously in 
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `worktree add <branch>` | Create a new worktree with a Claude session |
-| `worktree ls` | List all worktrees |
+| Command                    | Description                                   |
+|----------------------------|-----------------------------------------------|
+| `worktree add <branch>`    | Create a new worktree with a Claude session   |
+| `worktree ls`              | List all worktrees                            |
 | `worktree switch <branch>` | Switch to a worktree (requires shell wrapper) |
-| `worktree rm <branch>` | Remove a worktree |
+| `worktree rm <branch>`     | Remove a worktree                             |
 
 ## Creating a Worktree
 
@@ -44,13 +44,13 @@ This will:
 
 ### Options
 
-| Flag | Description |
-|------|-------------|
-| `--from-branch` | Base branch to create from (defaults to main/master) |
-| `--from-conv` | Conversation ID to copy to the new worktree |
-| `--path` | Custom path for the worktree |
-| `-d, --detached` | Don't start a Claude session |
-| `-g` | Search globally for conversation (with `--from-conv`) |
+| Flag             | Description                                           |
+|------------------|-------------------------------------------------------|
+| `--from-branch`  | Base branch to create from (defaults to main/master)  |
+| `--from-conv`    | Conversation ID to copy to the new worktree           |
+| `--path`         | Custom path for the worktree                          |
+| `-d, --detached` | Don't start a Claude session                          |
+| `-g`             | Search globally for conversation (with `--from-conv`) |
 
 ## Listing Worktrees
 
@@ -97,9 +97,9 @@ The `switch` command requires a shell wrapper to actually change directories (a 
     Or copy the function directly:
     ```bash
     tofu() {
-        if [[ $# -ge 4 && "$1" == "claude" && "$2" == "worktree" && "$3" =~ ^(switch|s|checkout|c)$ ]]; then
+        if [[ $# -ge 3 && "$1" == "worktree" && "$2" =~ ^(switch|s|checkout|c)$ ]]; then
             local dir
-            dir=$(command tofu "$@" 2>&1)
+            dir=$(command tclaude "$@" 2>&1)
             local status_code=$?
             if [[ $status_code -eq 0 && -n "$dir" && -d "$dir" ]]; then
                 cd "$dir"
@@ -108,7 +108,7 @@ The `switch` command requires a shell wrapper to actually change directories (a 
                 return $status_code
             fi
         else
-            command tofu "$@"
+            command tclaude "$@"
         fi
     }
     ```
@@ -123,9 +123,9 @@ The `switch` command requires a shell wrapper to actually change directories (a 
     Or copy the function directly:
     ```bash
     tofu() {
-        if [[ $# -ge 4 && "$1" == "claude" && "$2" == "worktree" && "$3" =~ ^(switch|s|checkout|c)$ ]]; then
+        if [[ $# -ge 3 && "$1" == "worktree" && "$2" =~ ^(switch|s|checkout|c)$ ]]; then
             local dir
-            dir=$(command tofu "$@" 2>&1)
+            dir=$(command tclaude "$@" 2>&1)
             local status_code=$?
             if [[ $status_code -eq 0 && -n "$dir" && -d "$dir" ]]; then
                 cd "$dir"
@@ -134,7 +134,7 @@ The `switch` command requires a shell wrapper to actually change directories (a 
                 return $status_code
             fi
         else
-            command tofu "$@"
+            command tclaude "$@"
         fi
     }
     ```
@@ -149,8 +149,8 @@ The `switch` command requires a shell wrapper to actually change directories (a 
     Or copy the function directly:
     ```fish
     function tofu
-        if test (count $argv) -ge 4; and test "$argv[1]" = "claude"; and test "$argv[2]" = "worktree"; and string match -qr '^(switch|s|checkout|c)$' "$argv[3]"
-            set -l dir (command tofu $argv 2>&1)
+        if test (count $argv) -ge 3; and test "$argv[1]" = "worktree"; and string match -qr '^(switch|s|checkout|c)$' "$argv[2]"
+            set -l dir (command tclaude $argv 2>&1)
             set -l status_code $status
             if test $status_code -eq 0; and test -n "$dir"; and test -d "$dir"
                 cd "$dir"
@@ -159,7 +159,7 @@ The `switch` command requires a shell wrapper to actually change directories (a 
                 return $status_code
             end
         else
-            command tofu $argv
+            command tclaude $argv
         end
     end
     ```
@@ -182,17 +182,17 @@ tclaude worktree rm feat/my-feature --delete-branch
 
 ### Options
 
-| Flag | Description |
-|------|-------------|
-| `-f, --force` | Force removal even if worktree has changes |
+| Flag              | Description                                    |
+|-------------------|------------------------------------------------|
+| `-f, --force`     | Force removal even if worktree has changes     |
 | `--delete-branch` | Also delete the branch after removing worktree |
 
 ## Interactive Mode
 
 The conversation watch mode (`tclaude conv ls -w`) supports creating worktrees directly:
 
-| Key | Action |
-|-----|--------|
+| Key | Action                                     |
+|-----|--------------------------------------------|
 | `W` | Create worktree from selected conversation |
 
 This opens a prompt for the branch name and creates a worktree with the selected conversation copied to it.
