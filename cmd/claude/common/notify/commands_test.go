@@ -22,7 +22,7 @@ func TestBuildDarwinNotifyCmd(t *testing.T) {
 			title:     "Claude: Idle",
 			body:      "abc123 | myproject - Working on feature",
 			sessionID: "abc123",
-			tofuPath:  "/usr/local/bin/tofu",
+			tofuPath:  "/usr/local/bin/tclaude",
 			tmuxDir:   "/opt/homebrew/bin",
 			wantArgs: []string{
 				"-title", "Claude: Idle",
@@ -36,7 +36,7 @@ func TestBuildDarwinNotifyCmd(t *testing.T) {
 			title:     "Claude: Awaiting permission",
 			body:      "def456 | otherproject",
 			sessionID: "def456",
-			tofuPath:  "/home/user/go/bin/tofu",
+			tofuPath:  "/home/user/go/bin/tclaude",
 			tmuxDir:   "",
 			wantArgs: []string{
 				"-title", "Claude: Awaiting permission",
@@ -271,7 +271,7 @@ func TestFocusCommandString(t *testing.T) {
 	}{
 		{
 			name:      "with tmux dir",
-			tofuPath:  "/usr/bin/tofu",
+			tofuPath:  "/usr/bin/tclaude",
 			tmuxDir:   "/opt/homebrew/bin",
 			sessionID: "abc123",
 			wantFunc: func(tmuxDir string) string {
@@ -280,7 +280,7 @@ func TestFocusCommandString(t *testing.T) {
 		},
 		{
 			name:      "without tmux dir",
-			tofuPath:  "/usr/bin/tofu",
+			tofuPath:  "/usr/bin/tclaude",
 			tmuxDir:   "",
 			sessionID: "abc123",
 			wantFunc: func(_ string) string {
