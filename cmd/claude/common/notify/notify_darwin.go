@@ -20,7 +20,7 @@ func sendDarwinClickable(sessionID, title, body string) error {
 		// Get full path to tofu executable
 		tofuPath, err := os.Executable()
 		if err != nil {
-			tclaudePath = "tclaude" // fallback
+			tofuPath = "tclaude" // fallback
 		}
 
 		// Get full path to tmux (needed by focus command)
