@@ -1,4 +1,4 @@
-// Package statusbar provides the tofu claude status-bar command for Claude Code's statusline feature.
+// Package statusbar provides the tclaude status-bar command for Claude Code's statusline feature.
 package statusbar
 
 import (

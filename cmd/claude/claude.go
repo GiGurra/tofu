@@ -6,7 +6,7 @@ import (
 
 	"github.com/GiGurra/boa/pkg/boa"
 	"github.com/gigurra/tofu/cmd/claude/conv"
-	"github.com/gigurra/tofu/cmd/claude/git"
+	claudegit "github.com/gigurra/tofu/cmd/claude/git"
 	"github.com/gigurra/tofu/cmd/claude/session"
 	"github.com/gigurra/tofu/cmd/claude/setup"
 	"github.com/gigurra/tofu/cmd/claude/stats"
@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Cmd returns the claude subcommand for use in other binaries (e.g. tofu claude ...).
 func Cmd() *cobra.Command {
 	cmd := boa.CmdT[session.NewParams]{
 		Use:         "claude",
@@ -27,7 +28,7 @@ func Cmd() *cobra.Command {
 		SubCmds: []*cobra.Command{
 			conv.Cmd(),
 			session.Cmd(),
-			git.Cmd(),
+			claudegit.Cmd(),
 			worktree.Cmd(),
 			stats.Cmd(),
 			usage.Cmd(),
@@ -36,14 +37,12 @@ func Cmd() *cobra.Command {
 			web.Cmd(),
 		},
 		RunFunc: func(params *session.NewParams, cmd *cobra.Command, args []string) {
-			// Default to starting a new session
 			if err := session.RunNew(params); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}
 		},
 	}.ToCobra()
-	// Allow arbitrary args so post-'--' args pass through to claude without cobra rejecting them.
 	cmd.Args = cobra.ArbitraryArgs
 	return cmd
 }

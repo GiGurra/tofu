@@ -10,23 +10,23 @@ List conversations.
 
 ```bash
 # List conversations for current project
-tofu claude conv ls
+tclaude conv ls
 
 # Interactive watch mode
-tofu claude conv ls -w
+tclaude conv ls -w
 
 # Global - all projects
-tofu claude conv ls -g
+tclaude conv ls -g
 
 # Global interactive
-tofu claude conv ls -g -w
+tclaude conv ls -g -w
 
 # Limit results
-tofu claude conv ls -n 10
+tclaude conv ls -n 10
 
 # Filter by time
-tofu claude conv ls --since 7d
-tofu claude conv ls --before 2024-01-01
+tclaude conv ls --since 7d
+tclaude conv ls --before 2024-01-01
 ```
 
 **Flags:**
@@ -45,16 +45,16 @@ Search conversation content.
 
 ```bash
 # Search in current project
-tofu claude conv search "authentication"
+tclaude conv search "authentication"
 
 # Search globally
-tofu claude conv search -g "authentication"
+tclaude conv search -g "authentication"
 
 # Search with time filter
-tofu claude conv search --since 24h "bug fix"
+tclaude conv search --since 24h "bug fix"
 
 # Full content search (slower, more thorough)
-tofu claude conv search --content "specific error message"
+tclaude conv search --content "specific error message"
 ```
 
 **Flags:**
@@ -72,13 +72,13 @@ Resume a conversation in a new Claude session.
 
 ```bash
 # Resume by ID (creates a new tmux session)
-tofu claude conv resume <conv-id>
+tclaude conv resume <conv-id>
 
 # Resume detached
-tofu claude conv resume -d <conv-id>
+tclaude conv resume -d <conv-id>
 ```
 
-This is equivalent to `tofu claude session new --resume <conv-id>`.
+This is equivalent to `tclaude session new --resume <conv-id>`.
 
 ### conv delete
 
@@ -86,13 +86,13 @@ Delete a conversation.
 
 ```bash
 # Delete by ID
-tofu claude conv delete <conv-id>
+tclaude conv delete <conv-id>
 
 # Skip confirmation
-tofu claude conv delete -y <conv-id>
+tclaude conv delete -y <conv-id>
 
 # Search globally
-tofu claude conv delete -g <conv-id>
+tclaude conv delete -g <conv-id>
 ```
 
 ### conv prune-empty
@@ -101,13 +101,13 @@ Delete conversations with no messages.
 
 ```bash
 # Prune current project
-tofu claude conv prune-empty
+tclaude conv prune-empty
 
 # Prune globally
-tofu claude conv prune-empty -g
+tclaude conv prune-empty -g
 
 # Preview only (dry run)
-tofu claude conv prune-empty --dry-run
+tclaude conv prune-empty --dry-run
 ```
 
 ### conv cp / conv mv
@@ -116,10 +116,10 @@ Copy or move conversations.
 
 ```bash
 # Copy a conversation
-tofu claude conv cp <conv-id> /path/to/dest
+tclaude conv cp <conv-id> /path/to/dest
 
 # Move a conversation
-tofu claude conv mv <conv-id> /path/to/dest
+tclaude conv mv <conv-id> /path/to/dest
 ```
 
 ## Interactive Watch Mode
@@ -190,16 +190,16 @@ Commands support flexible time formats:
 
 ```bash
 # Last 24 hours
-tofu claude conv ls --since 24h
+tclaude conv ls --since 24h
 
 # Last week
-tofu claude conv ls --since 7d
+tclaude conv ls --since 7d
 
 # Before a specific date
-tofu claude conv ls --before 2024-01-01
+tclaude conv ls --before 2024-01-01
 
 # Date range
-tofu claude conv ls --since 2024-01-01 --before 2024-02-01
+tclaude conv ls --since 2024-01-01 --before 2024-02-01
 ```
 
 ## Session ID Formats

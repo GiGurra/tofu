@@ -46,4 +46,4 @@
 
 ## Claude Session Management
 
-- [x] Auto git worktrees - `tofu claude worktree add <branch>` creates worktrees for parallel Claude sessions
+- [x] Auto git worktrees - `tclaude worktree add <branch>` creates worktrees for parallel Claude sessions

@@ -5,7 +5,7 @@ Run Claude Code in persistent tmux sessions with status tracking.
 ## Prerequisites
 
 - **tmux** - Required for session management
-- **Run setup** - For status tracking and notifications: `tofu claude setup`
+- **Run setup** - For status tracking and notifications: `tclaude setup`
 
 ## Commands
 
@@ -15,16 +15,16 @@ Start Claude in a new tmux session.
 
 ```bash
 # Start a new session in current directory
-tofu claude session new
+tclaude session new
 
 # Start in a specific directory
-tofu claude session new /path/to/project
+tclaude session new /path/to/project
 
 # Resume an existing conversation
-tofu claude session new --resume <conv-id>
+tclaude session new --resume <conv-id>
 
 # Start detached (don't attach immediately)
-tofu claude session new -d
+tclaude session new -d
 ```
 
 **Flags:**
@@ -40,17 +40,17 @@ List active sessions.
 
 ```bash
 # List sessions
-tofu claude session ls
+tclaude session ls
 
 # Interactive watch mode
-tofu claude session ls -w
+tclaude session ls -w
 
 # Include exited sessions
-tofu claude session ls -a
+tclaude session ls -a
 
 # Filter by status
-tofu claude session ls --status idle
-tofu claude session ls --hide exited
+tclaude session ls --status idle
+tclaude session ls --hide exited
 ```
 
 **Flags:**
@@ -71,10 +71,10 @@ Attach to an existing session.
 
 ```bash
 # Attach by session ID
-tofu claude session attach <id>
+tclaude session attach <id>
 
 # Force attach (detach other clients)
-tofu claude session attach -d <id>
+tclaude session attach -d <id>
 ```
 
 ### session kill
@@ -83,16 +83,16 @@ Kill one or more sessions.
 
 ```bash
 # Kill a specific session
-tofu claude session kill <id>
+tclaude session kill <id>
 
 # Kill all sessions
-tofu claude session kill --all
+tclaude session kill --all
 
 # Kill only idle sessions
-tofu claude session kill --idle
+tclaude session kill --idle
 
 # Force (no confirmation)
-tofu claude session kill -f <id>
+tclaude session kill -f <id>
 ```
 
 ## Interactive Watch Mode

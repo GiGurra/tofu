@@ -2,11 +2,11 @@ package notify
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 	"syscall"
 
+	"github.com/gigurra/tofu/cmd/claude/common"
 	"github.com/gigurra/tofu/cmd/claude/common/wsl"
 )
 
@@ -27,12 +27,9 @@ func platformSend(sessionID, title, body string) error {
 //
 //	that created the notification, so send and listen must share a connection
 func sendLinuxClickable(sessionID, title, body string) error {
-	tofuPath, err := os.Executable()
-	if err != nil {
-		tofuPath = "tofu"
-	}
-	listener := exec.Command(tofuPath, "claude", "session", "notify-listen",
-		sessionID, title, body)
+	tofuArgs := common.DetectTofuArgs()
+	listenerArgs := append(tofuArgs[1:], "session", "notify-listen", sessionID, title, body)
+	listener := exec.Command(tofuArgs[0], listenerArgs...)
 	listener.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := listener.Start(); err != nil {
 		return fmt.Errorf("failed to start notify listener: %w", err)
@@ -44,7 +41,7 @@ func sendLinuxClickable(sessionID, title, body string) error {
 }
 
 // sendWSLClickable sends a Windows Toast notification that focuses the terminal on click.
-// Note: Requires 'tofu claude setup' to have been run to register the protocol handler.
+// Note: Requires 'tclaude setup' to have been run to register the protocol handler.
 // If not registered, the notification still shows but clicking won't focus the terminal.
 func sendWSLClickable(sessionID, title, body string) error {
 	return notifyWSLClickable(title, body, sessionID)

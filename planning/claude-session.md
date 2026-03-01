@@ -5,12 +5,12 @@ Multiplex and manage multiple Claude Code sessions with detach/reattach, status 
 ## Commands
 
 ```bash
-tofu claude session new [dir]       # Start new detached session (optionally in dir)
-tofu claude session new --resume <conv-id>  # Resume existing conversation
-tofu claude session ls              # List all sessions with status
-tofu claude session attach <id>     # Attach to session (Ctrl+B D to detach)
-tofu claude session kill <id>       # Kill a session
-tofu claude session watch           # Live dashboard (like top)
+tclaude session new [dir]       # Start new detached session (optionally in dir)
+tclaude session new --resume <conv-id>  # Resume existing conversation
+tclaude session ls              # List all sessions with status
+tclaude session attach <id>     # Attach to session (Ctrl+B D to detach)
+tclaude session kill <id>       # Kill a session
+tclaude session watch           # Live dashboard (like top)
 ```
 
 ## Architecture

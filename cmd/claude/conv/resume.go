@@ -122,7 +122,7 @@ func runResumeWithSession(convInfo *clcommon.ConvInfo, projectPath, displayName 
 	existing, _ := session.LoadSessionState(sessionID)
 	if existing != nil && session.IsTmuxSessionAlive(existing.TmuxSession) {
 		fmt.Fprintf(stderr, "Session %s already exists for this conversation\n", sessionID)
-		fmt.Fprintf(stderr, "Attach with: tofu claude session attach %s\n", sessionID)
+		fmt.Fprintf(stderr, "Attach with: tclaude session attach %s\n", sessionID)
 		return 1
 	}
 
@@ -178,6 +178,6 @@ func runResumeWithSession(convInfo *clcommon.ConvInfo, projectPath, displayName 
 		return session.AttachToTmuxSession(tmuxSession)
 	}
 
-	fmt.Fprintf(stdout, "\nAttach with: tofu claude session attach %s\n", sessionID)
+	fmt.Fprintf(stdout, "\nAttach with: tclaude session attach %s\n", sessionID)
 	return 0
 }

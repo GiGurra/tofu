@@ -39,7 +39,7 @@ func runStatus(_ *StatusParams) error {
 
 	if !IsInitialized() {
 		fmt.Printf("Git sync not initialized.\n")
-		fmt.Printf("Run 'tofu claude git init <repo-url>' to set up sync.\n")
+		fmt.Printf("Run 'tclaude git init <repo-url>' to set up sync.\n")
 		return nil
 	}
 

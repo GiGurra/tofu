@@ -232,7 +232,7 @@ func focusWTTabByCycling(sessionID string) bool {
 	// Use -f (force) to detach from any existing attachment
 	// Syntax: wt.exe -w -1 wsl -- bash -c "command" (-w -1 = new window)
 	script := fmt.Sprintf(`
-wt.exe -w -1 wsl -- bash -lc "tofu claude session attach -f %s"
+wt.exe -w -1 wsl -- bash -lc "tclaude session attach -f %s"
 Write-Output "True"
 `, sessionID)
 

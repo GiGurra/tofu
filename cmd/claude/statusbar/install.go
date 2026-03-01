@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+
+	"github.com/gigurra/tofu/cmd/claude/common"
 )
 
 // StatusLineConfig matches the Claude Code statusLine settings format
@@ -13,9 +16,21 @@ type StatusLineConfig struct {
 	Command string `json:"command"`
 }
 
-const StatusLineCommand = "tofu claude status-bar"
+// StatusLineCommand is the status-bar command (detected at startup)
+var StatusLineCommand = common.DetectTofuCmd("status-bar")
 
-// CheckInstalled checks if the tofu status-bar is configured in Claude settings
+// isOurStatusBar returns true if the command is a tofu/tclaude status-bar command,
+// including absolute paths like /usr/local/bin/tclaude status-bar
+func isOurStatusBar(command string) bool {
+	fields := strings.Fields(command)
+	if len(fields) == 0 {
+		return false
+	}
+	base := filepath.Base(fields[0])
+	return strings.HasSuffix(command, "status-bar") && (base == "tclaude" || base == "tofu")
+}
+
+// CheckInstalled checks if any tofu/tclaude status-bar is configured in Claude settings
 func CheckInstalled() bool {
 	settingsPath := claudeSettingsPath()
 	if settingsPath == "" {
@@ -42,7 +57,7 @@ func CheckInstalled() bool {
 		return false
 	}
 
-	return sl.Type == "command" && sl.Command == StatusLineCommand
+	return sl.Type == "command" && isOurStatusBar(sl.Command)
 }
 
 // Install configures the tofu status-bar as the statusLine command in Claude settings

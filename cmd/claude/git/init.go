@@ -43,7 +43,7 @@ func runInit(params *InitParams) error {
 			}
 		}
 	} else if IsInitialized() {
-		return fmt.Errorf("sync already initialized at %s\nUse --reset to reinitialize, or 'tofu claude git status' to check status", syncDir)
+		return fmt.Errorf("sync already initialized at %s\nUse --reset to reinitialize, or 'tclaude git status' to check status", syncDir)
 	}
 
 	// Create sync directory if it doesn't exist
@@ -90,7 +90,7 @@ func runInit(params *InitParams) error {
 		}
 
 		fmt.Printf("Initialized empty sync repository at %s\n", syncDir)
-		fmt.Printf("Run 'tofu claude git sync' to sync your conversations.\n")
+		fmt.Printf("Run 'tclaude git sync' to sync your conversations.\n")
 		return nil
 	}
 
@@ -116,7 +116,7 @@ func runInit(params *InitParams) error {
 		}
 
 		fmt.Printf("Cloned existing conversations to %s\n", syncDir)
-		fmt.Printf("Run 'tofu claude git sync' to merge with your local conversations.\n")
+		fmt.Printf("Run 'tclaude git sync' to merge with your local conversations.\n")
 	} else {
 		// Empty repo - init locally
 		fmt.Printf("Remote is empty. Initializing fresh sync...\n")
@@ -134,7 +134,7 @@ func runInit(params *InitParams) error {
 		}
 
 		fmt.Printf("Initialized sync repository at %s\n", syncDir)
-		fmt.Printf("Run 'tofu claude git sync' to sync your conversations.\n")
+		fmt.Printf("Run 'tclaude git sync' to sync your conversations.\n")
 	}
 
 	// Create symlink for sync_config.json if it exists in sync dir

@@ -147,7 +147,7 @@ func runNew(params *NewParams) error {
 		"new-session",
 		"-d",              // detached
 		"-s", tmuxSession, // session name
-		"-c", cwd,         // working directory
+		"-c", cwd, // working directory
 		"sh", "-c", claudeCmd,
 	}
 
@@ -187,7 +187,7 @@ func runNew(params *NewParams) error {
 	fmt.Printf("  Directory: %s\n", cwd)
 
 	if params.Detached {
-		fmt.Printf("\nAttach with: tofu claude session attach %s\n", sessionID)
+		fmt.Printf("\nAttach with: tclaude session attach %s\n", sessionID)
 		return nil
 	}
 

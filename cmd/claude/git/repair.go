@@ -138,7 +138,7 @@ func runRepair(params *RepairParams) error {
 	} else {
 		fmt.Printf("\nRepaired %d project groups, fixed %d paths.\n", totalCount, totalFixed)
 		if IsInitialized() {
-			fmt.Printf("Run 'tofu claude git sync' to commit and push the repairs.\n")
+			fmt.Printf("Run 'tclaude git sync' to commit and push the repairs.\n")
 		}
 	}
 

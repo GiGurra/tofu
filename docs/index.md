@@ -6,9 +6,10 @@
 Cross-platform CLI tools written in Go. 50+ commands that work consistently on Windows, macOS, and Linux.
 
 ```bash
-go install github.com/gigurra/tofu@latest
+go install github.com/gigurra/tofu/cmd/tofu@latest
+go install github.com/gigurra/tofu/cmd/tclaude@latest
 # Install Claude hooks (optional, enables status tracking)
-tofu claude setup
+tclaude setup
 ```
 
 ---
@@ -22,10 +23,10 @@ tofu claude setup
 Session and conversation management for [Claude Code](https://claude.ai/code):
 
 ```bash
-tofu claude session new          # Start Claude in a tmux session
-tofu claude session ls -w        # Interactive session browser with search
-tofu claude conv ls -w           # Interactive conversation browser
-tofu claude conv ls -g -w        # Search across all projects
+tclaude session new          # Start Claude in a tmux session
+tclaude session ls -w        # Interactive session browser with search
+tclaude conv ls -w           # Interactive conversation browser
+tclaude conv ls -g -w        # Search across all projects
 ```
 
 Features: tmux sessions, status tracking, interactive watch modes, search/filter/sort.
