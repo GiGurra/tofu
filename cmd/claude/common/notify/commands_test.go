@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/gigurra/tofu/cmd/claude/common"
 )
 
 func TestBuildDarwinNotifyCmd(t *testing.T) {
@@ -55,7 +57,7 @@ func TestBuildDarwinNotifyCmd(t *testing.T) {
 			wantArgs: []string{
 				"-title", "Claude: Idle",
 				"-message", "test | proj",
-				"-execute", "tclaude session focus test",
+				"-execute", common.DetectTofuCmd() + " session focus test",
 				"-sound", "default",
 			},
 		},
@@ -293,7 +295,7 @@ func TestFocusCommandString(t *testing.T) {
 			tmuxDir:   "",
 			sessionID: "xyz",
 			wantFunc: func(_ string) string {
-				return "tclaude session focus xyz"
+				return common.DetectTofuCmd() + " session focus xyz"
 			},
 		},
 	}

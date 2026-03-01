@@ -2,11 +2,11 @@ package notify
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 	"syscall"
 
+	"github.com/gigurra/tofu/cmd/claude/common"
 	"github.com/gigurra/tofu/cmd/claude/common/wsl"
 )
 
@@ -27,12 +27,9 @@ func platformSend(sessionID, title, body string) error {
 //
 //	that created the notification, so send and listen must share a connection
 func sendLinuxClickable(sessionID, title, body string) error {
-	tofuPath, err := os.Executable()
-	if err != nil {
-		tofuPath = "tclaude"
-	}
-	listener := exec.Command(tofuPath, "session", "notify-listen",
-		sessionID, title, body)
+	tofuArgs := common.DetectTofuArgs()
+	listenerArgs := append(tofuArgs[1:], "session", "notify-listen", sessionID, title, body)
+	listener := exec.Command(tofuArgs[0], listenerArgs...)
 	listener.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := listener.Start(); err != nil {
 		return fmt.Errorf("failed to start notify listener: %w", err)
