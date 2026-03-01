@@ -10,6 +10,17 @@ import (
 	"github.com/gigurra/tofu/cmd/claude/common"
 )
 
+// isOurHook returns true if a hook command belongs to tofu/tclaude (any binary variant,
+// including absolute paths like /usr/local/bin/tclaude or /usr/local/bin/tofu)
+func isOurHook(command string) bool {
+	fields := strings.Fields(command)
+	if len(fields) == 0 {
+		return false
+	}
+	base := filepath.Base(fields[0])
+	return base == "tclaude" || base == "tofu"
+}
+
 // HookMatcher represents a hook matcher configuration
 type HookMatcher struct {
 	Matcher string       `json:"matcher,omitempty"`
@@ -47,11 +58,6 @@ func init() {
 	}
 }
 
-// isOurHook returns true if a hook command belongs to tofu/tclaude (any binary variant)
-func isOurHook(command string) bool {
-	return strings.HasPrefix(command, "tclaude") || strings.HasPrefix(command, "tofu")
-}
-
 // containsCurrentHook checks if a raw matchers JSON contains the current TofuHookCommand
 func containsCurrentHook(matchersJSON string) bool {
 	var matchers []HookMatcher
@@ -68,15 +74,16 @@ func containsCurrentHook(matchersJSON string) bool {
 	return false
 }
 
-// containsAnyOurHook checks if a raw matchers JSON contains any of our hooks (any binary variant)
-func containsAnyOurHook(matchersJSON string) bool {
+// containsStaleHook checks if a raw matchers JSON contains any of our hooks
+// that don't match the current TofuHookCommand (duplicates or old binary variants)
+func containsStaleHook(matchersJSON string) bool {
 	var matchers []HookMatcher
 	if err := json.Unmarshal([]byte(matchersJSON), &matchers); err != nil {
 		return false
 	}
 	for _, m := range matchers {
 		for _, h := range m.Hooks {
-			if isOurHook(h.Command) {
+			if isOurHook(h.Command) && h.Command != TofuHookCommand {
 				return true
 			}
 		}
@@ -161,7 +168,7 @@ func CheckHooksInstalled() (installed bool, missing []string, hasStaleHooks bool
 	// Check for stale hooks (our hooks with a different binary)
 	for _, eventHooks := range hooks {
 		s := string(eventHooks)
-		if containsAnyOurHook(s) && !containsCurrentHook(s) {
+		if containsStaleHook(s) {
 			hasStaleHooks = true
 			break
 		}
@@ -214,7 +221,7 @@ func InstallHooks() error {
 
 	// First pass: remove all tofu/tclaude hooks from all events
 	for event, eventHooksRaw := range hooks {
-		if containsAnyOurHook(string(eventHooksRaw)) {
+		if containsStaleHook(string(eventHooksRaw)) {
 			newRaw, removed, err := removeOurHooksFromEvent(eventHooksRaw)
 			if err != nil {
 				return fmt.Errorf("failed to clean hooks from %s: %w", event, err)
@@ -276,22 +283,32 @@ func InstallHooks() error {
 	return nil
 }
 
-// EnsureHooksInstalled checks and optionally installs hooks, returning true if ready
+// EnsureHooksInstalled checks and optionally installs hooks, returning true if ready.
+// Stale hooks (wrong/duplicate binary) are always auto-repaired since the user already
+// opted into hook management. The autoInstall flag only controls first-time installation.
 func EnsureHooksInstalled(autoInstall bool, stdout, stderr *os.File) bool {
 	installed, missing, hasStaleHooks := CheckHooksInstalled()
 	if installed && !hasStaleHooks {
 		return true
 	}
 
+	// Always auto-repair stale hooks (duplicates or old binary) without prompting.
+	// The user already opted in to hook management; we're just keeping them consistent.
+	if hasStaleHooks {
+		if err := InstallHooks(); err != nil {
+			fmt.Fprintf(stderr, "Warning: Failed to repair stale hooks: %v\n", err)
+		}
+		// Re-check after repair
+		installed, missing, _ = CheckHooksInstalled()
+		if installed {
+			return true
+		}
+	}
+
 	if !autoInstall {
-		if hasStaleHooks {
-			fmt.Fprintf(stderr, "Warning: Tofu hooks installed with a different binary. Run '%s session install-hooks' to upgrade.\n", TofuHookCommand)
-		}
-		if !installed {
-			fmt.Fprintf(stderr, "Warning: Tofu session hooks not installed in Claude settings.\n")
-			fmt.Fprintf(stderr, "Missing hooks for: %v\n", missing)
-		}
-		fmt.Fprintf(stderr, "Status tracking may not work correctly. Install with: %s session install-hooks\n\n", TofuHookCommand)
+		fmt.Fprintf(stderr, "Warning: Tofu session hooks not installed in Claude settings.\n")
+		fmt.Fprintf(stderr, "Missing hooks for: %v\n", missing)
+		fmt.Fprintf(stderr, "Install with: %s session install-hooks\n\n", TofuHookCommand)
 		return false
 	}
 
