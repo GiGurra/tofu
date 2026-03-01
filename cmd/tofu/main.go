@@ -4,6 +4,7 @@ import (
 	"runtime/debug"
 
 	"github.com/GiGurra/boa/pkg/boa"
+	"github.com/gigurra/tofu/cmd/claude"
 	"github.com/gigurra/tofu/cmd/archive"
 	"github.com/gigurra/tofu/cmd/base64"
 	"github.com/gigurra/tofu/cmd/bird"
@@ -214,6 +215,7 @@ func main() {
 			withGroup(k8s.Cmd(), groupDevOps),
 			withGroup(gh.Cmd(), groupDevOps),
 			withGroup(git.Cmd(), groupDevOps),
+			withGroup(claude.Cmd(), groupDevOps),
 		},
 	}.Run()
 }
