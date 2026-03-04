@@ -19,7 +19,7 @@ import (
 
 const (
 	usageEndpoint = "https://api.anthropic.com/api/oauth/usage"
-	cacheTTL      = 15 * time.Second
+	cacheTTL      = 30 * time.Second
 )
 
 // Response represents the API response from the usage endpoint.
@@ -122,8 +122,17 @@ func GetAccessToken() (string, error) {
 	return creds.ClaudeAiOauth.AccessToken, nil
 }
 
-// loadCache returns cached usage if still fresh
+// loadCache returns cached usage if still fresh (within TTL).
 func loadCache() *CachedUsage {
+	return loadCacheWithTTL(cacheTTL)
+}
+
+// loadCacheStale returns cached usage regardless of age, or nil if missing/corrupt.
+func loadCacheStale() *CachedUsage {
+	return loadCacheWithTTL(0)
+}
+
+func loadCacheWithTTL(ttl time.Duration) *CachedUsage {
 	path := cachePath()
 	if path == "" {
 		return nil
@@ -139,7 +148,7 @@ func loadCache() *CachedUsage {
 		return nil
 	}
 
-	if time.Since(cached.FetchedAt) > cacheTTL {
+	if ttl > 0 && time.Since(cached.FetchedAt) > ttl {
 		return nil
 	}
 
@@ -230,9 +239,12 @@ func parseBucket(b Bucket) CachedBucket {
 	return cb
 }
 
-// RefreshCache forces a fresh fetch and updates the cache, ignoring TTL.
-// Intended to be called from hooks when the user is likely looking at the status bar.
+// RefreshCache updates the cache if stale. Called from hooks when the user is
+// likely looking at the status bar. Skips the fetch if the disk cache is fresh.
 func RefreshCache() {
+	if cached := loadCache(); cached != nil {
+		return // still fresh, nothing to do
+	}
 	token, err := GetAccessToken()
 	if err != nil {
 		return
@@ -262,7 +274,8 @@ func RefreshCache() {
 	saveCache(cached)
 }
 
-// GetCached returns usage percentages, using a 15s file cache to avoid hammering the API.
+// GetCached returns usage percentages, using a file cache to avoid hammering the API.
+// On fetch errors (e.g. 429 rate limit), returns stale cached data if available.
 func GetCached() (*CachedUsage, error) {
 	if cached := loadCache(); cached != nil {
 		return cached, nil
@@ -270,11 +283,17 @@ func GetCached() (*CachedUsage, error) {
 
 	token, err := GetAccessToken()
 	if err != nil {
+		if stale := loadCacheStale(); stale != nil {
+			return stale, nil
+		}
 		return nil, err
 	}
 
 	resp, err := Fetch(token)
 	if err != nil {
+		if stale := loadCacheStale(); stale != nil {
+			return stale, nil
+		}
 		return nil, err
 	}
 
