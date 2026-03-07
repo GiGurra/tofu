@@ -2,6 +2,10 @@
 
 Cross-platform CLI tools written in Go. Provides 50+ Unix-like commands that work consistently on Windows, macOS, and Linux.
 
+> **Note:** The Claude Code extensions (`cmd/claude`, `cmd/tclaude`) are deprecated in this repo.
+> They have moved to **[tofutools/tclaude](https://github.com/tofutools/tclaude)**.
+> Do not add new features to `cmd/claude` or `cmd/tclaude` here — contribute to the new repo instead.
+
 ## Development
 
 ```bash

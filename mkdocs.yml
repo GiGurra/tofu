@@ -37,15 +37,7 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Installation: installation.md
-  - Claude Code:
-    - Overview: claude/index.md
-    - Session Management: claude/sessions.md
-    - Conversation Management: claude/conversations.md
-    - Git Worktrees: claude/worktrees.md
-    - Notifications: claude/notifications.md
-    - Web Terminal: claude/web-terminal.md
-    - Status Bar: claude/status-bar.md
-    - Git Sync: claude/git-sync.md
+  - Claude Code (moved): claude/index.md
   - File Operations:
     - cat: commands/cat.md
     - find: commands/find.md

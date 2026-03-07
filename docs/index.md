@@ -7,31 +7,11 @@ Cross-platform CLI tools written in Go. 50+ commands that work consistently on W
 
 ```bash
 go install github.com/gigurra/tofu/cmd/tofu@latest
-go install github.com/gigurra/tofu/cmd/tclaude@latest
-# Install Claude hooks (optional, enables status tracking)
-tclaude setup
 ```
 
----
-
-## Highlights
-
-### Claude Code Integration
-
-![Claude Demo](claude/demo.gif)
-
-Session and conversation management for [Claude Code](https://claude.ai/code):
-
-```bash
-tclaude session new          # Start Claude in a tmux session
-tclaude session ls -w        # Interactive session browser with search
-tclaude conv ls -w           # Interactive conversation browser
-tclaude conv ls -g -w        # Search across all projects
-```
-
-Features: tmux sessions, status tracking, interactive watch modes, search/filter/sort.
-
-**[Full documentation →](claude/index.md)**
+!!! warning "Claude Code extensions have moved"
+    `tclaude` is now at **[tofutools/tclaude](https://github.com/tofutools/tclaude)** ([docs](https://tofutools.github.io/tclaude/)).
+    Install from the new repo: `go install github.com/tofutools/tclaude/cmd/tclaude@latest`
 
 ---
 

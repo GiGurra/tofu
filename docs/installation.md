@@ -6,8 +6,11 @@ The simplest way to install tofu:
 
 ```bash
 go install github.com/gigurra/tofu/cmd/tofu@latest
-go install github.com/gigurra/tofu/cmd/tclaude@latest
 ```
+
+!!! warning "tclaude has moved"
+    The Claude Code extensions are now at **[tofutools/tclaude](https://github.com/tofutools/tclaude)**.
+    Install from the new repo: `go install github.com/tofutools/tclaude/cmd/tclaude@latest`
 
 This requires Go 1.21 or later.
 
