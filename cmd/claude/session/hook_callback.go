@@ -53,7 +53,7 @@ func HookCallbackCmd() *cobra.Command {
 }
 
 func runHookCallback() error {
-	defer common.AcquireHookLock()()
+	defer common.WithSessionLock()()
 
 	// Read hook input from stdin
 	stdinData, err := io.ReadAll(os.Stdin)

@@ -149,7 +149,7 @@ func saveGitCache(g *cachedGitData) {
 }
 
 func run() error {
-	defer common.AcquireHookLock()()
+	defer common.WithSessionLock()()
 
 	// Read JSON from stdin (only if piped, not a terminal)
 	var stdinData []byte

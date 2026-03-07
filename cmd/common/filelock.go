@@ -8,11 +8,13 @@ import (
 	"github.com/alexflint/go-filemutex"
 )
 
-// AcquireHookLock acquires a cross-process file lock used to serialize
+// WithSessionLock acquires a cross-process file lock used to serialize
 // hook callbacks and status bar invocations. This prevents concurrent
 // processes from racing on session state and usage API fetches.
-// Returns a function to release the lock (safe to call even if locking failed).
-func AcquireHookLock() func() {
+// Returns a function to release the lock, intended for use with defer:
+//
+//	defer common.WithSessionLock()()
+func WithSessionLock() func() {
 	lockPath := filepath.Join(CacheDir(), "hook-callback.lock")
 	_ = os.MkdirAll(filepath.Dir(lockPath), 0755)
 
