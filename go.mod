@@ -6,6 +6,7 @@ require (
 	filippo.io/age v1.3.1
 	github.com/GiGurra/boa v0.4.3
 	github.com/GiGurra/cmder v0.0.6
+	github.com/alexflint/go-filemutex v1.3.0
 	github.com/atotto/clipboard v0.1.4
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0

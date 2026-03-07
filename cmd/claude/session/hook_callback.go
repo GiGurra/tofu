@@ -13,6 +13,7 @@ import (
 	"github.com/gigurra/tofu/cmd/claude/common/convindex"
 	"github.com/gigurra/tofu/cmd/claude/common/notify"
 	"github.com/gigurra/tofu/cmd/claude/common/usageapi"
+	"github.com/gigurra/tofu/cmd/common"
 	"github.com/spf13/cobra"
 )
 
@@ -52,6 +53,8 @@ func HookCallbackCmd() *cobra.Command {
 }
 
 func runHookCallback() error {
+	defer common.AcquireHookLock()()
+
 	// Read hook input from stdin
 	stdinData, err := io.ReadAll(os.Stdin)
 	if err != nil {

@@ -149,6 +149,8 @@ func saveGitCache(g *cachedGitData) {
 }
 
 func run() error {
+	defer common.AcquireHookLock()()
+
 	// Read JSON from stdin (only if piped, not a terminal)
 	var stdinData []byte
 	if !term.IsTerminal(int(os.Stdin.Fd())) {

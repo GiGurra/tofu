@@ -20,7 +20,7 @@ import (
 
 const (
 	usageEndpoint = "https://api.anthropic.com/api/oauth/usage"
-	cacheTTL      = 30 * time.Second
+	cacheTTL      = 60 * time.Second
 )
 
 // fetchFunc and getTokenFunc are swappable for testing.
