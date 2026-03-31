@@ -8,7 +8,7 @@ require (
 	github.com/GiGurra/cmder v0.0.8
 	github.com/alexflint/go-filemutex v1.3.0
 	github.com/atotto/clipboard v0.1.4
-	github.com/charmbracelet/bubbletea v1.3.10
+	github.com/charmbracelet/bubbletea/v2 v2.0.2
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/creack/pty v1.1.24
 	github.com/fsnotify/fsnotify v1.9.0
