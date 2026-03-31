@@ -22,6 +22,7 @@ require (
 	github.com/mholt/archives v0.1.5
 	github.com/samber/lo v1.52.0
 	github.com/shirou/gopsutil/v3 v3.24.5
+	github.com/shirou/gopsutil/v4 v4.26.2
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/spf13/cobra v1.10.2
 	github.com/yeka/zip v0.0.0-20231116150916-03d6312748a9
