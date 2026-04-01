@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/shirou/gopsutil/v3/mem"
+	"github.com/shirou/gopsutil/v4/mem"
 )
 
 func printMemoryInfo(w io.Writer, virtualMem *mem.VirtualMemoryStat, swapMem *mem.SwapMemoryStat, unitFactor float64, unitLabel string) {
