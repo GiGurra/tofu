@@ -5,7 +5,7 @@ go 1.26
 require (
 	filippo.io/age v1.3.1
 	github.com/GiGurra/boa v0.4.8
-	github.com/GiGurra/cmder v0.0.10
+	github.com/GiGurra/cmder v0.0.11
 	github.com/alexflint/go-filemutex v1.3.0
 	github.com/atotto/clipboard v0.1.4
 	github.com/fsnotify/fsnotify v1.9.0
