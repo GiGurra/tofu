@@ -18,13 +18,13 @@ import (
 )
 
 type Params struct {
-	Owner      boa.Required[string] `short:"o" help:"GitHub organization or user name"`
-	Team       boa.Optional[string] `help:"Team slug/name within the organization (optional, lists all repos if not specified)"`
-	Visibility []string             `short:"v" help:"Filter by visibility (can specify multiple)" default:"all" alts:"all,public,private,internal"`
-	Archived   string               `help:"Filter by archived status" default:"all" alts:"all,archived,not-archived"`
-	Sort       string               `help:"Sort repos by field" default:"full_name" alts:"full_name,created,updated,pushed"`
-	Direction  string               `help:"Sort direction" default:"asc" alts:"asc,desc"`
-	Url        bool                 `help:"Print full GitHub URLs instead of repo names" optional:"true"`
+	Owner      string   `short:"o" help:"GitHub organization or user name"`
+	Team       string   `optional:"true" help:"Team slug/name within the organization (optional, lists all repos if not specified)"`
+	Visibility []string `short:"v" help:"Filter by visibility (can specify multiple)" default:"all" alts:"all,public,private,internal"`
+	Archived   string   `help:"Filter by archived status" default:"all" alts:"all,archived,not-archived"`
+	Sort       string   `help:"Sort repos by field" default:"full_name" alts:"full_name,created,updated,pushed"`
+	Direction  string   `help:"Sort direction" default:"asc" alts:"asc,desc"`
+	Url        bool     `help:"Print full GitHub URLs instead of repo names" optional:"true"`
 }
 
 func Cmd() *cobra.Command {
@@ -33,28 +33,28 @@ func Cmd() *cobra.Command {
 		Short:       "List repositories for a user, org, or team",
 		Long:        "List all repositories for a GitHub user or organization, optionally filtered by team. Requires gh CLI to be installed and authenticated.",
 		ParamEnrich: common.DefaultParamEnricher(),
-		InitFunc: func(params *Params, cmd *cobra.Command) error {
-			params.Owner.AlternativesFunc = func(cmd *cobra.Command, args []string, toComplete string) []string {
+		InitFuncCtx: func(ctx *boa.HookContext, params *Params, cmd *cobra.Command) error {
+			boa.GetParamT(ctx, &params.Owner).SetAlternativesFunc(func(cmd *cobra.Command, args []string, toComplete string) []string {
 				orgs := listOrgs(context.Background())
 				return lo.Filter(orgs, func(item string, index int) bool {
 					return strings.HasPrefix(item, toComplete)
 				})
-			}
+			})
 
-			params.Team.AlternativesFunc = func(cmd *cobra.Command, args []string, toComplete string) []string {
-				if params.Owner.Value() == "" {
+			boa.GetParamT(ctx, &params.Team).SetAlternativesFunc(func(cmd *cobra.Command, args []string, toComplete string) []string {
+				if params.Owner == "" {
 					return nil
 				}
-				teams := listTeams(context.Background(), params.Owner.Value())
+				teams := listTeams(context.Background(), params.Owner)
 				return lo.Filter(teams, func(item string, index int) bool {
 					return strings.HasPrefix(item, toComplete)
 				})
-			}
+			})
 
 			return nil
 		},
-		RunFunc: func(params *Params, cmd *cobra.Command, args []string) {
-			if err := run(params, os.Stdout, os.Stderr); err != nil {
+		RunFuncCtx: func(ctx *boa.HookContext, params *Params, cmd *cobra.Command, args []string) {
+			if err := run(ctx, params, os.Stdout, os.Stderr); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}
@@ -62,7 +62,7 @@ func Cmd() *cobra.Command {
 	}.ToCobra()
 }
 
-func run(params *Params, stdout, _ io.Writer) error {
+func run(ctx *boa.HookContext, params *Params, stdout, _ io.Writer) error {
 	if err := checkGh(); err != nil {
 		return err
 	}
@@ -70,10 +70,10 @@ func run(params *Params, stdout, _ io.Writer) error {
 	var repos []repoResponse
 	var err error
 
-	if params.Team.HasValue() {
-		repos, err = listTeamRepos(context.Background(), params.Owner.Value(), *params.Team.Value())
+	if ctx.HasValue(&params.Team) {
+		repos, err = listTeamRepos(context.Background(), params.Owner, params.Team)
 	} else {
-		repos, err = listOwnerRepos(context.Background(), params.Owner.Value())
+		repos, err = listOwnerRepos(context.Background(), params.Owner)
 	}
 	if err != nil {
 		return err
@@ -81,7 +81,7 @@ func run(params *Params, stdout, _ io.Writer) error {
 
 	// Apply filters
 	filter := repoFilter{
-		owner:      params.Owner.Value(),
+		owner:      params.Owner,
 		visibility: params.Visibility,
 		archived:   params.Archived,
 	}
