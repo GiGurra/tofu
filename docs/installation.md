@@ -5,7 +5,7 @@
 The simplest way to install tofu:
 
 ```bash
-go install github.com/gigurra/tofu/cmd/tofu@latest
+go install github.com/gigurra/tofu@latest
 ```
 
 !!! warning "tclaude has moved"

@@ -25,7 +25,12 @@ sudo apt-get install -y pkg-config libasound2-dev
 ## Code Structure
 
 ```
-main.go              # Entry point, registers all subcommands
+main.go              # Thin entry point, calls internal/cli.Run()
+cmd/tofu/main.go     # Same thin wrapper, kept so `go install
+                     #   github.com/gigurra/tofu/cmd/tofu@latest`
+                     #   stays working for existing users
+internal/cli/
+  cli.go             # Where commands are registered
 cmd/
   <command>/         # Each command in its own package
     <command>.go     # Exports Cmd() returning *cobra.Command
@@ -42,7 +47,7 @@ man/                 # Documentation
 1. Create `cmd/<name>/<name>.go`
 2. Define a `Params` struct with CLI flags/args using struct tags
 3. Export a `Cmd()` function returning `*cobra.Command` using `boa.CmdT`
-4. Register in `main.go` by importing and adding to `SubCmds` slice
+4. Register in `internal/cli/cli.go` by importing and adding to the `SubCmds` slice (NOT `main.go` — both `main.go` files are thin wrappers)
 
 Example pattern (see `cmd/cat/cat.go`):
 ```go

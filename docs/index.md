@@ -6,7 +6,7 @@
 Cross-platform CLI tools written in Go. 50+ commands that work consistently on Windows, macOS, and Linux.
 
 ```bash
-go install github.com/gigurra/tofu/cmd/tofu@latest
+go install github.com/gigurra/tofu@latest
 ```
 
 !!! warning "Claude Code extensions have moved"

@@ -14,7 +14,7 @@ Now though, it does have some use with `tofu k8s|gh|git`.
 > Please install from the new repo: `go install github.com/tofutools/tclaude/cmd/tclaude@latest`
 
 ```bash
-go install github.com/gigurra/tofu/cmd/tofu@latest
+go install github.com/gigurra/tofu@latest
 ```
 
 ## Documentation
