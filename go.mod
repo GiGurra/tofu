@@ -4,25 +4,25 @@ go 1.26
 
 require (
 	filippo.io/age v1.3.1
-	github.com/GiGurra/boa v1.0.25
-	github.com/GiGurra/cmder v0.0.12
+	github.com/GiGurra/boa v1.0.27
+	github.com/GiGurra/cmder v0.0.15
 	github.com/alexflint/go-filemutex v1.3.0
 	github.com/atotto/clipboard v0.1.4
-	github.com/fsnotify/fsnotify v1.10.0
+	github.com/fsnotify/fsnotify v1.10.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/gopxl/beep/v2 v2.1.1
 	github.com/mholt/archives v0.1.5
 	github.com/samber/lo v1.53.0
-	github.com/shirou/gopsutil/v4 v4.26.3
+	github.com/shirou/gopsutil/v4 v4.26.5
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/spf13/cobra v1.10.2
 	github.com/yeka/zip v0.0.0-20231116150916-03d6312748a9
 	go.1password.io/spg v0.1.0
-	golang.org/x/crypto v0.50.0
-	golang.org/x/net v0.53.0
-	golang.org/x/sys v0.43.0
-	golang.org/x/term v0.42.0
+	golang.org/x/crypto v0.53.0
+	golang.org/x/net v0.56.0
+	golang.org/x/sys v0.46.0
+	golang.org/x/term v0.44.0
 )
 
 require (
@@ -57,5 +57,5 @@ require (
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go4.org v0.0.0-20260112195520-a5071408f32f // indirect
-	golang.org/x/text v0.36.0 // indirect
+	golang.org/x/text v0.38.0 // indirect
 )
