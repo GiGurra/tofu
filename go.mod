@@ -1,10 +1,10 @@
 module github.com/gigurra/tofu
 
-go 1.26
+go 1.26.0
 
 require (
-	filippo.io/age v1.3.1
-	github.com/GiGurra/boa v1.0.27
+	filippo.io/age v1.3.2
+	github.com/GiGurra/boa v1.0.31
 	github.com/GiGurra/cmder v0.0.15
 	github.com/alexflint/go-filemutex v1.3.0
 	github.com/atotto/clipboard v0.1.4
@@ -14,15 +14,15 @@ require (
 	github.com/gopxl/beep/v2 v2.1.1
 	github.com/mholt/archives v0.1.5
 	github.com/samber/lo v1.53.0
-	github.com/shirou/gopsutil/v4 v4.26.5
+	github.com/shirou/gopsutil/v4 v4.26.8
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/spf13/cobra v1.10.2
 	github.com/yeka/zip v0.0.0-20231116150916-03d6312748a9
 	go.1password.io/spg v0.1.0
-	golang.org/x/crypto v0.53.0
-	golang.org/x/net v0.56.0
-	golang.org/x/sys v0.46.0
-	golang.org/x/term v0.44.0
+	golang.org/x/crypto v0.56.0
+	golang.org/x/net v0.58.0
+	golang.org/x/sys v0.47.0
+	golang.org/x/term v0.45.0
 )
 
 require (
@@ -35,7 +35,7 @@ require (
 	github.com/deckarep/golang-set v1.8.0 // indirect
 	github.com/dsnet/compress v0.0.2-0.20230904184137-39efe44ab707 // indirect
 	github.com/ebitengine/oto/v3 v3.4.0 // indirect
-	github.com/ebitengine/purego v0.10.0 // indirect
+	github.com/ebitengine/purego v0.10.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/hajimehoshi/go-mp3 v0.3.4 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
@@ -57,5 +57,5 @@ require (
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go4.org v0.0.0-20260112195520-a5071408f32f // indirect
-	golang.org/x/text v0.38.0 // indirect
+	golang.org/x/text v0.41.0 // indirect
 )
